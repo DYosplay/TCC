@@ -210,8 +210,8 @@ class DsDTW(nn.Module):
                     output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
-                    # output_mask = torch.zeros(output.shape).cuda()
-                    # output_aux = torch.ones(output.shape).cuda()
+                    # output_mask = torch.ones(output.shape).cuda()
+                    # output_aux = torch.zeros(output.shape).cuda()
 
                     output_mask[r, c] = output_aux[r, c]
 
@@ -250,16 +250,16 @@ class DsDTW(nn.Module):
                 output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
-                # output_mask = torch.zeros(output.shape).cuda()
-                # output_aux = torch.ones(output.shape).cuda()
+                # output_mask = torch.ones(output.shape).cuda()
+                # output_aux = torch.zeros(output.shape).cuda()
 
                 output_mask[r, c] = output_aux[r, c]
 
                 for k in range(1, self.radius + 1):
-                    rk_sub = F.relu(r-k)
-                    ck_sub = F.relu(c-k)
-                    rk_add = torch.min(c+k, output.shape[1]-1)
-                    ck_add = torch.min(c+k, output.shape[1]-1)
+                    rk_sub = F.relu(r-k).long().cuda()
+                    ck_sub = F.relu(c-k).long().cuda()
+                    rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
                     output_mask[rk_sub, ck_sub] = output_aux[c, k]
                     output_mask[rk_sub, c]      = output_aux[c, k]
                     output_mask[rk_sub, ck_add] = output_aux[c, k]
@@ -469,7 +469,7 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i == 1 or (i+1) % 5 == 0 or i > (n_epochs - 3): 
+            if (i+1) % 5 == 0 or i > (n_epochs - 3): 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
