@@ -161,7 +161,7 @@ class _DTWCUDA(Function):
         ctx.save_for_backward(Ind, bandwidth)
         # print(D)
         # print(R[:, 1:-1, 1:-1])
-        return R[:, -2, -2], R
+        return R[:, -2, -2], R.detach()
 
     @staticmethod
     def backward(ctx, grad_output, l):
@@ -282,7 +282,7 @@ class _DTW(Function):
         ctx.save_for_backward(I, bandwidth)
         # print(D)
         # print(R[:, 1:-1, 1:-1])
-        return R[:, -2, -2], R
+        return R[:, -2, -2], R.detach()
 
     @staticmethod
     def backward(ctx, grad_output, l):
