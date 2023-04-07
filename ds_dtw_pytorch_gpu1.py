@@ -244,6 +244,8 @@ class DsDTW(nn.Module):
                 output = self.new_sdtw_fw(anchor[None, ], h[i:i+1, ])[1][0][1:h.shape[1]+1, 1:h.shape[1]+1]
                         
                 r, c = self._traceback(output.detach().cpu().numpy())
+                r = torch.from_numpy(r).long().cuda()
+                c = torch.from_numpy(c).long().cuda()
                 output_mask = torch.zeros(output.shape).cuda()
                 output_aux = torch.ones(output.shape).cuda()
 
