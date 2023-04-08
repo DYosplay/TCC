@@ -154,14 +154,14 @@ class DsDTW(nn.Module):
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = nn.Linear(self.n_hidden, batch_size, bias=False)
+        self.linear = nn.Linear(self.n_hidden, 64, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
@@ -238,7 +238,7 @@ class DsDTW(nn.Module):
                     src_masks[j] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             anchor = h[0]
@@ -279,7 +279,7 @@ class DsDTW(nn.Module):
                 src_masks[i] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
 
