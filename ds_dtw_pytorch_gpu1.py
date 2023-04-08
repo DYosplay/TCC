@@ -162,7 +162,7 @@ class DsDTW(nn.Module):
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
-        self.linear2 = nn.Linear(self.n_hidden, 16, bias=False)
+        self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
         nn.init.kaiming_normal_(self.linear2.weight, a=1) 
