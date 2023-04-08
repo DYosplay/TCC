@@ -132,7 +132,7 @@ class DsDTW(nn.Module):
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
-        self.radius = 1
+        self.radius = 10
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -154,7 +154,7 @@ class DsDTW(nn.Module):
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128)
+        self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
@@ -170,7 +170,7 @@ class DsDTW(nn.Module):
         # nn.init.zeros_(self.cran[3].bias)
         
         # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
-        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
+        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
@@ -208,14 +208,14 @@ class DsDTW(nn.Module):
                     r, c = self._traceback(output.detach().cpu().numpy())
                     r = torch.from_numpy(r).long().cuda()
                     c = torch.from_numpy(c).long().cuda()
-                    output_mask = torch.zeros(output.shape).cuda()
+                    # output_mask = torch.zeros(output.shape).cuda()
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
-                    # output_mask = torch.ones(output.shape).cuda()
+                    output_mask = torch.ones(output.shape).cuda()
                     # output_aux = torch.zeros(output.shape).cuda()
 
-                    value = 1
+                    value = 0
                     output_mask[r, c] = value
 
                     # for k in range(1, len(r)):
@@ -235,10 +235,10 @@ class DsDTW(nn.Module):
                         output_mask[r, ck_add]      = value
                         output_mask[r, ck_sub]      = value
 
-                    src_masks[j] = output_mask#.masked_fill(output_mask.to(torch.bool), -1e8)
+                    src_masks[j] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             anchor = h[0]
@@ -250,14 +250,14 @@ class DsDTW(nn.Module):
                 r, c = self._traceback(output.detach().cpu().numpy())
                 r = torch.from_numpy(r).long().cuda()
                 c = torch.from_numpy(c).long().cuda()
-                output_mask = torch.zeros(output.shape).cuda()
+                # output_mask = torch.zeros(output.shape).cuda()
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
-                # output_mask = torch.ones(output.shape).cuda()
+                output_mask = torch.ones(output.shape).cuda()
                 # output_aux = torch.zeros(output.shape).cuda()
 
-                value = 1
+                value = 0
                 output_mask[r, c] = value
 
                 for k in range(1, self.radius + 1):
@@ -276,9 +276,10 @@ class DsDTW(nn.Module):
                     output_mask[r, ck_add]      = value
                     output_mask[r, ck_sub]      = value
 
-                src_masks[i] = output_mask#.masked_fill(output_mask.to(torch.bool), -1e8)
+                src_masks[i] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
 
@@ -486,7 +487,7 @@ class DsDTW(nn.Module):
             
             lr_scheduler.step()
 
-        torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
 
         # Loss graph
         plt.xlabel("#Epoch")
