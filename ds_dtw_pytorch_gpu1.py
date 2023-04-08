@@ -162,8 +162,10 @@ class DsDTW(nn.Module):
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
+        self.linear2 = nn.Linear(self.n_hidden, 16, bias=False)
 
-        nn.init.kaiming_normal_(self.linear.weight, a=1) 
+        nn.init.kaiming_normal_(self.linear.weight, a=1)
+        nn.init.kaiming_normal_(self.linear2.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
@@ -282,6 +284,7 @@ class DsDTW(nn.Module):
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
+        h = self.linear2(h)
 
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
