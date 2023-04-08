@@ -208,14 +208,14 @@ class DsDTW(nn.Module):
                     r, c = self._traceback(output.detach().cpu().numpy())
                     r = torch.from_numpy(r).long().cuda()
                     c = torch.from_numpy(c).long().cuda()
-                    # output_mask = torch.zeros(output.shape).cuda()
+                    output_mask = torch.zeros(output.shape).cuda()
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
-                    output_mask = torch.ones(output.shape).cuda()
+                    # output_mask = torch.ones(output.shape).cuda()
                     # output_aux = torch.zeros(output.shape).cuda()
 
-                    value = 0
+                    value = 15
                     output_mask[r, c] = value
 
                     # for k in range(1, len(r)):
@@ -235,7 +235,7 @@ class DsDTW(nn.Module):
                         output_mask[r, ck_add]      = value
                         output_mask[r, ck_sub]      = value
 
-                    src_masks[j] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
+                    src_masks[j] = output_mask #.masked_fill(output_mask.to(torch.bool), -1e8)
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
@@ -250,14 +250,14 @@ class DsDTW(nn.Module):
                 r, c = self._traceback(output.detach().cpu().numpy())
                 r = torch.from_numpy(r).long().cuda()
                 c = torch.from_numpy(c).long().cuda()
-                # output_mask = torch.zeros(output.shape).cuda()
+                output_mask = torch.zeros(output.shape).cuda()
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
-                output_mask = torch.ones(output.shape).cuda()
+                # output_mask = torch.ones(output.shape).cuda()
                 # output_aux = torch.zeros(output.shape).cuda()
 
-                value = 0
+                value = 15
                 output_mask[r, c] = value
 
                 for k in range(1, self.radius + 1):
@@ -276,7 +276,7 @@ class DsDTW(nn.Module):
                     output_mask[r, ck_add]      = value
                     output_mask[r, ck_sub]      = value
 
-                src_masks[i] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
+                src_masks[i] = output_mask #.masked_fill(output_mask.to(torch.bool), -1e8)
 
         h = self.linear(h)
 
@@ -446,8 +446,8 @@ class DsDTW(nn.Module):
 
         for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
-            
-            pbar = tqdm(total=(len(epoch)//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/len(epoch)))
+            epoch_size = len(epoch)
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/epoch_size))
 
             running_loss = 0
             
@@ -474,13 +474,13 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if True or i % 5 == 0 or i > (n_epochs - 3): 
+            if i % 5 == 0 or i > (n_epochs - 3): 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
               #  self.margin -= 0.5
             
-            self.loss_variation.append(running_loss)
+            self.loss_variation.append(running_loss/epoch_size)
             
             lr_scheduler.step()
 
