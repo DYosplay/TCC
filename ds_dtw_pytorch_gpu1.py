@@ -132,7 +132,7 @@ class DsDTW(nn.Module):
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
-        self.radius = 1
+        self.radius = 10
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -170,7 +170,7 @@ class DsDTW(nn.Module):
         # nn.init.zeros_(self.cran[3].bias)
         
         # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
-        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
+        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
@@ -277,6 +277,7 @@ class DsDTW(nn.Module):
                     output_mask[r, ck_sub]      = value
 
                 src_masks[i] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
+            
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
@@ -447,8 +448,8 @@ class DsDTW(nn.Module):
 
         for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
-            
-            pbar = tqdm(total=(len(epoch)//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/len(epoch)))
+            epoch_size = len(epoch)
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/epoch_size))
 
             running_loss = 0
             
@@ -481,7 +482,7 @@ class DsDTW(nn.Module):
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
               #  self.margin -= 0.5
             
-            self.loss_variation.append(running_loss)
+            self.loss_variation.append(running_loss/epoch_size)
             
             lr_scheduler.step()
 
