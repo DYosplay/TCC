@@ -215,7 +215,7 @@ class DsDTW(nn.Module):
                     # output_mask = torch.ones(output.shape).cuda()
                     # output_aux = torch.zeros(output.shape).cuda()
 
-                    value = 15
+                    value = 1
                     output_mask[r, c] = value
 
                     # for k in range(1, len(r)):
@@ -257,7 +257,7 @@ class DsDTW(nn.Module):
                 # output_mask = torch.ones(output.shape).cuda()
                 # output_aux = torch.zeros(output.shape).cuda()
 
-                value = 15
+                value = 1
                 output_mask[r, c] = value
 
                 for k in range(1, self.radius + 1):
