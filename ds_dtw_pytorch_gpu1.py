@@ -161,11 +161,11 @@ class DsDTW(nn.Module):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = nn.Linear(self.n_hidden, 64, bias=False)
-        self.linear2 = nn.Linear(64, 16, bias=False)
+        self.linear = nn.Linear(self.n_hidden, 8, bias=False)
+        # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
-        nn.init.kaiming_normal_(self.linear2.weight, a=1) 
+        # nn.init.kaiming_normal_(self.linear2.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
@@ -243,10 +243,10 @@ class DsDTW(nn.Module):
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            anchor = h[0]
+            sign = h[-1]
 
             for i in range(len(h)):
-                value, output = self.new_sdtw_fw(anchor[None, ], h[i:i+1, ])
+                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
                 output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
 
                 r, c = self._traceback(output.detach().cpu().numpy())
@@ -284,7 +284,6 @@ class DsDTW(nn.Module):
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
-        h = self.linear2(h)
 
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
@@ -480,7 +479,7 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3): 
+            if True or i % 5 == 0 or i > (n_epochs - 3): 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
