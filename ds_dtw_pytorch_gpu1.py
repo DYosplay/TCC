@@ -132,7 +132,7 @@ class DsDTW(nn.Module):
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
-        self.radius = 10
+        self.radius = 1
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -210,14 +210,14 @@ class DsDTW(nn.Module):
                     r, c = self._traceback(output.detach().cpu().numpy())
                     r = torch.from_numpy(r).long().cuda()
                     c = torch.from_numpy(c).long().cuda()
-                    # output_mask = torch.zeros(output.shape).cuda()
+                    output_mask = torch.zeros(output.shape).cuda()
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
-                    output_mask = torch.ones(output.shape).cuda()
+                    # output_mask = torch.ones(output.shape).cuda()
                     # output_aux = torch.zeros(output.shape).cuda()
 
-                    value = 0
+                    value = 1
                     output_mask[r, c] = value
 
                     # for k in range(1, len(r)):
@@ -252,14 +252,14 @@ class DsDTW(nn.Module):
                 r, c = self._traceback(output.detach().cpu().numpy())
                 r = torch.from_numpy(r).long().cuda()
                 c = torch.from_numpy(c).long().cuda()
-                # output_mask = torch.zeros(output.shape).cuda()
+                output_mask = torch.zeros(output.shape).cuda()
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
-                output_mask = torch.ones(output.shape).cuda()
+                # output_mask = torch.ones(output.shape).cuda()
                 # output_aux = torch.zeros(output.shape).cuda()
 
-                value = 0
+                value = 1
                 output_mask[r, c] = value
 
                 for k in range(1, self.radius + 1):

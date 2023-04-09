@@ -73,16 +73,16 @@ if __name__ == '__main__':
     # if not os.path.exists(PARENT_FOLDER):
     #     os.mkdir(PARENT_FOLDER)
 
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER)
-    # model = torch.compile(model)
-    # model.cuda()
-    # model.train(mode=True)
-    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
-    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER)
-    model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
-    model.cuda()
     model = torch.compile(model)
+    model.cuda()
+    model.train(mode=True)
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
+    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
+    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER)
+    # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
+    # model.cuda()
+    # model = torch.compile(model)
 
     model.train(mode=False)
     model.eval()
@@ -92,8 +92,8 @@ if __name__ == '__main__':
     # model.new_evaluate(FILE5, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE6, 119, result_folder=PARENT_FOLDER)
 
-    model.new_evaluate(FILE, 100, result_folder=PARENT_FOLDER)
-    # model.new_evaluate(FILE8, 100, result_folder=PARENT_FOLDER)
+    # model.new_evaluate(FILE, 100, result_folder=PARENT_FOLDER)
+    model.new_evaluate(FILE8, 100, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE9, 2, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE10, 2, result_folder=PARENT_FOLDER)
 
