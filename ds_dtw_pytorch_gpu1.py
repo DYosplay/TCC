@@ -132,7 +132,7 @@ class DsDTW(nn.Module):
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
-        self.radius = 0
+        self.radius = 3
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -237,7 +237,7 @@ class DsDTW(nn.Module):
                         output_mask[r, ck_add]      = value
                         output_mask[r, ck_sub]      = value
 
-                    src_masks[j] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
+                    src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
@@ -278,7 +278,7 @@ class DsDTW(nn.Module):
                     output_mask[r, ck_add]      = value
                     output_mask[r, ck_sub]      = value
 
-                src_masks[i] = output_mask.masked_fill(output_mask.to(torch.bool), -1e8)
+                src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
