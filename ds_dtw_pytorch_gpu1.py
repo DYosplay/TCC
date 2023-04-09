@@ -243,7 +243,7 @@ class DsDTW(nn.Module):
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            sign = h[-1]
+            sign = h[0]
 
             for i in range(len(h)):
                 value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
