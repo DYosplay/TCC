@@ -132,7 +132,7 @@ class DsDTW(nn.Module):
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
-        self.radius = 3
+        self.radius = 0
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
