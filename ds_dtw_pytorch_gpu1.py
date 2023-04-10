@@ -184,9 +184,9 @@ class DsDTW(nn.Module):
         nn.init.kaiming_normal_(self.linear.weight, a=1)
         # nn.init.kaiming_normal_(self.linear2.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
-        nn.init.kaiming_normal_(self.cran[5].weight, a=0)
+        nn.init.kaiming_normal_(self.cran[4].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
-        nn.init.zeros_(self.cran[5].bias)
+        nn.init.zeros_(self.cran[4].bias)
         
         # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
         self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
