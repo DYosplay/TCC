@@ -147,7 +147,7 @@ class DsDTW(nn.Module):
         # Definição da rede
         self.cran  = nn.Sequential(
         nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        nn.MaxPool1d(4,4, ceil_mode=True),
+        nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         )
@@ -160,7 +160,7 @@ class DsDTW(nn.Module):
         # )
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1, norm_first=True)
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
