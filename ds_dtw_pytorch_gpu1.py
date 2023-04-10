@@ -146,21 +146,21 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        # self.cran  = nn.Sequential(
-        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Dropout(0.1)
-        # )
         self.cran  = nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=4, stride=1, padding=2, bias=True),
-        nn.AvgPool1d(4,4, ceil_mode=True),
+        nn.Conv1d(in_channels=12, out_channels=32, kernel_size=8, stride=1, padding=4, bias=True),
         nn.ReLU(inplace=True),
-        torchvision.ops.SqueezeExcitation(self.n_out, 8),
-        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        torchvision.ops.SqueezeExcitation(16, 4),
+        nn.Conv1d(in_channels=32, out_channels=64, kernel_size=4, stride=1, padding=2, bias=True),
+        nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         )
+
+        # self.se = torchvision.ops.SqueezeExcitation(16, 8)
+
+        # self.cnn2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=4, stride=1, padding=2, bias=True)
+
+
         # self.cran  = nn.Sequential(
         # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=8, stride=1, padding=4, bias=True),
         # nn.AvgPool1d(4,4, ceil_mode=True),
@@ -184,9 +184,9 @@ class DsDTW(nn.Module):
         nn.init.kaiming_normal_(self.linear.weight, a=1)
         # nn.init.kaiming_normal_(self.linear2.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
-        nn.init.kaiming_normal_(self.cran[4].weight, a=0)
+        # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
-        nn.init.zeros_(self.cran[4].bias)
+        # nn.init.zeros_(self.cran[3].bias)
         
         # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
         self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
@@ -196,7 +196,7 @@ class DsDTW(nn.Module):
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens + 4) //4
+        lens = (lens +5) //4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
@@ -209,6 +209,9 @@ class DsDTW(nn.Module):
 
 
         h = self.cran(x)
+        
+        # h = self.se(h)
+        # h = self.cnn2(h)
         # h = self.bn(h, length.int())
         
         h = h.transpose(1,2)
