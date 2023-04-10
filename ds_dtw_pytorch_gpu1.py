@@ -200,85 +200,85 @@ class DsDTW(nn.Module):
         # src_mask
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
-            step = (self.ng + self.nf + 1)
-            for i in range(0, self.nw):
-                anchor = h[i*step]
-                for j in range(i*step, (i+1)*step):
-                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
+            # step = (self.ng + self.nf + 1)
+            # for i in range(0, self.nw):
+                # anchor = h[i*step]
+                # for j in range(i*step, (i+1)*step):
+                    # value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    # output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
 
-                    r, c = self._traceback(output.detach().cpu().numpy())
-                    r = torch.from_numpy(r).long().cuda()
-                    c = torch.from_numpy(c).long().cuda()
-                    output_mask = torch.zeros(output.shape).cuda()
-                    # output_aux = torch.ones(output.shape).cuda()
+                    # r, c = self._traceback(output.detach().cpu().numpy())
+                    # r = torch.from_numpy(r).long().cuda()
+                    # c = torch.from_numpy(c).long().cuda()
+                    # output_mask = torch.zeros(output.shape).cuda()
+                    # # output_aux = torch.ones(output.shape).cuda()
 
-                    # para a lógica inversa:
-                    # output_mask = torch.ones(output.shape).cuda()
-                    # output_aux = torch.zeros(output.shape).cuda()
+                    # # para a lógica inversa:
+                    # # output_mask = torch.ones(output.shape).cuda()
+                    # # output_aux = torch.zeros(output.shape).cuda()
 
-                    value = 1
-                    output_mask[r, c] = value
+                    # value = 1
+                    # output_mask[r, c] = value
 
                     # for k in range(1, len(r)):
-                    for k in range(1, self.radius + 1):
-                        rk_sub = F.relu(r-k).long().cuda()
-                        ck_sub = F.relu(c-k).long().cuda()
-                        rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                        ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                        output_mask[rk_sub, ck_sub] = value
-                        output_mask[rk_sub, c]      = value
-                        output_mask[rk_sub, ck_add] = value
+                    # for k in range(1, self.radius + 1):
+                    #     rk_sub = F.relu(r-k).long().cuda()
+                    #     ck_sub = F.relu(c-k).long().cuda()
+                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     output_mask[rk_sub, ck_sub] = value
+                    #     output_mask[rk_sub, c]      = value
+                    #     output_mask[rk_sub, ck_add] = value
 
-                        output_mask[rk_add, ck_sub] = value
-                        output_mask[rk_add, c]      = value
-                        output_mask[rk_add, ck_add] = value
+                    #     output_mask[rk_add, ck_sub] = value
+                    #     output_mask[rk_add, c]      = value
+                    #     output_mask[rk_add, ck_add] = value
 
-                        output_mask[r, ck_add]      = value
-                        output_mask[r, ck_sub]      = value
+                    #     output_mask[r, ck_add]      = value
+                    #     output_mask[r, ck_sub]      = value
 
-                    src_masks[j] = output_mask
+                    # src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            sign = h[0]
+            # sign = h[0]
 
-            for i in range(len(h)):
-                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
+            # for i in range(len(h)):
+            #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+            #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
 
-                r, c = self._traceback(output.detach().cpu().numpy())
-                r = torch.from_numpy(r).long().cuda()
-                c = torch.from_numpy(c).long().cuda()
-                output_mask = torch.zeros(output.shape).cuda()
-                # output_aux = torch.ones(output.shape).cuda()
+            #     r, c = self._traceback(output.detach().cpu().numpy())
+            #     r = torch.from_numpy(r).long().cuda()
+            #     c = torch.from_numpy(c).long().cuda()
+            #     output_mask = torch.zeros(output.shape).cuda()
+            #     # output_aux = torch.ones(output.shape).cuda()
 
-                # para a lógica inversa:
-                # output_mask = torch.ones(output.shape).cuda()
-                # output_aux = torch.zeros(output.shape).cuda()
+            #     # para a lógica inversa:
+            #     # output_mask = torch.ones(output.shape).cuda()
+            #     # output_aux = torch.zeros(output.shape).cuda()
 
-                value = 1
-                output_mask[r, c] = value
+            #     value = 1
+            #     output_mask[r, c] = value
 
-                for k in range(1, self.radius + 1):
-                    rk_sub = F.relu(r-k).long().cuda()
-                    ck_sub = F.relu(c-k).long().cuda()
-                    rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    output_mask[rk_sub, ck_sub] = value
-                    output_mask[rk_sub, c]      = value
-                    output_mask[rk_sub, ck_add] = value
+            #     for k in range(1, self.radius + 1):
+            #         rk_sub = F.relu(r-k).long().cuda()
+            #         ck_sub = F.relu(c-k).long().cuda()
+            #         rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+            #         ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+            #         output_mask[rk_sub, ck_sub] = value
+            #         output_mask[rk_sub, c]      = value
+            #         output_mask[rk_sub, ck_add] = value
 
-                    output_mask[rk_add, ck_sub] = value
-                    output_mask[rk_add, c]      = value
-                    output_mask[rk_add, ck_add] = value
+            #         output_mask[rk_add, ck_sub] = value
+            #         output_mask[rk_add, c]      = value
+            #         output_mask[rk_add, ck_add] = value
 
-                    output_mask[r, ck_add]      = value
-                    output_mask[r, ck_sub]      = value
+            #         output_mask[r, ck_add]      = value
+            #         output_mask[r, ck_sub]      = value
 
-                src_masks[i] = output_mask
+            #     src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
@@ -479,7 +479,7 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3): 
+            if True or i % 5 == 0 or i > (n_epochs - 3): 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
