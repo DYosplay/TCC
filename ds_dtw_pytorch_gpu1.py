@@ -127,8 +127,8 @@ class DsDTW(nn.Module):
         self.margin = 1.0
         self.model_lambda = 0.01
         self.lr = lr
-        self.n_out = 64
-        self.n_hidden = 128
+        self.n_out = 32
+        self.n_hidden = 64
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
@@ -145,22 +145,22 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        # self.cran  = nn.Sequential(
-        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Dropout(0.1)
-        # )
         self.cran  = nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=8, stride=1, padding=4, bias=True),
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
-        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=1, bias=True),
         nn.Dropout(0.1)
         )
+        # self.cran  = nn.Sequential(
+        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=8, stride=1, padding=4, bias=True),
+        # nn.AvgPool1d(4,4, ceil_mode=True),
+        # nn.ReLU(inplace=True),
+        # nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=1, bias=True),
+        # nn.Dropout(0.1)
+        # )
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=64, dropout=0.1)
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
