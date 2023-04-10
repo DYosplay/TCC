@@ -16,6 +16,7 @@ import new_soft_dtw
 import dtw_cuda
 from sklearn.metrics import roc_curve, auc
 from typing import Tuple
+import torchvision
 CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
@@ -145,9 +146,18 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
+        # self.cran  = nn.Sequential(
+        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        # nn.AvgPool1d(4,4, ceil_mode=True),
+        # nn.ReLU(inplace=True),
+        # nn.Dropout(0.1)
+        # )
         self.cran  = nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
+        nn.ReLU(inplace=True),
+        torchvision.ops.SqueezeExcitation(self.n_out, 8),
+        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         )
@@ -168,15 +178,15 @@ class DsDTW(nn.Module):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = nn.Linear(self.n_hidden, 16, bias=True)
+        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
         # nn.init.kaiming_normal_(self.linear2.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
-        # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
+        nn.init.kaiming_normal_(self.cran[5].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
-        # nn.init.zeros_(self.cran[3].bias)
+        nn.init.zeros_(self.cran[5].bias)
         
         # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
         self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
