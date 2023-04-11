@@ -16,7 +16,6 @@ import new_soft_dtw
 import dtw_cuda
 from sklearn.metrics import roc_curve, auc
 from typing import Tuple
-import torchvision
 CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
@@ -128,8 +127,8 @@ class DsDTW(nn.Module):
         self.margin = 1.0
         self.model_lambda = 0.01
         self.lr = lr
-        self.n_out = 32
-        self.n_hidden = 64
+        self.n_out = 64
+        self.n_hidden = 128
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
@@ -152,35 +151,9 @@ class DsDTW(nn.Module):
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         )
-
-        # self.cran  = nn.Sequential(
-        # nn.Conv1d(in_channels=12, out_channels=32, kernel_size=8, stride=1, padding=4, bias=True),
-        # nn.ReLU(inplace=True),
-        # torchvision.ops.SqueezeExcitation(16, 4),
-        # nn.Conv1d(in_channels=32, out_channels=64, kernel_size=4, stride=1, padding=2, bias=True),
-        # nn.ReLU(inplace=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.Dropout(0.1)
-        # )
-
-        # self.se = torchvision.ops.SqueezeExcitation(16, 8)
-
-        # self.cnn2 = nn.Conv1d(in_channels=64, out_channels=128, kernel_size=4, stride=1, padding=2, bias=True)
-
-
-        # self.cran  = nn.Sequential(
-        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=8, stride=1, padding=4, bias=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=1, bias=True),
-        # nn.Dropout(0.1)
-        # )
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        
-        self.att1 = torch.nn.MultiheadAttention(self.n_hidden, num_heads=1, batch_first=True)
-        self.att2 = torch.nn.MultiheadAttention(self.n_hidden, num_heads=1, batch_first=True)
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
@@ -206,7 +179,7 @@ class DsDTW(nn.Module):
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens +4) //4
+        lens = (lens+4) //4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
@@ -219,9 +192,6 @@ class DsDTW(nn.Module):
 
 
         h = self.cran(x)
-        
-        # h = self.se(h)
-        # h = self.cnn2(h)
         # h = self.bn(h, length.int())
         
         h = h.transpose(1,2)
@@ -234,89 +204,90 @@ class DsDTW(nn.Module):
             for i in range(0, self.nw):
                 anchor = h[i*step]
                 for j in range(i*step, (i+1)*step):
-                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
+                    # value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    # output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
 
-                    r, c = self._traceback(output.detach().cpu().numpy())
-                    r = torch.from_numpy(r).long().cuda()
-                    c = torch.from_numpy(c).long().cuda()
-                    output_mask = torch.zeros(output.shape).cuda()
-                    # output_aux = torch.ones(output.shape).cuda()
+                    # r, c = self._traceback(output.detach().cpu().numpy())
+                    # r = torch.from_numpy(r).long().cuda()
+                    # c = torch.from_numpy(c).long().cuda()
+                    # output_mask = torch.zeros(output.shape).cuda()
+                    output_aux = np.ones((h.shape[1], h.shape[1]))
+                    output_aux = np.tril(output_aux, -2)
+                    output_mask = torch.from_numpy(output_aux).long()
 
                     # para a lógica inversa:
                     # output_mask = torch.ones(output.shape).cuda()
                     # output_aux = torch.zeros(output.shape).cuda()
 
-                    value = 1
-                    output_mask[r, c] = value
+                    # value = 1
+                    # output_mask[r, c] = value
 
-                    # for k in range(1, len(r)):
-                    for k in range(1, self.radius + 1):
-                        rk_sub = F.relu(r-k).long().cuda()
-                        ck_sub = F.relu(c-k).long().cuda()
-                        rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                        ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                        output_mask[rk_sub, ck_sub] = value
-                        output_mask[rk_sub, c]      = value
-                        output_mask[rk_sub, ck_add] = value
+                    # # for k in range(1, len(r)):
+                    # for k in range(1, self.radius + 1):
+                    #     rk_sub = F.relu(r-k).long().cuda()
+                    #     ck_sub = F.relu(c-k).long().cuda()
+                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     output_mask[rk_sub, ck_sub] = value
+                    #     output_mask[rk_sub, c]      = value
+                    #     output_mask[rk_sub, ck_add] = value
 
-                        output_mask[rk_add, ck_sub] = value
-                        output_mask[rk_add, c]      = value
-                        output_mask[rk_add, ck_add] = value
+                    #     output_mask[rk_add, ck_sub] = value
+                    #     output_mask[rk_add, c]      = value
+                    #     output_mask[rk_add, ck_add] = value
 
-                        output_mask[r, ck_add]      = value
-                        output_mask[r, ck_sub]      = value
+                    #     output_mask[r, ck_add]      = value
+                    #     output_mask[r, ck_sub]      = value
 
                     src_masks[j] = output_mask
             
-            #h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h, _ = self.att1(h,h,h, key_padding_mask=(~mask.bool()), attn_mask=src_masks)
-            h, _ = self.att2(h,h,h, key_padding_mask=(~mask.bool()), attn_mask=src_masks)
-            # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             sign = h[0]
 
             for i in range(len(h)):
-                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
+                # value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                # output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
 
-                r, c = self._traceback(output.detach().cpu().numpy())
-                r = torch.from_numpy(r).long().cuda()
-                c = torch.from_numpy(c).long().cuda()
-                output_mask = torch.zeros(output.shape).cuda()
+                # r, c = self._traceback(output.detach().cpu().numpy())
+                # r = torch.from_numpy(r).long().cuda()
+                # c = torch.from_numpy(c).long().cuda()
+                # output_mask = torch.zeros(output.shape).cuda()
+
+                output_aux = np.ones((h.shape[1], h.shape[1]))
+                output_aux = np.tril(output_aux, -2)
+                output_mask = torch.from_numpy(output_aux).long()
+
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
                 # output_mask = torch.ones(output.shape).cuda()
                 # output_aux = torch.zeros(output.shape).cuda()
 
-                value = 1
-                output_mask[r, c] = value
+                # value = 1
+                # output_mask[r, c] = value
 
-                for k in range(1, self.radius + 1):
-                    rk_sub = F.relu(r-k).long().cuda()
-                    ck_sub = F.relu(c-k).long().cuda()
-                    rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    output_mask[rk_sub, ck_sub] = value
-                    output_mask[rk_sub, c]      = value
-                    output_mask[rk_sub, ck_add] = value
+                # for k in range(1, self.radius + 1):
+                #     rk_sub = F.relu(r-k).long().cuda()
+                #     ck_sub = F.relu(c-k).long().cuda()
+                #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                #     output_mask[rk_sub, ck_sub] = value
+                #     output_mask[rk_sub, c]      = value
+                #     output_mask[rk_sub, ck_add] = value
 
-                    output_mask[rk_add, ck_sub] = value
-                    output_mask[rk_add, c]      = value
-                    output_mask[rk_add, ck_add] = value
+                #     output_mask[rk_add, ck_sub] = value
+                #     output_mask[rk_add, c]      = value
+                #     output_mask[rk_add, ck_add] = value
 
-                    output_mask[r, ck_add]      = value
-                    output_mask[r, ck_sub]      = value
+                #     output_mask[r, ck_add]      = value
+                #     output_mask[r, ck_sub]      = value
 
-                src_masks[i] = output_mask
+                # src_masks[i] = output_mask
             
-            h = self.att1(h,h,h, key_padding_mask=(~mask.bool()), attn_mask=src_masks)
-            h = self.att2(h,h,h, key_padding_mask=(~mask.bool()), attn_mask=src_masks)
-            # h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
