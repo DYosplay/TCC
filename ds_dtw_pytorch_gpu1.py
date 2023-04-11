@@ -211,9 +211,9 @@ class DsDTW(nn.Module):
                     # r = torch.from_numpy(r).long().cuda()
                     # c = torch.from_numpy(c).long().cuda()
                     # output_mask = torch.zeros(output.shape).cuda()
-                    output_aux = np.ones((h.shape[1], h.shape[1]))
-                    output_aux = np.tril(output_aux, -2)
-                    output_mask = torch.from_numpy(output_aux).long()
+                    output_mask = np.ones((h.shape[1], h.shape[1]))
+                    # output_aux = np.tril(output_aux, -2)
+                    # output_mask = torch.from_numpy(output_aux).long()
 
                     # para a lógica inversa:
                     # output_mask = torch.ones(output.shape).cuda()
@@ -256,9 +256,9 @@ class DsDTW(nn.Module):
                 # c = torch.from_numpy(c).long().cuda()
                 # output_mask = torch.zeros(output.shape).cuda()
 
-                output_aux = np.ones((h.shape[1], h.shape[1]))
-                output_aux = np.tril(output_aux, -2)
-                output_mask = torch.from_numpy(output_aux).long()
+                output_mask = np.ones((h.shape[1], h.shape[1]))
+                # output_aux = np.tril(output_aux, -2)
+                # output_mask = torch.from_numpy(output_aux).long()
 
                 # output_aux = torch.ones(output.shape).cuda()
 
