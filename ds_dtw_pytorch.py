@@ -11,21 +11,15 @@ from shapely.geometry import LineString
 import math
 from tqdm import tqdm
 import numpy as np
-import batches_gen as batches_gen
+import batches_gen
 import new_soft_dtw
 import dtw_cuda
-from sklearn.metrics import roc_curve, auc
 from typing import Tuple
-CHEAT = False
 import warnings
-# import attentions
+from fastdtw import fastdtw
 warnings.filterwarnings("ignore")
-# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:256"
-# PyTorch models inherit from torch.nn.Module
-
-CUDA0 = torch.device('cuda:0')
-#RESULTFOLDER = "RESULT_UNION_10_L2_ALL_FEATURES"
-
+from sklearn.metrics import roc_curve
+CHEAT = False
 ###############################################################################
 def lengths_to_mask(lengths, max_len=None, dtype=None):
     """
@@ -133,7 +127,6 @@ class DsDTW(nn.Module):
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
-        self.radius = 0
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -147,42 +140,41 @@ class DsDTW(nn.Module):
 
         # Definição da rede
         self.cran  = nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        nn.AvgPool1d(4,4, ceil_mode=True),
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=7, stride=1, padding=4, bias=True),
+        nn.AvgPool1d(2,2, ceil_mode=True),
         nn.ReLU(inplace=True),
-        nn.Dropout(0.1)
+        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=3, stride=1, padding=1, bias=True),
+        nn.AvgPool1d(2,2, ceil_mode=True),
+        nn.ReLU(inplace=True),
+        nn.Dropout(p=0.1)
         )
-        # self.bn = MaskedBatchNorm1d(self.n_hidden)
+        self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        # self.att = attentions.AdditiveAttention(self.n_hidden)
-        
-        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden//2, nhead=2,batch_first=True, dim_feedforward=128)
+        self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden//2, nhead=2,batch_first=True, dim_feedforward=128)
 
+        self.multihead_attn = nn.MultiheadAttention(128, 1)
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
-        # self.linear2 = nn.Linear(64, 16, bias=False)
+        self.linear = nn.Linear(self.n_hidden, batch_size, bias=False)
 
-        nn.init.kaiming_normal_(self.linear.weight, a=1)
-        # nn.init.kaiming_normal_(self.linear2.weight, a=1) 
+        nn.init.kaiming_normal_(self.linear.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
-        # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
+        nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
-        # nn.init.zeros_(self.cran[3].bias)
+        nn.init.zeros_(self.cran[3].bias)
         
-        # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
-        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
+        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens+4) //4
+        lens = (lens+5) //4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
@@ -192,103 +184,63 @@ class DsDTW(nn.Module):
     def forward(self, x, mask):
         length = torch.sum(mask, dim=1)
 
+        x = x.to("cuda:1")
+        length = length.to("cuda:1")
+        mask = mask.to("cuda:1")
+        e1 = (self.enc1).to('cuda:1')
+        e2 = (self.enc2).to('cuda:1')
 
+        extract = (self.cran).to('cuda:1')
 
-        h = self.cran(x)
+        h = extract(x).to('cuda:1')
         # h = self.bn(h, length.int())
         
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
+
+        h = h.to('cuda:0')
         
         # src_mask
         if self.training:
-            src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
+            src_masks = torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             step = (self.ng + self.nf + 1)
             for i in range(0, self.nw):
-                anchor = h[i*step]
-                for j in range(i*step, (i+1)*step):
-                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
+                anchor    = h[i * step]
+                positives = h[i * step + 1 : i * step + 1 + self.ng] 
+                negatives = h[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-                    r, c = self._traceback(output.detach().cpu().numpy())
-                    r = torch.from_numpy(r).long().cuda()
-                    c = torch.from_numpy(c).long().cuda()
-                    output_mask = torch.from_numpy(np.ones((h.shape[1], h.shape[1]))).cuda() 
+                # aa = self.new_sdtw(anchor[None, :int(len_a)], anchor[None, :int(len_a)])
+                '''Average_Pooling_2,4,6'''
+                src_masks[i*step] = self.new_sdtw_fw(anchor[None, ], anchor[None, ])[1][0][1:h.shape[1]+1, 1:h.shape[1]+1]
+                for j in range(len(positives)):
+                    src_masks[i*step + 1 + j] = self.new_sdtw_fw(anchor[None, ], positives[i:i+1, ])[1][0][1:h.shape[1]+1, 1:h.shape[1]+1]
+                    
+                    # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
+                    # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
-                    # para a lógica inversa:
-                    # output_mask = torch.ones(output.shape).cuda()
-                    # output_aux = torch.zeros(output.shape).cuda()
+                    # dist_g[i] = (ap - (0.5 * (aa+pp))) / (len_a + len_p[i])
 
-                    value = 2
-                    output_mask[r, c] = value
+                for j in range(len(negatives)):
+                    src_masks[i*step + 1 + len(positives) + j ] = self.new_sdtw_fw(anchor[None, ], negatives[i:i+1, ])[1][0][1:h.shape[1]+1, 1:h.shape[1]+1]
+                    
+                    # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
+                    # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
-                    # # for k in range(1, len(r)):
-                    # for k in range(1, self.radius + 1):
-                    #     rk_sub = F.relu(r-k).long().cuda()
-                    #     ck_sub = F.relu(c-k).long().cuda()
-                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     output_mask[rk_sub, ck_sub] = value
-                    #     output_mask[rk_sub, c]      = value
-                    #     output_mask[rk_sub, ck_add] = value
+                    # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
 
-                    #     output_mask[rk_add, ck_sub] = value
-                    #     output_mask[rk_add, c]      = value
-                    #     output_mask[rk_add, ck_add] = value
+            h = h.to('cuda:1')
+            src_masks = src_masks.to('cuda:1')
 
-                    #     output_mask[r, ck_add]      = value
-                    #     output_mask[r, ck_sub]      = value
-
-                    src_masks[j] = output_mask
-            
-            # h, z = self.att(h,h,h)
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
+            h = e1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = e2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
-            src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            sign = h[0]
+            h = h.to('cuda:1')
+            h = e1(src=h, src_key_padding_mask=(~mask.bool()))
+            h = e2(src=h, src_key_padding_mask=(~mask.bool()))
 
-            for i in range(len(h)):
-                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
-
-                r, c = self._traceback(output.detach().cpu().numpy())
-                r = torch.from_numpy(r).long().cuda()
-                c = torch.from_numpy(c).long().cuda()
-                output_mask = torch.from_numpy(np.ones((h.shape[1], h.shape[1]))).cuda()
-
-                # output_aux = np.tril(output_aux, -2)
-                # output_mask = torch.from_numpy(output_aux).long()
-
-                # output_aux = torch.ones(output.shape).cuda()
-
-                # para a lógica inversa:
-                # output_mask = torch.ones(output.shape).cuda()
-                # output_aux = torch.zeros(output.shape).cuda()
-
-                value = 2
-                output_mask[r, c] = value
-
-                # for k in range(1, self.radius + 1):
-                #     rk_sub = F.relu(r-k).long().cuda()
-                #     ck_sub = F.relu(c-k).long().cuda()
-                #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     output_mask[rk_sub, ck_sub] = value
-                #     output_mask[rk_sub, c]      = value
-                #     output_mask[rk_sub, ck_add] = value
-
-                #     output_mask[rk_add, ck_sub] = value
-                #     output_mask[rk_add, c]      = value
-                #     output_mask[rk_add, ck_add] = value
-
-                #     output_mask[r, ck_add]      = value
-                #     output_mask[r, ck_sub]      = value
-
-                # src_masks[i] = output_mask
-            
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
+        h = h.to('cuda:0')
+        mask = mask.to('cuda:0')
+        length = length.to('cuda:0')
 
         h = self.linear(h)
 
@@ -296,37 +248,6 @@ class DsDTW(nn.Module):
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
 
         return h * mask.unsqueeze(2), length.float()
-
-    def _traceback(self, acc_cost_matrix ):
-        """ Encontra a path (matching) dado uma matriz de custo acumulado obtida a partir do cálculo do DTW.
-        Args:
-            acc_cost_matrix (npt.DTypeLike): matriz de custo acumulado obtida a partir do cálculo do DTW.
-
-        Returns:
-            Tuple[npt.ArrayLike, npt.ArrayLike]: coordenadas ponto a ponto referente a primeira e segunda sequência utilizada no cálculo do DTW.
-        """
-        # acc_cost_matrix = np.transpose(acc_cost_matrix)
-        rows, columns = np.shape(acc_cost_matrix)
-        rows-=1
-        columns-=1
-
-        r = [rows]
-        c = [columns]
-
-        while rows != 0 or columns != 0:
-            aux = {}
-            if rows-1 >= 0: aux[acc_cost_matrix[rows -1][columns]] = (rows - 1, columns)
-            if columns-1 >= 0: aux[acc_cost_matrix[rows][columns-1]] = (rows, columns - 1)
-            if rows-1 >= 0 and columns-1 >= 0: aux[acc_cost_matrix[rows -1][columns-1]] = (rows -1, columns - 1)
-            key = min(aux.keys())
-        
-            rows, columns = aux[key]
-
-            r.insert(0, rows)
-            c.insert(0, columns)
-        
-        return np.array(r), np.array(c)
-
 
     def loss(self, data, lens):
         """ 
@@ -389,7 +310,7 @@ class DsDTW(nn.Module):
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /(64* (len_x + len_y))
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /((len_x + len_y))
         
         #usando fastdtw
@@ -458,8 +379,8 @@ class DsDTW(nn.Module):
 
         for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
-            epoch_size = len(epoch)
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/epoch_size))
+            
+            pbar = tqdm(total=(len(epoch)//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/len(epoch)))
 
             running_loss = 0
             
@@ -485,18 +406,17 @@ class DsDTW(nn.Module):
 
             pbar.close()
           
-            # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3): 
-                for cf in comparison_files:
-                    # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
-                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+            # if i == 30: 
+            #     for cf in comparison_files:
+            #         # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
+            #         self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
               #  self.margin -= 0.5
             
-            self.loss_variation.append(running_loss/epoch_size)
+            self.loss_variation.append(running_loss)
             
             lr_scheduler.step()
 
-            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+        torch.save(self.state_dict(), bckp_path + os.sep + "last.bin")
 
         # Loss graph
         plt.xlabel("#Epoch")
@@ -604,7 +524,7 @@ class DsDTW(nn.Module):
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         # Para cada usuário gerar duas listas: uma com as labels e a outra com a predição
         # 0 é positivo (original), 1 é negativo (falsificação)
-        self.train(mode=False)
+
         lines = []
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
@@ -655,8 +575,3 @@ class DsDTW(nn.Module):
 
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
-
-        if eer_global < self.best_eer:
-            torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
-        
-        self.train(mode=True)
