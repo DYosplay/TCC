@@ -18,7 +18,7 @@ from sklearn.metrics import roc_curve, auc
 from typing import Tuple
 CHEAT = False
 import warnings
-import attentions
+
 warnings.filterwarnings("ignore")
 # os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:256"
 # PyTorch models inherit from torch.nn.Module
