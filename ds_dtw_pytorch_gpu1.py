@@ -253,7 +253,7 @@ class DsDTW(nn.Module):
 
                 output = torch.from_numpy(output).cuda()
                 value = value.detach().cpu()
-                value = 1 if value == 0 else value
+                value = torch.tensor(1) if value == 0 else value
                 value = value.cuda()
                 output_mask = (output / value) + 1
                 # output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
