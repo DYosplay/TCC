@@ -145,7 +145,7 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        self.cran  = torch.compile(nn.Sequential(
+        self.cran  = (nn.Sequential(
         nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
@@ -170,7 +170,7 @@ class DsDTW(nn.Module):
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
-        self.linear = torch.compile(self.linear)
+        # self.linear = torch.compile(self.linear)
         
         self.new_sdtw_fw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
