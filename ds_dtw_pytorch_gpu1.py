@@ -229,7 +229,9 @@ class DsDTW(nn.Module):
 
                 for j in range(i*step, (i+1)*step):
                     # ah_value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    self.train(False)
                     ah_value, output = (dtw(anchor[None,], h[j:j+1,]))
+                    self.train(True)
 
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].to('cuda:0')
                     # output_mask = torch.from_numpy(output)
