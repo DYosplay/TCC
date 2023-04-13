@@ -208,7 +208,7 @@ class DsDTW(nn.Module):
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                     output = torch.from_numpy(output).cuda()
-                    output_mask = output / value
+                    output_mask = output / value.detach().cpu()
                     # output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
 
