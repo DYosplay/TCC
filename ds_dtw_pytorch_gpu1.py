@@ -145,15 +145,15 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        self.cran  = (nn.Sequential(
+        self.cran  = nn.Sequential(
         nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
-        ))
+        )
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
@@ -161,7 +161,7 @@ class DsDTW(nn.Module):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = (nn.Linear(self.n_hidden, 16, bias=False))
+        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
@@ -170,12 +170,11 @@ class DsDTW(nn.Module):
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
-        # self.linear = torch.compile(self.linear)
         
-        self.new_sdtw_fw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
+        self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
-        self.new_sdtw = (new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1))
-        self.dtw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
+        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
+        self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
     def getOutputMask(self, lens):    
@@ -205,7 +204,7 @@ class DsDTW(nn.Module):
             for i in range(0, self.nw):
                 anchor = h[i*step]
                 for j in range(i*step, (i+1)*step):
-                    value, output = ((self.new_sdtw_fw)(anchor[None,], h[j:j+1,]))
+                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                     output = torch.from_numpy(output).cuda()
