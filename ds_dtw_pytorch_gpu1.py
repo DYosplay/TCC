@@ -192,9 +192,12 @@ class DsDTW(nn.Module):
     def forward(self, x, mask):
         length = torch.sum(mask, dim=1)
 
+        x = x.to('cuda:1')
+        mask = mask.to('cuda:1')
+        cran = (self.cran).to('cuda:1')
+        e1 = (self.enc1).to('cuda:1')
 
-
-        h = self.cran(x)
+        h = cran(x)
         # h = self.bn(h, length.int())
         
         h = h.transpose(1,2)
@@ -219,9 +222,11 @@ class DsDTW(nn.Module):
 
         # src_mask
         if self.training:
-            src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
+            src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)).to('cuda:1')
             step = (self.ng + self.nf + 1)
             
+            h = h.to('cuda:0')
+
             for i in range(0, self.nw):
                 anchor = h[i*step]
                 for j in range(i*step, (i+1)*step):
@@ -229,7 +234,8 @@ class DsDTW(nn.Module):
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
                     # output_mask = torch.from_numpy(output)
 
-                    output_mask = ((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1
+                    output.to('cuda:1')
+                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1).to('cuda:1')
 
                     # r, c = self._traceback(output.detach().cpu().numpy())
                     # r = torch.from_numpy(r).long().cuda()
@@ -265,7 +271,7 @@ class DsDTW(nn.Module):
             
             
             # h, z = self.att(h,h,h)
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = e1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
@@ -314,6 +320,8 @@ class DsDTW(nn.Module):
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
+
+        h = h.to('cuda:0')
 
         h = self.linear(h)
 
