@@ -16,10 +16,8 @@ import new_soft_dtw
 import dtw_cuda
 from sklearn.metrics import roc_curve, auc
 from typing import Tuple
-import new_dtw
 CHEAT = False
 import warnings
-# import attentions
 warnings.filterwarnings("ignore")
 # os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:256"
 # PyTorch models inherit from torch.nn.Module
@@ -156,8 +154,6 @@ class DsDTW(nn.Module):
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        # self.att = attentions.AdditiveAttention(self.n_hidden)
-        
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
@@ -175,9 +171,8 @@ class DsDTW(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
         
-        # self.new_dtw = new_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
-        # self.new_sdtw_fw = dtw_cuda.DTW(False, normalize=False, bandwidth=1)
-        self.new_dtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
+        # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
+        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
@@ -194,60 +189,34 @@ class DsDTW(nn.Module):
     def forward(self, x, mask):
         length = torch.sum(mask, dim=1)
 
+
+
         h = self.cran(x)
         # h = self.bn(h, length.int())
         
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
         
-        # n = h.shape[1] # tamanho da matriz
-        # k = 0
-        # criar matriz com diagonal principal deslocada uma posição para cima
-
-        # diagonal = np.concatenate((np.ones(1), np.ones(n-1)))
-        # matriz = np.diag(diagonal, k=k)
-
-        # # adicionar valores abaixo e acima da diagonal principal deslocada
-        # for i in range(n+k):
-        #     for j in range(n+k):
-        #         distancia = abs(i-j+k) # calcular a distância da célula à diagonal deslocada
-        #         valor = ((n-distancia)/n ) # calcular o valor da célula baseado na distância
-        #         if matriz[i,j] == 0: # se a célula não estiver na diagonal deslocada
-        #             matriz[i,j] = valor # atribuir o valor calculado
-
-        # output_mask = torch.from_numpy(matriz).cuda() + 1
-
         # src_mask
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
             step = (self.ng + self.nf + 1)
-            
             for i in range(0, self.nw):
                 anchor = h[i*step]
-
-                # aa_value, output_aa = self.new_sdtw_fw(anchor[None,], anchor[None,])
-
                 for j in range(i*step, (i+1)*step):
-                    # ah_value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    self.train(False)
-                    ah_value, output = self.new_dtw(anchor[None,], h[j:j+1,])
-                    self.train(True)
+                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
 
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
                     # output_mask = torch.from_numpy(output)
 
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-
-                    # r, c = self._traceback(output.detach().cpu().numpy())
-                    # r = torch.from_numpy(r).long().cuda()
-                    # c = torch.from_numpy(c).long().cuda()
-                    # output_mask = torch.from_numpy(np.ones((h.shape[1], h.shape[1]))).cuda() 
+                    # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
                     # output_mask = torch.ones(output.shape).cuda()
                     # output_aux = torch.zeros(output.shape).cuda()
 
-                    # value = 2
+                    # value = 1
                     # output_mask[r, c] = value
 
                     # # for k in range(1, len(r)):
@@ -268,43 +237,25 @@ class DsDTW(nn.Module):
                     #     output_mask[r, ck_sub]      = value
 
                     src_masks[j] = output_mask
-
+            
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             sign = h[0]
-            # ss_value, output_ss = self.new_sdtw_fw(sign[None,], sign[None,])
 
             for i in range(len(h)):
-                value, output = self.new_dtw(sign[None, ], h[i:i+1, ])
-
-                # sh_value, output_sh = self.new_sdtw_fw(sign[None,], h[j:j+1,])
-                # hh, output_hh = self.new_sdtw_fw(h[j:j+1,], h[j:j+1,])
-
-                # output = output_sh - 0.5*(output_ss + output_hh)
-
+                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
                 output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
-                
-                output
+
                 output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-
-
-                # r, c = self._traceback(output.detach().cpu().numpy())
-                # r = torch.from_numpy(r).long().cuda()
-                # c = torch.from_numpy(c).long().cuda()
-                # output_mask = torch.from_numpy(np.ones((h.shape[1], h.shape[1]))).cuda()
-
-                # output_aux = np.tril(output_aux, -2)
-                # output_mask = torch.from_numpy(output_aux).long()
-
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
                 # output_mask = torch.ones(output.shape).cuda()
                 # output_aux = torch.zeros(output.shape).cuda()
 
-                # value = 2
+                # value = 1
                 # output_mask[r, c] = value
 
                 # for k in range(1, self.radius + 1):
@@ -324,7 +275,7 @@ class DsDTW(nn.Module):
                 #     output_mask[r, ck_sub]      = value
 
                 src_masks[i] = output_mask
-        
+            
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
