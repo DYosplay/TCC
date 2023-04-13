@@ -236,7 +236,7 @@ class DsDTW(nn.Module):
                     ah_value, output_ah = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
                     hh, output_hh = self.new_sdtw_fw(h[j:j+1,], h[j:j+1,])
 
-                    output = output_ah - 0.5*(output_aa, output_hh)
+                    output = output_ah - 0.5*(output_aa + output_hh)
 
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
                     # output_mask = torch.from_numpy(output)
@@ -284,9 +284,16 @@ class DsDTW(nn.Module):
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device).to('cuda:1')
             sign = h[0]
+            ss_value, output_ss = self.new_sdtw_fw(sign[None,], sign[None,])
 
             for i in range(len(h)):
                 value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+
+                sh_value, output_sh = self.new_sdtw_fw(sign[None,], h[j:j+1,])
+                hh, output_hh = self.new_sdtw_fw(h[j:j+1,], h[j:j+1,])
+
+                output = output_sh - 0.5*(output_ss + output_hh)
+
                 output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
                 
                 output.to('cuda:1')
