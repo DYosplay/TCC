@@ -215,7 +215,7 @@ class DsDTW(nn.Module):
                 if matriz[i,j] == 0: # se a célula não estiver na diagonal deslocada
                     matriz[i,j] = valor # atribuir o valor calculado
 
-        output_mask = torch.from_numpy(matriz).cuda()
+        output_mask = torch.from_numpy(matriz).cuda() + 1
 
         # src_mask
         if self.training:
