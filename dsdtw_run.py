@@ -62,7 +62,7 @@ def eval_all_weights(model):
     if not os.path.exists(PARENT_FOLDER + os.sep + "all_weights"):
         os.mkdir(PARENT_FOLDER + os.sep + "all_weights")
 
-    for i in range(N_EPOCHS):
+    for i in range(1, N_EPOCHS+1):
         file = PARENT_FOLDER + os.sep + 'Backup' + os.sep + "epoch" + str(i) + ".pt" 
         model.load_state_dict(torch.load(file))
         model.new_evaluate(FILE, 1000+i, result_folder=PARENT_FOLDER + os.sep + "all_weights" )
