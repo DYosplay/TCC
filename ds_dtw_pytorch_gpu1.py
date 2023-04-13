@@ -205,9 +205,9 @@ class DsDTW(nn.Module):
                 anchor = h[i*step]
                 for j in range(i*step, (i+1)*step):
                     value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-                    # output_mask = torch.from_numpy(output)
+                    output = torch.from_numpy(output).cuda()
 
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
