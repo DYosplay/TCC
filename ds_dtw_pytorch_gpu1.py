@@ -214,6 +214,7 @@ class DsDTW(nn.Module):
         #             matriz[i,j] = valor # atribuir o valor calculado
 
         # output_mask = torch.from_numpy(matriz).cuda() + 1
+        dtw = (self.new_sdtw_fw).to('cuda:1')
 
         # src_mask
         if self.training:
@@ -226,7 +227,8 @@ class DsDTW(nn.Module):
                 # aa_value, output_aa = self.new_sdtw_fw(anchor[None,], anchor[None,])
 
                 for j in range(i*step, (i+1)*step):
-                    ah_value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    # ah_value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    ah_value, output = (dtw(anchor[None,].to('cuda:1'), h[j:j+1,].to('cuda:1'))).to(cuda:0)
 
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
                     # output_mask = torch.from_numpy(output)
