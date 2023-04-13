@@ -222,13 +222,14 @@ class DsDTW(nn.Module):
             step = (self.ng + self.nf + 1)
             
             for i in range(0, self.nw):
+                h = h.to('cuda:1')
                 anchor = h[i*step]
 
                 # aa_value, output_aa = self.new_sdtw_fw(anchor[None,], anchor[None,])
 
                 for j in range(i*step, (i+1)*step):
                     # ah_value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    ah_value, output = (dtw(anchor[None,].to('cuda:1'), h[j:j+1,].to('cuda:1')))
+                    ah_value, output = (dtw(anchor[None,], h[j:j+1,]))
 
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].to('cuda:0')
                     # output_mask = torch.from_numpy(output)
@@ -266,6 +267,7 @@ class DsDTW(nn.Module):
 
                     src_masks[j] = output_mask
 
+            h = h.to('cuda:0')
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
