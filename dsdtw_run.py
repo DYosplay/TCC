@@ -9,7 +9,7 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 30
-PARENT_FOLDER = "ds_test190"
+PARENT_FOLDER = "ds_test187"
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE2 = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W1_skilled_stylus_4vs1.txt"
@@ -65,7 +65,7 @@ def eval_all_weights(model):
     for i in range(1, N_EPOCHS+1):
         file = PARENT_FOLDER + os.sep + 'Backup' + os.sep + "epoch" + str(i) + ".pt" 
         model.load_state_dict(torch.load(file))
-        model.new_evaluate(FILE, 1000+i, result_folder=PARENT_FOLDER + os.sep + "all_weights" )
+        model.new_evaluate(FILE, 1000+i, result_folder=PARENT_FOLDER)
 
 
 def free_memory(to_delete: list):
