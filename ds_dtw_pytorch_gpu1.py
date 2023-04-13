@@ -174,8 +174,8 @@ class DsDTW(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
         
-        # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=0.1)
-        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.2)
+        self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
+        # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
@@ -200,22 +200,22 @@ class DsDTW(nn.Module):
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
         
-        n = h.shape[1] # tamanho da matriz
-        k = 0
+        # n = h.shape[1] # tamanho da matriz
+        # k = 0
         # criar matriz com diagonal principal deslocada uma posição para cima
 
-        diagonal = np.concatenate((np.ones(1), np.ones(n-1)))
-        matriz = np.diag(diagonal, k=k)
+        # diagonal = np.concatenate((np.ones(1), np.ones(n-1)))
+        # matriz = np.diag(diagonal, k=k)
 
-        # adicionar valores abaixo e acima da diagonal principal deslocada
-        for i in range(n+k):
-            for j in range(n+k):
-                distancia = abs(i-j+k) # calcular a distância da célula à diagonal deslocada
-                valor = ((n-distancia)/n ) # calcular o valor da célula baseado na distância
-                if matriz[i,j] == 0: # se a célula não estiver na diagonal deslocada
-                    matriz[i,j] = valor # atribuir o valor calculado
+        # # adicionar valores abaixo e acima da diagonal principal deslocada
+        # for i in range(n+k):
+        #     for j in range(n+k):
+        #         distancia = abs(i-j+k) # calcular a distância da célula à diagonal deslocada
+        #         valor = ((n-distancia)/n ) # calcular o valor da célula baseado na distância
+        #         if matriz[i,j] == 0: # se a célula não estiver na diagonal deslocada
+        #             matriz[i,j] = valor # atribuir o valor calculado
 
-        output_mask = torch.from_numpy(matriz).cuda() + 1
+        # output_mask = torch.from_numpy(matriz).cuda() + 1
 
         # src_mask
         if self.training:
@@ -223,10 +223,13 @@ class DsDTW(nn.Module):
             step = (self.ng + self.nf + 1)
             
             for i in range(0, self.nw):
-                # anchor = h[i*step]
+                anchor = h[i*step]
                 for j in range(i*step, (i+1)*step):
-                    # value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    # output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
+                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
+                    # output_mask = torch.from_numpy(output)
+
+                    output_mask = ((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1
 
                     # r, c = self._traceback(output.detach().cpu().numpy())
                     # r = torch.from_numpy(r).long().cuda()
@@ -266,11 +269,13 @@ class DsDTW(nn.Module):
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            # sign = h[0]
+            sign = h[0]
 
             for i in range(len(h)):
-                # value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-                # output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
+                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
+                output_mask = ((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1
+
 
                 # r, c = self._traceback(output.detach().cpu().numpy())
                 # r = torch.from_numpy(r).long().cuda()
