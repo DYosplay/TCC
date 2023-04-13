@@ -174,8 +174,8 @@ class DsDTW(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
         
-        self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
-        # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
+        # self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
+        self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
@@ -229,8 +229,15 @@ class DsDTW(nn.Module):
 
             for i in range(0, self.nw):
                 anchor = h[i*step]
+
+                aa_value, output_aa = self.new_sdtw_fw(anchor[None,], anchor[None,])
+
                 for j in range(i*step, (i+1)*step):
-                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    ah_value, output_ah = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    hh, output_hh = self.new_sdtw_fw(h[j:j+1,], h[j:j+1,])
+
+                    output = output_ah - 0.5*(output_aa, output_hh)
+
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]        
                     # output_mask = torch.from_numpy(output)
 
