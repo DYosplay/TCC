@@ -16,6 +16,7 @@ import new_soft_dtw
 import dtw_cuda
 from sklearn.metrics import roc_curve, auc
 from typing import Tuple
+import new_dtw
 CHEAT = False
 import warnings
 # import attentions
@@ -174,7 +175,8 @@ class DsDTW(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
         
-        self.new_sdtw_fw = dtw_cuda.DTW(False, normalize=False, bandwidth=1)
+        self.new_dtw = new_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
+        # self.new_sdtw_fw = dtw_cuda.DTW(False, normalize=False, bandwidth=1)
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
@@ -214,7 +216,6 @@ class DsDTW(nn.Module):
         #             matriz[i,j] = valor # atribuir o valor calculado
 
         # output_mask = torch.from_numpy(matriz).cuda() + 1
-        dtw = (self.new_sdtw_fw).to('cuda:1')
 
         # src_mask
         if self.training:
@@ -222,7 +223,6 @@ class DsDTW(nn.Module):
             step = (self.ng + self.nf + 1)
             
             for i in range(0, self.nw):
-                h = h.to('cuda:1')
                 anchor = h[i*step]
 
                 # aa_value, output_aa = self.new_sdtw_fw(anchor[None,], anchor[None,])
@@ -230,10 +230,10 @@ class DsDTW(nn.Module):
                 for j in range(i*step, (i+1)*step):
                     # ah_value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
                     self.train(False)
-                    ah_value, output = (dtw(anchor[None,], h[j:j+1,]))
+                    ah_value, output = self.new_dtw(anchor[None,], h[j:j+1,])
                     self.train(True)
 
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].to('cuda:0')
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1]
                     # output_mask = torch.from_numpy(output)
 
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
@@ -269,7 +269,6 @@ class DsDTW(nn.Module):
 
                     src_masks[j] = output_mask
 
-            h = h.to('cuda:0')
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
@@ -278,7 +277,7 @@ class DsDTW(nn.Module):
             # ss_value, output_ss = self.new_sdtw_fw(sign[None,], sign[None,])
 
             for i in range(len(h)):
-                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                value, output = self.new_dtw(sign[None, ], h[i:i+1, ])
 
                 # sh_value, output_sh = self.new_sdtw_fw(sign[None,], h[j:j+1,])
                 # hh, output_hh = self.new_sdtw_fw(h[j:j+1,], h[j:j+1,])
