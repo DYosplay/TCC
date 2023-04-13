@@ -174,7 +174,7 @@ class DsDTW(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
         
-        self.new_sdtw_fw = dtw_cuda.DTW(False, normalize=True, bandwidth=1)
+        self.new_sdtw_fw = dtw_cuda.DTW(False, normalize=False, bandwidth=1)
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
         self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
