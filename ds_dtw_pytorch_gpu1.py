@@ -161,7 +161,7 @@ class DsDTW(nn.Module):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = torch.compile(nn.Linear(self.n_hidden, 16, bias=False))
+        self.linear = (nn.Linear(self.n_hidden, 16, bias=False))
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
@@ -170,6 +170,7 @@ class DsDTW(nn.Module):
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
+        self.linear = torch.compile(self.linear)
         
         self.new_sdtw_fw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
