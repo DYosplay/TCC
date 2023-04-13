@@ -8,8 +8,8 @@ BATCH_SIZE = 16
 FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
-N_EPOCHS = 40
-PARENT_FOLDER = "ds_test189"
+N_EPOCHS = 30
+PARENT_FOLDER = "ds_test187"
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE2 = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W1_skilled_stylus_4vs1.txt"
@@ -58,6 +58,16 @@ def validation(model : DsDTW):
     #     for file in files:
     #         model.evaluate(comparions_files=[path + file], n_epoch=0, result_folder=PARENT_FOLDER)
 
+def eval_all_weights(model):
+    if not os.path.exists(PARENT_FOLDER + os.sep + "all_weights"):
+        os.mkdir(PARENT_FOLDER + os.sep + "all_weights")
+
+    for i in range(N_EPOCHS):
+        file = DATASET_FOLDER + os.sep + 'Backup' + os.sep + "epoch" + str(i) + ".pt" 
+        model.load_state_dict(torch.load(file))
+        model.new_evaluate(FILE, 1000+i, result_folder=PARENT_FOLDER + os.sep + "all_weights" )
+
+
 def free_memory(to_delete: list):
     calling_namespace = inspect.currentframe().f_back
 
@@ -75,9 +85,9 @@ if __name__ == '__main__':
 
     model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER)
     # model = torch.compile(model)
-    model.cuda()
-    model.train(mode=True)
-    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
+    # model.cuda()
+    # model.train(mode=True)
+    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
@@ -86,7 +96,10 @@ if __name__ == '__main__':
 
     model.train(mode=False)
     model.eval()
-    validation(model)
+
+
+    eval_all_weights(model)
+    # validation(model)
 
     # model.new_evaluate(FILE2, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE3, 119, result_folder=PARENT_FOLDER)
