@@ -212,12 +212,13 @@ class DsDTW(nn.Module):
                     # value = torch.tensor(1) if value == 0 else value
                     value = value.cuda()
 
-                    row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
-                    col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
-                    indices_sum = (row_indices + col_indices + 1) 
+                    output = torch.abs(output - torch.max(output))
+                    # row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
+                    # col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
+                    # indices_sum = (row_indices + col_indices + 1) 
 
                     # Dividindo a tensor pelo índice da linha e coluna somados
-                    output_mask = output / indices_sum
+                    # output_mask = output / indices_sum
 
                     # output_mask = (output / value) + 1                    
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
@@ -261,15 +262,17 @@ class DsDTW(nn.Module):
 
                 output = torch.from_numpy(output).cuda()
                 value = value.detach().cpu()
-                value = torch.tensor(1) if value == 0 else value
+                # value = torch.tensor(1) if value == 0 else value
                 value = value.cuda()
+
+                output = torch.abs(output - torch.max(output))
                 
-                row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
-                col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
-                indices_sum = (row_indices + col_indices + 1) # + value 
+                # row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
+                # col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
+                # indices_sum = (row_indices + col_indices + 1) # + value 
 
                 # Dividindo a tensor pelo índice da linha e coluna somados
-                output_mask = output / indices_sum
+                # output_mask = output / indices_sum
                 output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                 # output_aux = torch.ones(output.shape).cuda()
 
