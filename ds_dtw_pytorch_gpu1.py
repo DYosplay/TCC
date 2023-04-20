@@ -222,7 +222,7 @@ class DsDTW(nn.Module):
                     # output_mask = output / indices_sum
 
                     # output_mask = (output / value) + 1                    
-                    output_mask = 1+(((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
@@ -274,7 +274,7 @@ class DsDTW(nn.Module):
 
                 # Dividindo a tensor pelo índice da linha e coluna somados
                 # output_mask = output / indices_sum
-                output_mask =  1+(((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                output_mask =  (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
