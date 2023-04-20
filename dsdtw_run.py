@@ -90,7 +90,7 @@ def all_scenarios():
     cudnn.benchmark = False
     cudnn.deterministic = True
 
-    gammas = [0.00001, 0.1, 1, 5, 10]
+    gammas = [0.1, 1, 5, 10]
 
     for gamma in gammas:
         res_folder = PARENT_FOLDER + "_gamma_" + str(gamma)
@@ -98,7 +98,7 @@ def all_scenarios():
         model.cuda()
         # model = torch.compile(model)
         model.train(mode=True)
-        model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
+        model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
     
 if __name__ == '__main__':
     all_scenarios()
