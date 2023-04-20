@@ -78,7 +78,7 @@ def normalize_x_and_y(x : npt.ArrayLike, y : npt.ArrayLike):
 
 
 bf = butterLPFilter(highcut=15, fs=100)
-def generate_features(input_file : str, database : Literal):
+def generate_features(input_file : str, scenario : str, database : Literal):
     df = None
     if database == MCYT:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
@@ -90,6 +90,8 @@ def generate_features(input_file : str, database : Literal):
     p = bf(np.array(df['P']))[:8000]
     x = bf(np.array(df['X']))[:8000]
     y = bf(np.array(df['Y']))[:8000]
+
+    if scenario=='finger' : p = np.ones(x.shape)
 
     x1, y1 = normalize_x_and_y(x, y)
 
@@ -172,36 +174,49 @@ BIOSECUR_ID = 4
 BIOSECURE_DS2 = 5
 UNDEFINED = -1
 
-def get_database(user_id : int, development : bool) -> Literal:
+def get_database(user_id : int, scenario : str, development : bool) -> Literal:
     database = UNDEFINED
 
-    if development:
-        if user_id >= 1009 and user_id <= 1038:
-            database = EBIOSIGN1_DS1
-        elif user_id >= 1039 and user_id <= 1084:
-            database = EBIOSIGN1_DS2
-        elif user_id >= 1 and user_id <= 230:
-            database = MCYT
-        elif user_id >= 231 and user_id <= 498:
-            database = BIOSECUR_ID
+    if scenario == 'stylus':
+        if development:
+            if user_id >= 1009 and user_id <= 1038:
+                database = EBIOSIGN1_DS1
+            elif user_id >= 1039 and user_id <= 1084:
+                database = EBIOSIGN1_DS2
+            elif user_id >= 1 and user_id <= 230:
+                database = MCYT
+            elif user_id >= 231 and user_id <= 498:
+                database = BIOSECUR_ID
+        else:
+            if user_id >= 373 and user_id <= 407:
+                database = EBIOSIGN1_DS1
+            elif user_id >= 408 and user_id <= 442:
+                database = EBIOSIGN1_DS2
+            elif user_id >= 1 and user_id <= 100:
+                database = MCYT
+            elif user_id >= 101 and user_id <= 232:
+                database = BIOSECUR_ID
+            elif user_id >= 233 and user_id <= 372:
+                database = BIOSECURE_DS2
+
     else:
-        if user_id >= 373 and user_id <= 407:
-            database = EBIOSIGN1_DS1
-        elif user_id >= 408 and user_id <= 442:
-            database = EBIOSIGN1_DS2
-        elif user_id >= 1 and user_id <= 100:
-            database = MCYT
-        elif user_id >= 101 and user_id <= 232:
-            database = BIOSECUR_ID
-        elif user_id >= 233 and user_id <= 372:
-            database = BIOSECURE_DS2
-    
+        if development:
+            if user_id >= 1009 and user_id <= 1038:
+                database = EBIOSIGN1_DS1
+            elif user_id >= 1039 and user_id <= 1084:
+                database = EBIOSIGN1_DS2
+        else:
+            if user_id >= 373 and user_id <= 407:
+                database = EBIOSIGN1_DS1
+            elif user_id >= 408 and user_id <= 442:
+                database = EBIOSIGN1_DS2
+
     return database
 
-def get_features(file_name : str, development : bool = True):
+def get_features(file_name : str, scenario : str, development : bool = True):
     user_id = int(((file_name.split(os.sep)[-1]).split("_")[0]).split("u")[-1])
-    database = get_database(user_id = user_id, development=development)
-    return generate_features(file_name, database)
+    database = get_database(user_id = user_id, scenario=scenario, development=development)
+    return generate_features(file_name, scenario, database)
 
 
 
