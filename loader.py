@@ -96,7 +96,7 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     x1, y1 = normalize_x_and_y(x, y)
 
     #result = [x1,y1, zscore(p)]
-    result = [x1,y1]
+    result = [x1,y1, p]
     
     ####################################
     dx = diff(x)
@@ -112,7 +112,7 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     dv2 = np.abs(v*dtheta)
     totalAccel = np.sqrt(dv**2 + dv2**2)
     c = v * dtheta
-    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    features = [v, theta, cos, sin, dv, dtheta, logCurRadius, c, totalAccel]
 
     for f in features:
         result.append(zscore(f))

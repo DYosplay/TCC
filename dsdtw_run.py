@@ -96,7 +96,7 @@ def all_scenarios():
         res_folder = PARENT_FOLDER + "_gamma_" + str(gamma)
         model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), gamma=gamma, dataset_folder=DATASET_FOLDER)
         model.cuda()
-        model = torch.compile(model)
+        # model = torch.compile(model)
         model.train(mode=True)
         model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
     
