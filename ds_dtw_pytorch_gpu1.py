@@ -213,7 +213,7 @@ class DsDTW(nn.Module):
                     # value = torch.tensor(1) if value == 0 else value
                     value = value.cuda()
 
-                    output = torch.abs(output - torch.max(output))
+                    # output = torch.abs(output - torch.max(output))
                     # row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
                     # col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
                     # indices_sum = (row_indices + col_indices + 1) 
@@ -266,7 +266,7 @@ class DsDTW(nn.Module):
                 # value = torch.tensor(1) if value == 0 else value
                 value = value.cuda()
 
-                output = torch.abs(output - torch.max(output))
+                # output = torch.abs(output - torch.max(output))
                 
                 # row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
                 # col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
