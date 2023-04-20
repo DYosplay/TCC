@@ -9,7 +9,7 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 30
-PARENT_FOLDER = "ds_test187"
+PARENT_FOLDER = "ds_test193"
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE8 = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "1vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_1vs1.txt"
@@ -101,7 +101,7 @@ def all_scenarios():
         model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
     
 if __name__ == '__main__':
-    # all_scenarios()
+    all_scenarios()
     # cudnn.enabled = True
     # cudnn.benchmark = False
     # cudnn.deterministic = True
@@ -114,19 +114,19 @@ if __name__ == '__main__':
     # model.train(mode=True)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-    model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
-    model.cuda()
+    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
+    # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
+    # model.cuda()
     # model = torch.compile(model)
 
-    model.train(mode=False)
-    model.eval()
+    # model.train(mode=False)
+    # model.eval()
 
 
     # eval_all_weights(model)
     # validation(model)
 
-    model.new_evaluate(FILE_FINGER1, 119, result_folder=PARENT_FOLDER)
+    # model.new_evaluate(FILE_FINGER1, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE3, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE4, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE5, 119, result_folder=PARENT_FOLDER)
