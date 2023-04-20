@@ -92,7 +92,7 @@ if __name__ == '__main__':
     model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER)
     model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
     model.cuda()
-    model = torch.compile(model)
+    # model = torch.compile(model)
 
     model.train(mode=False)
     model.eval()
