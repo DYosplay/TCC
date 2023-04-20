@@ -90,7 +90,7 @@ def all_scenarios():
     cudnn.benchmark = False
     cudnn.deterministic = True
 
-    gammas = [0.1, 1, 5, 10]
+    gammas = [0.1, 1, 10]
 
     for gamma in gammas:
         res_folder = PARENT_FOLDER + "_gamma_" + str(gamma)
