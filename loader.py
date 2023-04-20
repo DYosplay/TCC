@@ -91,7 +91,7 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     x = bf(np.array(df['X']))[:8000]
     y = bf(np.array(df['Y']))[:8000]
 
-    if scenario=='finger' : p = np.ones(x.shape)
+    if scenario=='finger' : p = np.ones(x.shape) * 255
 
     x1, y1 = normalize_x_and_y(x, y)
 
