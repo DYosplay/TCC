@@ -117,7 +117,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
 ###############################################################################
 
 class DsDTW(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, lr : float = 0.01):
+    def __init__(self, batch_size : int, in_channels : int, gamma : float, dataset_folder : str, lr : float = 0.01):
         super(DsDTW, self).__init__()
 
         # Variáveis do modelo
@@ -133,6 +133,7 @@ class DsDTW(nn.Module):
         self.n_layers = 2
         self.batch_size = batch_size
         self.radius = 0
+        self.gamma = gamma
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -173,7 +174,7 @@ class DsDTW(nn.Module):
         
         self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
-        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
+        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=self.gamma, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
@@ -221,7 +222,7 @@ class DsDTW(nn.Module):
                     # output_mask = output / indices_sum
 
                     # output_mask = (output / value) + 1                    
-                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                    output_mask = 1 + (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
@@ -500,7 +501,7 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3): 
+            if i % 5 == 0 or i > (n_epochs - 3) or i==1: 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
