@@ -9,6 +9,7 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 30
+GAMMA = 10
 PARENT_FOLDER = "ds_test195"
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
@@ -101,18 +102,19 @@ def all_scenarios():
         model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
     
 if __name__ == '__main__':
-    all_scenarios()
-    # cudnn.enabled = True
-    # cudnn.benchmark = False
-    # cudnn.deterministic = True
+    # all_scenarios()
+    cudnn.enabled = True
+    cudnn.benchmark = False
+    cudnn.deterministic = True
     # if not os.path.exists(PARENT_FOLDER):
     #     os.mkdir(PARENT_FOLDER)
 
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER)
+    res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA)
     # model = torch.compile(model)
-    # model.cuda()
-    # model.train(mode=True)
-    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
+    model.cuda()
+    model.train(mode=True)
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
