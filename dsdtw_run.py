@@ -110,11 +110,11 @@ if __name__ == '__main__':
     #     os.mkdir(PARENT_FOLDER)
 
     res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA)
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=0.001)
     # model = torch.compile(model)
     model.cuda()
     model.train(mode=True)
-    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4], result_folder=res_folder)
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
