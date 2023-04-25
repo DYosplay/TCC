@@ -152,7 +152,7 @@ class DsDTW(nn.Module):
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         )
-        # self.bn = MaskedBatchNorm1d(self.n_hidden)
+        self.bn = MaskedBatchNorm1d(self.n_hidden)
 
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
         self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
@@ -193,7 +193,7 @@ class DsDTW(nn.Module):
 
 
         h = self.cran(x)
-        # h = self.bn(h, length.int())
+        h = self.bn(h, length.int())
         
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
