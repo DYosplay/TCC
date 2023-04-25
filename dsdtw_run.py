@@ -114,15 +114,15 @@ if __name__ == '__main__':
     # model = torch.compile(model)
     model.cuda()
     model.train(mode=True)
-    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
     # model.cuda()
     # model = torch.compile(model)
 
-    # model.train(mode=False)
-    # model.eval()
+    model.train(mode=False)
+    model.eval()
 
 
     # eval_all_weights(model)
@@ -134,10 +134,10 @@ if __name__ == '__main__':
     # model.new_evaluate(FILE5, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE6, 119, result_folder=PARENT_FOLDER)
 
-    # model.new_evaluate(FILE, 100, result_folder=PARENT_FOLDER)
-    # model.new_evaluate(FILE8, 100, result_folder=PARENT_FOLDER)
-    # model.new_evaluate(FILE9, 2, result_folder=PARENT_FOLDER)
-    # model.new_evaluate(FILE10, 2, result_folder=PARENT_FOLDER)
+    model.new_evaluate(FILE, 100, result_folder=PARENT_FOLDER)
+    model.new_evaluate(FILE8, 100, result_folder=PARENT_FOLDER)
+    model.new_evaluate(FILE9, 2, result_folder=PARENT_FOLDER)
+    model.new_evaluate(FILE10, 2, result_folder=PARENT_FOLDER)
 
     # model.new_evaluate(FILE7, 0, result_folder=PARENT_FOLDER)
     # model.evaluate(comparions_files=[FILE2], n_epoch=100, result_folder=PARENT_FOLDER)
