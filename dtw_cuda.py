@@ -161,10 +161,10 @@ class _DTWCUDA(Function):
         ctx.save_for_backward(Ind, bandwidth)
         # print(D)
         # print(R[:, 1:-1, 1:-1])
-        return R[:, -2, -2], R.detach()
+        return R[:, -2, -2]
 
     @staticmethod
-    def backward(ctx, grad_output, l):
+    def backward(ctx, grad_output):
         dev = grad_output.device
         dtype = grad_output.dtype
         Ind, bandwidth = ctx.saved_tensors
@@ -282,10 +282,10 @@ class _DTW(Function):
         ctx.save_for_backward(I, bandwidth)
         # print(D)
         # print(R[:, 1:-1, 1:-1])
-        return R[:, -2, -2], R.detach()
+        return R[:, -2, -2]
 
     @staticmethod
-    def backward(ctx, grad_output, l):
+    def backward(ctx, grad_output):
         dev = grad_output.device
         dtype = grad_output.dtype
         I, bandwidth = ctx.saved_tensors
