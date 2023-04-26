@@ -147,7 +147,7 @@ class DsDTW(nn.Module):
 
         # Definição da rede
         self.cran  = nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=8, stride=1, padding=4, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
