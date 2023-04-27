@@ -145,20 +145,17 @@ class DsDTW(nn.Module):
         self.loss_variation = []
         self.worse = {}
 
-        # Definição da rede
+         # Definição da rede
         self.cran  = nn.Sequential(
         nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
-        nn.Dropout(0.1) #,
-        # nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=1, bias=True),
-        # nn.ReLU(inplace=True),
-        # nn.Dropout(0.1)
+        nn.Dropout(0.1)
         )
-        self.bn = MaskedBatchNorm1d(self.n_hidden)
+        # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=256, dropout=0.1)
+        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
@@ -177,7 +174,7 @@ class DsDTW(nn.Module):
         
         self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
-        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=self.gamma, normalize=False, bandwidth=0.1)
+        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
@@ -192,6 +189,8 @@ class DsDTW(nn.Module):
     
     def forward(self, x, mask):
         length = torch.sum(mask, dim=1)
+
+
 
         h = self.cran(x)
         # h = self.bn(h, length.int())
@@ -241,7 +240,7 @@ class DsDTW(nn.Module):
                     src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             sign = h[0]
@@ -281,7 +280,7 @@ class DsDTW(nn.Module):
                 src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
 
