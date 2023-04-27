@@ -198,7 +198,7 @@ class DsDTW(nn.Module):
         length = torch.sum(mask, dim=1)
 
         h = self.cran(x)
-        h = self.bn(h, length.int())
+        # h = self.bn(h, length.int())
         # h = torch.sin(h)
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
@@ -321,7 +321,7 @@ class DsDTW(nn.Module):
 
         # h = self.linear(h)
         h=self.bn(h.transpose(1,2), length.int())
-
+        h = h.transpose(1,2)
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
 
