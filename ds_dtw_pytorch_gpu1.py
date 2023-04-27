@@ -194,7 +194,7 @@ class DsDTW(nn.Module):
         length = torch.sum(mask, dim=1)
 
         h = self.cran(x)
-        h = self.bn(h, length.int())
+        # h = self.bn(h, length.int())
         
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
