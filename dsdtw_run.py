@@ -9,7 +9,7 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 30
-GAMMA = 4
+GAMMA = 6
 PARENT_FOLDER = "ds_test207"
 LEARNING_RATE = 0.01
 
