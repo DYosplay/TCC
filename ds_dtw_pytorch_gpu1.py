@@ -313,7 +313,7 @@ class DsDTW(nn.Module):
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             xl = self.seq_pool1(h)
-            xl = self.seq_pool2(xl)
+            xl = self.seq_pool2(xl.transpose(1,2))
             xl = torch.matmul(xl, h)
             h = torch.matmul(h, xl)
             # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
