@@ -101,7 +101,10 @@ def all_scenarios():
         # model = torch.compile(model)
         model.train(mode=True)
         model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10], result_folder=res_folder)
-    
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 if __name__ == '__main__':
     # all_scenarios()
     cudnn.enabled = True
@@ -113,6 +116,9 @@ if __name__ == '__main__':
     res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
     model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
     # model = torch.compile(model)
+
+    print(count_parameters(model))
+
     model.cuda()
     model.train(mode=True)
     model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)

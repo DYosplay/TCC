@@ -157,14 +157,18 @@ class DsDTW(nn.Module):
         )
         self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=512, dropout=0.1)
-        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=512, dropout=0.1)
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
+        self.seq_pool1 = nn.Linear(self.n_hidden, self.n_hidden)
+        self.seq_pool2 = nn.Softmax()
+
+
         self.linear = nn.Linear(self.n_hidden, 16, bias=False)
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
@@ -195,7 +199,7 @@ class DsDTW(nn.Module):
 
         h = self.cran(x)
         h = self.bn(h, length.int())
-        h = torch.sin(h)
+        # h = torch.sin(h)
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
         
@@ -253,7 +257,10 @@ class DsDTW(nn.Module):
                     src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            xl = self.seq_pool1(h)
+            xl = self.seq_pool2(xl.transpose(1,2))
+            xl = torch.matmul(xl, h)
+            h = torch.matmul(h, xl)
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
@@ -305,10 +312,15 @@ class DsDTW(nn.Module):
                 src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            xl = self.seq_pool1(h)
+            xl = self.seq_pool2(xl)
+            xl = torch.matmul(xl, h)
+            h = torch.matmul(h, xl)
             # h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
-        h = self.linear(h)
+        # h = self.linear(h)
+        h=self.bn(h.transpose(1,2), length.int())
 
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
