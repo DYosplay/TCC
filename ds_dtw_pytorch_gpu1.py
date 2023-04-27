@@ -157,7 +157,7 @@ class DsDTW(nn.Module):
         )
         self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=256, dropout=0.1)
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=256, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
