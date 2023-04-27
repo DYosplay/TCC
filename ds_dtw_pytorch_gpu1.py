@@ -170,7 +170,7 @@ class DsDTW(nn.Module):
         self.seq_pool2 = nn.Softmax()
 
 
-        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
+        self.linear = nn.Linear(self.n_hidden, 32, bias=False)
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
@@ -216,51 +216,16 @@ class DsDTW(nn.Module):
 
                     output = torch.from_numpy(output).cuda()
                     value = value.detach().cpu()
-                    # value = torch.tensor(1) if value == 0 else value
                     value = value.cuda()
-
-                    # output = torch.abs(output - torch.max(output))
-                    # row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
-                    # col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
-                    # indices_sum = (row_indices + col_indices + 1) 
-
-                    # Dividindo a tensor pelo índice da linha e coluna somados
-                    # output_mask = output / indices_sum
-
-                    # output_mask = (output / value) + 1                    
+                 
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                    # output_aux = torch.ones(output.shape).cuda()
-
-                    # para a lógica inversa:
-                    # output_mask = torch.ones(output.shape).cuda()
-                    # output_aux = torch.zeros(output.shape).cuda()
-
-                    # value = 1
-                    # output_mask[r, c] = value
-
-                    # # for k in range(1, len(r)):
-                    # for k in range(1, self.radius + 1):
-                    #     rk_sub = F.relu(r-k).long().cuda()
-                    #     ck_sub = F.relu(c-k).long().cuda()
-                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     output_mask[rk_sub, ck_sub] = value
-                    #     output_mask[rk_sub, c]      = value
-                    #     output_mask[rk_sub, ck_add] = value
-
-                    #     output_mask[rk_add, ck_sub] = value
-                    #     output_mask[rk_add, c]      = value
-                    #     output_mask[rk_add, ck_add] = value
-
-                    #     output_mask[r, ck_add]      = value
-                    #     output_mask[r, ck_sub]      = value
 
                     src_masks[j] = output_mask
             
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc3(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc4(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc3(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc4(src=h, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
@@ -272,49 +237,16 @@ class DsDTW(nn.Module):
 
                 output = torch.from_numpy(output).cuda()
                 value = value.detach().cpu()
-                # value = torch.tensor(1) if value == 0 else value
                 value = value.cuda()
 
-                # output = torch.abs(output - torch.max(output))
-                
-                # row_indices = torch.arange(0, output.shape[0]).reshape(-1, 1).cuda()
-                # col_indices = torch.arange(0, output.shape[1]).reshape(1, -1).cuda()
-                # indices_sum = (row_indices + col_indices + 1) # + value 
-
-                # Dividindo a tensor pelo índice da linha e coluna somados
-                # output_mask = output / indices_sum
                 output_mask =  (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                # output_aux = torch.ones(output.shape).cuda()
-
-                # para a lógica inversa:
-                # output_mask = torch.ones(output.shape).cuda()
-                # output_aux = torch.zeros(output.shape).cuda()
-
-                # value = 1
-                # output_mask[r, c] = value
-
-                # for k in range(1, self.radius + 1):
-                #     rk_sub = F.relu(r-k).long().cuda()
-                #     ck_sub = F.relu(c-k).long().cuda()
-                #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     output_mask[rk_sub, ck_sub] = value
-                #     output_mask[rk_sub, c]      = value
-                #     output_mask[rk_sub, ck_add] = value
-
-                #     output_mask[rk_add, ck_sub] = value
-                #     output_mask[rk_add, c]      = value
-                #     output_mask[rk_add, ck_add] = value
-
-                #     output_mask[r, ck_add]      = value
-                #     output_mask[r, ck_sub]      = value
 
                 src_masks[i] = output_mask
             
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc2(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc3(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc4(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc3(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc4(src=h, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
