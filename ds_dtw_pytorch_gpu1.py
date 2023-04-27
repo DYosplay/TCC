@@ -117,7 +117,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
 ###############################################################################
 
 class DsDTW(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, gamma : float, dataset_folder : str, lr : float = 0.01):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, lr : float = 0.01):
         super(DsDTW, self).__init__()
 
         # Variáveis do modelo
@@ -128,12 +128,11 @@ class DsDTW(nn.Module):
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
-        self.n_hidden = 64
+        self.n_hidden = 128
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
         self.radius = 0
-        self.gamma = gamma
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -150,39 +149,31 @@ class DsDTW(nn.Module):
         nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
-        nn.Dropout(0.1) #,
-        # nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=1, bias=True),
-        # nn.ReLU(inplace=True),
-        # nn.Dropout(0.1)
+        nn.Dropout(0.1)
         )
-        self.bn = MaskedBatchNorm1d(self.n_hidden)
+        # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        self.enc3 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        self.enc4 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.seq_pool1 = nn.Linear(self.n_hidden, self.n_hidden)
-        self.seq_pool2 = nn.Softmax()
-
-
-        self.linear = nn.Linear(self.n_hidden, 32, bias=False)
+        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
         # nn.init.kaiming_normal_(self.linear2.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
-        # nn.init.kaiming_normal_(self.cran[4].weight, a=0)
+        # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
-        # nn.init.zeros_(self.cran[4].bias)
+        # nn.init.zeros_(self.cran[3].bias)
         
         self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
-        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=self.gamma, normalize=False, bandwidth=0.1)
+        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
@@ -198,9 +189,11 @@ class DsDTW(nn.Module):
     def forward(self, x, mask):
         length = torch.sum(mask, dim=1)
 
+
+
         h = self.cran(x)
-        h = self.bn(h, length.int())
-        # h = torch.sin(h)
+        # h = self.bn(h, length.int())
+        
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
         
@@ -215,42 +208,81 @@ class DsDTW(nn.Module):
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                     output = torch.from_numpy(output).cuda()
-                    value = value.detach().cpu()
-                    value = value.cuda()
-                 
+
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                    # output_aux = torch.ones(output.shape).cuda()
+
+                    # para a lógica inversa:
+                    # output_mask = torch.ones(output.shape).cuda()
+                    # output_aux = torch.zeros(output.shape).cuda()
+
+                    # value = 1
+                    # output_mask[r, c] = value
+
+                    # # for k in range(1, len(r)):
+                    # for k in range(1, self.radius + 1):
+                    #     rk_sub = F.relu(r-k).long().cuda()
+                    #     ck_sub = F.relu(c-k).long().cuda()
+                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     output_mask[rk_sub, ck_sub] = value
+                    #     output_mask[rk_sub, c]      = value
+                    #     output_mask[rk_sub, ck_add] = value
+
+                    #     output_mask[rk_add, ck_sub] = value
+                    #     output_mask[rk_add, c]      = value
+                    #     output_mask[rk_add, ck_add] = value
+
+                    #     output_mask[r, ck_add]      = value
+                    #     output_mask[r, ck_sub]      = value
 
                     src_masks[j] = output_mask
             
-            h = self.enc1(src=h, src_key_padding_mask=(~mask.bool()))
-            h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
-            h = self.enc3(src=h, src_key_padding_mask=(~mask.bool()))
-            h = self.enc4(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            sign = h[-1]
+            sign = h[0]
 
             for i in range(len(h)):
                 value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
                 output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                 output = torch.from_numpy(output).cuda()
-                value = value.detach().cpu()
-                value = value.cuda()
 
-                output_mask =  (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                # output_aux = torch.ones(output.shape).cuda()
+
+                # para a lógica inversa:
+                # output_mask = torch.ones(output.shape).cuda()
+                # output_aux = torch.zeros(output.shape).cuda()
+
+                # value = 1
+                # output_mask[r, c] = value
+
+                # for k in range(1, self.radius + 1):
+                #     rk_sub = F.relu(r-k).long().cuda()
+                #     ck_sub = F.relu(c-k).long().cuda()
+                #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                #     output_mask[rk_sub, ck_sub] = value
+                #     output_mask[rk_sub, c]      = value
+                #     output_mask[rk_sub, ck_add] = value
+
+                #     output_mask[rk_add, ck_sub] = value
+                #     output_mask[rk_add, c]      = value
+                #     output_mask[rk_add, ck_add] = value
+
+                #     output_mask[r, ck_add]      = value
+                #     output_mask[r, ck_sub]      = value
 
                 src_masks[i] = output_mask
             
-            h = self.enc1(src=h, src_key_padding_mask=(~mask.bool()))
-            h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
-            h = self.enc3(src=h, src_key_padding_mask=(~mask.bool()))
-            h = self.enc4(src=h, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
-  
+
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
 
@@ -445,7 +477,7 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3) or i==1: 
+            if i % 5 == 0 or i > (n_epochs - 3): 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
@@ -465,7 +497,7 @@ class DsDTW(nn.Module):
         plt.cla()
         plt.clf()
 
-    def inference(self, files : str, scenario : str) -> Tuple[float, str, int]:
+    def inference(self, files : str) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
@@ -487,7 +519,7 @@ class DsDTW(nn.Module):
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
-        test_batch, lens = batches_gen.files2array(refs + [sign], scenario=scenario, developtment=CHEAT)
+        test_batch, lens = batches_gen.files2array(refs + [sign], developtment=CHEAT)
 
         mask = self.getOutputMask(lens)
         
@@ -568,10 +600,6 @@ class DsDTW(nn.Module):
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
 
-        scenario = 'stylus'
-        if 'finger' in comparison_file:
-            scenario = 'finger'
-
         file_name = (comparison_file.split(".")[0]).split(os.sep)[-1]
         print("\n\tAvaliando " + file_name)
         comparison_folder = result_folder + os.sep + file_name
@@ -580,7 +608,7 @@ class DsDTW(nn.Module):
         users = {}
 
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self.inference(line, scenario=scenario)
+            distance, user_id, true_label = self.inference(line)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
