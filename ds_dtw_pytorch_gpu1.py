@@ -133,6 +133,7 @@ class DsDTW(nn.Module):
         self.n_layers = 2
         self.batch_size = batch_size
         self.radius = 0
+        self.gamma = gamma
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -153,7 +154,8 @@ class DsDTW(nn.Module):
         ))
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        self.enc1 = torch.nn.TransformerEncoder(self.e1, 2)
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
@@ -170,7 +172,7 @@ class DsDTW(nn.Module):
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
-        # self.linear = torch.compile(self.linear)
+        self.linear = (self.linear)
         
         self.new_sdtw_fw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
@@ -239,7 +241,7 @@ class DsDTW(nn.Module):
 
                     src_masks[j] = output_mask
             
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
@@ -279,7 +281,7 @@ class DsDTW(nn.Module):
 
                 src_masks[i] = output_mask
             
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
