@@ -128,7 +128,7 @@ class DsDTW(nn.Module):
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
-        self.n_hidden = 64
+        self.n_hidden = 128
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size
@@ -154,8 +154,8 @@ class DsDTW(nn.Module):
         ))
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=32, dropout=0.1))
-        self.enc1 = torch.nn.TransformerEncoder(self.e1, 4)
+        self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        self.enc1 = torch.nn.TransformerEncoder(self.e1, 2)
 
         # self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
