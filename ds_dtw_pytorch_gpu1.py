@@ -480,7 +480,7 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3): 
+            if i % 5 == 0 or i > (n_epochs - 3) or i == 1: 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
@@ -500,7 +500,7 @@ class DsDTW(nn.Module):
         plt.cla()
         plt.clf()
 
-    def inference(self, files : str) -> Tuple[float, str, int]:
+    def inference(self, files : str, scenario : str) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
@@ -522,7 +522,7 @@ class DsDTW(nn.Module):
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
-        test_batch, lens = batches_gen.files2array(refs + [sign], developtment=CHEAT)
+        test_batch, lens = batches_gen.files2array(refs + [sign], scenario=scenario, developtment=CHEAT)
 
         mask = self.getOutputMask(lens)
         
@@ -603,6 +603,10 @@ class DsDTW(nn.Module):
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
 
+        scenario = 'stylus'
+        if 'finger' in comparison_file:
+            scenario = 'finger'
+
         file_name = (comparison_file.split(".")[0]).split(os.sep)[-1]
         print("\n\tAvaliando " + file_name)
         comparison_folder = result_folder + os.sep + file_name
@@ -611,7 +615,7 @@ class DsDTW(nn.Module):
         users = {}
 
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self.inference(line)
+            distance, user_id, true_label = self.inference(line, scenario=scenario)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
