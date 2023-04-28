@@ -154,9 +154,10 @@ class DsDTW(nn.Module):
         ))
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
-        self.enc1 = torch.nn.TransformerEncoder(self.e1, 2)
-        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        # self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        # self.enc1 = torch.nn.TransformerEncoder(self.e1, 2)
+
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
@@ -241,7 +242,8 @@ class DsDTW(nn.Module):
 
                     src_masks[j] = output_mask
             
-            h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
@@ -281,7 +283,8 @@ class DsDTW(nn.Module):
 
                 src_masks[i] = output_mask
             
-            h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
