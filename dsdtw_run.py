@@ -10,7 +10,7 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 30
 GAMMA = 5
-PARENT_FOLDER = "ds_test209"
+PARENT_FOLDER = "ds_test210"
 LEARNING_RATE = 0.01
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
@@ -108,23 +108,23 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 if __name__ == '__main__':
-    all_scenarios()
+    # all_scenarios()
 
-    # cudnn.enabled = True
-    # cudnn.benchmark = False
-    # cudnn.deterministic = True
-    # if not os.path.exists(PARENT_FOLDER):
-    #     os.mkdir(PARENT_FOLDER)
+    cudnn.enabled = True
+    cudnn.benchmark = False
+    cudnn.deterministic = True
+    if not os.path.exists(PARENT_FOLDER):
+        os.mkdir(PARENT_FOLDER)
 
-    # res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
+    res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
     # model = torch.compile(model)
 
-    # print(count_parameters(model))
+    print(count_parameters(model))
 
-    # model.cuda()
-    # model.train(mode=True)
-    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
+    model.cuda()
+    model.train(mode=True)
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
