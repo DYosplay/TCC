@@ -154,8 +154,8 @@ class DsDTW(nn.Module):
         ))
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
-        self.enc1 = torch.nn.TransformerEncoder(self.e1, 2)
+        self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=32, dropout=0.1))
+        self.enc1 = torch.nn.TransformerEncoder(self.e1, 4)
 
         # self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
@@ -483,7 +483,7 @@ class DsDTW(nn.Module):
             pbar.close()
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3) or i == 1: 
+            if i % 5 == 0 or i > (n_epochs - 3): 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
