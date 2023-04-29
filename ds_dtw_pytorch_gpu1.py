@@ -123,7 +123,7 @@ class DsDTW(nn.Module):
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
-        self.n_hidden = 128
+        self.n_hidden = 64
         self.n_in = in_channels
         self.n_layers = 2
         self.batch_size = batch_size

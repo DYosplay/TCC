@@ -10,7 +10,7 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 30
 GAMMA = 5
-PARENT_FOLDER = "ds_test213"
+PARENT_FOLDER = "ds_test214"
 LEARNING_RATE = 0.001
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
@@ -127,7 +127,7 @@ if __name__ == '__main__':
 
     res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
     model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
-    model = torch.compile(model)
+    # model = torch.compile(model)
 
     print(count_parameters(model))
 
