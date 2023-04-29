@@ -11,7 +11,7 @@ DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 50
 GAMMA = 5
 PARENT_FOLDER = "ds_test211"
-LEARNING_RATE = 0.01
+LEARNING_RATE = 0.001
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE8 = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "1vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_1vs1.txt"
