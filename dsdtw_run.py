@@ -8,10 +8,10 @@ BATCH_SIZE = 16
 FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
-N_EPOCHS = 50
+N_EPOCHS = 30
 GAMMA = 5
-PARENT_FOLDER = "ds_test211"
-LEARNING_RATE = 0.001
+PARENT_FOLDER = "ds_test212"
+LEARNING_RATE = 0.01
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE8 = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "1vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_1vs1.txt"
@@ -48,6 +48,15 @@ def validation(model : DsDTW):
 
     if not os.path.exists(PARENT_FOLDER + os.sep + "finger"): os.mkdir(PARENT_FOLDER + os.sep + "finger")
 
+    print("\nEvaluating finger scenario")
+    
+    for opt in opts:
+        path = finger_path + os.sep + opt + os.sep
+        files = os.listdir(finger_path + os.sep + opt)
+
+        for file in files:
+            model.new_evaluate(path + file, n_epoch=777, result_folder=PARENT_FOLDER)
+
     print("Evaluating stylus scenario")
     
     for opt in opts:
@@ -59,15 +68,6 @@ def validation(model : DsDTW):
 
     with open(PARENT_FOLDER + os.sep + "log.csv", "w") as fw:
         fw.write(model.buffer)
-
-    # print("\nEvaluating finger scenario")
-    
-    # for opt in opts:
-    #     path = finger_path + os.sep + opt + os.sep
-    #     files = os.listdir(finger_path + os.sep + opt)
-
-    #     for file in files:
-    #         model.evaluate(comparions_files=[path + file], n_epoch=0, result_folder=PARENT_FOLDER)
 
 def eval_all_weights(model):
     if not os.path.exists(PARENT_FOLDER + os.sep + "all_weights"):
@@ -104,27 +104,36 @@ def all_scenarios():
         model.train(mode=True)
         model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=cf, result_folder=res_folder)
 
+        model = None
+        model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=gamma)
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+        model.cuda()
+        # model = torch.compile(model)
+
+        model.train(mode=False)
+        model.eval()
+
+        validation(model)
+
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 if __name__ == '__main__':
-    # all_scenarios()
+    all_scenarios()
 
-    cudnn.enabled = True
-    cudnn.benchmark = False
-    cudnn.deterministic = True
-    if not os.path.exists(PARENT_FOLDER):
-        os.mkdir(PARENT_FOLDER)
+    # cudnn.enabled = True
+    # cudnn.benchmark = False
+    # cudnn.deterministic = True
 
-    res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
+    # res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
+    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
     # model = torch.compile(model)
 
-    print(count_parameters(model))
+    # print(count_parameters(model))
 
-    model.cuda()
-    model.train(mode=True)
-    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
+    # model.cuda()
+    # model.train(mode=True)
+    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
