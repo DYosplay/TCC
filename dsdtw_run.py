@@ -8,9 +8,9 @@ BATCH_SIZE = 16
 FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
-N_EPOCHS = 30
+N_EPOCHS = 100
 GAMMA = 5
-PARENT_FOLDER = "ds_test214"
+PARENT_FOLDER = "ds_test215"
 LEARNING_RATE = 0.001
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
