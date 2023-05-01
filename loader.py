@@ -12,6 +12,164 @@ import pandas as pd
 from scipy.stats import zscore
 from scipy import signal
 
+###################################
+import dtw_cuda
+import torch
+import scipy.signal as ssg
+from typing import List
+
+def resample(sequences:List[npt.ArrayLike], L : int) -> List[npt.ArrayLike]:
+    """ Trunca todas as sequencias para que tenham até tamanho L
+
+    Args:
+        sequences (List[npt.ArrayLike]): sequências a serem truncadas
+        L (int): número de pontos
+
+    Returns:
+        npt.ArrayLike: sequências truncadas
+    """
+    result = []
+    for seq in sequences:
+        temp = []
+        for s in seq:
+            temp.append(ssg.resample(s, L))
+        # for i in range(0, len(seq)):
+        #     temp.append(seq[i][:L])
+        
+        result.append(temp)
+
+    return result
+
+def traceback2(acc_cost_matrix ):
+        """ Encontra a path (matching) dado uma matriz de custo acumulado obtida a partir do cálculo do DTW.
+        Args:
+            acc_cost_matrix (npt.DTypeLike): matriz de custo acumulado obtida a partir do cálculo do DTW.
+
+        Returns:
+            Tuple[npt.ArrayLike, npt.ArrayLike]: coordenadas ponto a ponto referente a primeira e segunda sequência utilizada no cálculo do DTW.
+        """
+        # acc_cost_matrix = np.transpose(acc_cost_matrix)
+        rows, columns = np.shape(acc_cost_matrix)
+        rows-=1
+        columns-=1
+
+        r = [rows]
+        c = [columns]
+
+        while rows != 0 or columns != 0:
+            aux = {}
+            if rows-1 >= 0: aux[acc_cost_matrix[rows -1][columns]] = (rows - 1, columns)
+            if columns-1 >= 0: aux[acc_cost_matrix[rows][columns-1]] = (rows, columns - 1)
+            if rows-1 >= 0 and columns-1 >= 0: aux[acc_cost_matrix[rows -1][columns-1]] = (rows -1, columns - 1)
+            key = min(aux.keys())
+        
+            rows, columns = aux[key]
+
+            r.insert(0, rows)
+            c.insert(0, columns)
+        
+        return np.array(r), np.array(c)
+
+def eb_dba(sequences: List[npt.ArrayLike], distance_measure : str = 'cityblock', timestamp_coord : int = 2) -> npt.ArrayLike:
+    """ Calcula a sequência média entre as sequências de entrada usando EB-DBA.
+
+    Args:
+        sequences (List[npt.ArrayLike]): K listas de sequências temporais. Dentro de cada lista se encontra a sequência referente a uma feature da sequência temporal.
+        Exemplo:
+            seq1 = [ [x1], [y1] ]
+            seq2 = [ [x2], [y2] ]
+            sequences = [ seq1, seq2 ] 
+            Nesse caso, o objetivo é calcular o EB-DBA entre as sequências seq1 e seq2 usando DTW dependente com as variáveis x e y das sequências.
+            Caso seq1 e seq2 tivessem apenas um elemento, seria o mesmo que calcular o DTW independente.
+
+        distance_measure (str, optional): medida de distância no cálculo do DTW. Defaults to 'cityblock'.
+        timestamp_coord (int, optional): indice do conjunto de variáveis onde se encontra o timestamp.
+
+    Returns:
+        npt.ArrayLike: EB-DBA entre as sequências
+    """
+
+    dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
+
+    # 1) Calcula tamanho médio das sequências
+    L = 0
+    K = len(sequences)
+    L_min = len(sequences[0][0])
+    for seq in sequences:
+        # validação
+        for var in seq:
+            if len(seq[0]) != len(var):
+                raise ValueError("As sequências possuem tamanhos diferentes entre as variáveis")
+        
+        L += len(seq[0])
+        L_min = min(L_min, len(seq[0]))
+    
+    L /= len(sequences)
+   
+    # 2) Resample das frequências usando interpolação linear
+    # como não sei como fazer isso, vou truncar as sequências para a menor que tiver
+    L = L_min
+    seqs = resample(sequences, L)
+    #print("seqs:\n", seqs)
+    # 3) Calcula A_EB
+    # seqs : List[npt.ArrayLike]
+    a_eb = sum(np.array(seqs))/len(seqs)  # media element wise de seqs
+    #print("a_eb:\n", a_eb)
+    # 4) Calcula A_EB-DBA
+    max_t = 1
+    calculated_eb_dba = a_eb
+
+    for t in range(0, max_t):
+       
+        #l_list = []
+        #n_list = []
+        # Para cada assinatura
+        for seq in seqs:
+            x = torch.from_numpy(calculated_eb_dba).cuda().transpose(0,1)
+            y = torch.from_numpy(np.array(seq)).cuda().transpose(0,1)
+            _, path = dtw(x[None,], y[None,])
+            path = path[0][1:path.shape[1]-1, 1:path.shape[1]-1].detach().cpu().numpy()
+            
+            # path são duas listas
+            l_list, n_list = traceback2(path)
+            if len(l_list) != len(n_list):
+                raise ValueError("As listas L e N têm tamanhos diferentes!")
+
+            new_seq = []
+            
+            for feature_index in range(0, len(seq)):
+                temp = {}
+
+                for i in range(0, len(l_list)):
+                    l = l_list[i]
+                    n = n_list[i]
+
+                    if l not in temp:
+                        temp[l] = [seq[feature_index][n]]
+                    else:
+                        temp[l].append(seq[feature_index][n])   # esse append deveria ser União
+
+                new_seq.append(temp)
+            
+            new_a_eb_dba = []
+            for feature_index in range(0, len(seq)):
+                aux = []
+                for i in range(0, L):
+                    
+                    if i not in new_seq[feature_index]:
+                        aux.append(0)
+                    else:
+                        val = np.mean(np.array(new_seq[feature_index][i]))
+                        aux.append(val)
+
+                aux = np.array(aux).reshape(-1, 1)
+                new_a_eb_dba.append(aux)
+
+        calculated_eb_dba = new_a_eb_dba
+             
+    return np.array(calculated_eb_dba).reshape(12,L)
+
+#################################
 class butterLPFilter(object):
     """docstring for butterLPFilter"""
     def __init__(self, highcut=10.0, fs=100.0, order=3):
