@@ -34,8 +34,10 @@ def files2array(batch, scenario : str, developtment : bool):
         lens.append(len(feat[0]))
 
     if developtment:
-        features = data[:5]
-        m = min(lens[:5])
+        feat = loader.get_features(batch[0], scenario=scenario, development=developtment)
+        
+        features = [feat] + data[:5]
+        m = min(lens[:5] + [len(feat[0])])
 
         ebdba = loader.eb_dba(features) 
     
