@@ -20,8 +20,8 @@ def get_files(dataset_folder : str = "Data/DeepSignDB/Development/stylus"):
 def files2array(batch, scenario : str, developtment : bool):
     data = []; lens = []
 
-    if developtment:
-        batch = batch[1:]
+    # if developtment:
+    #     batch = batch[1:]
 
     for file in batch:
         if developtment == False: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file
@@ -33,12 +33,12 @@ def files2array(batch, scenario : str, developtment : bool):
         data.append(feat)
         lens.append(len(feat[0]))
 
-    if developtment:
+    # if developtment:
     
-        ebdba = loader.get_eb_dba(batch[:6], scenario=scenario, development=developtment)            
+    #     ebdba = loader.get_eb_dba(batch[:6], scenario=scenario, development=developtment)            
 
-        data.insert(0, ebdba)
-        lens.insert(0, len(ebdba[0]))
+    #     data.insert(0, ebdba)
+    #     lens.insert(0, len(ebdba[0]))
 
     max_size = max(lens)
 
