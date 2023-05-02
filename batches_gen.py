@@ -34,15 +34,11 @@ def files2array(batch, scenario : str, developtment : bool):
         lens.append(len(feat[0]))
 
     if developtment:
-        feat = loader.get_features(batch[0], scenario=scenario, development=developtment)
-        
-        features = [feat] + data[:5]
-        m = min(lens[:5] + [len(feat[0])])
-
-        ebdba = loader.eb_dba(features) 
     
+        ebdba = loader.get_eb_dba(batch[:6], scenario=scenario, development=developtment)            
+
         data.insert(0, ebdba)
-        lens.insert(0, m)
+        lens.insert(0, len(ebdba[0]))
 
     max_size = max(lens)
 

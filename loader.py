@@ -12,11 +12,23 @@ import pandas as pd
 from scipy.stats import zscore
 from scipy import signal
 
+import random
+
 ###################################
 import dtw_cuda
 import torch
 import scipy.signal as ssg
 from typing import List
+
+################################
+EBIOSIGN1_DS1 = 0
+EBIOSIGN1_DS2 = 1
+MCYT = 3
+BIOSECUR_ID = 4
+BIOSECURE_DS2 = 5
+UNDEFINED = -1
+
+###############################
 
 def resample(sequences:List[npt.ArrayLike], L : int) -> List[npt.ArrayLike]:
     """ Trunca todas as sequencias para que tenham até tamanho L
@@ -70,6 +82,58 @@ def traceback2(acc_cost_matrix ):
         
         return np.array(r), np.array(c)
 
+def generate_basic_features(input_file : str, scenario : str, database : Literal):
+    df = None
+    if database == MCYT:
+        df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
+    elif database == EBIOSIGN1_DS1 or database == EBIOSIGN1_DS2:
+        df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "P"])
+    elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
+        df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
+
+    return np.array([np.array(df['X']), np.array(df['Y']), np.array(df['P'])])
+
+def get_eb_dba(files : List[str], scenario : str, development : bool = True):
+    user_id = int(((files[0].split(os.sep)[-1]).split("_")[0]).split("u")[-1])
+    database = get_database(user_id = user_id, scenario=scenario, development=development)
+    
+    feat = []
+    for file in files:
+        feat.append(generate_basic_features(file, scenario, database))
+
+    features = eb_dba(feat)
+
+    x = bf(features[0])[:8000]
+    y = bf(features[1])[:8000]
+    p = bf(features[2])[:8000]
+
+    x1, y1 = normalize_x_and_y(x, y)
+
+    #result = [x1,y1, zscore(p)]
+    result = [x1,y1]
+    
+    ####################################
+    dx = diff(x)
+    dy = diff(y)
+    # theta = np.arctan2(dy, dx)
+    v = np.sqrt(dx**2+dy**2)
+    theta = np.arctan2(dy, dx)
+    cos = np.cos(theta)
+    sin = np.sin(theta)
+    dv = diff(v)
+    dtheta = np.abs(diffTheta(theta))
+    logCurRadius = np.log((v+0.05) / (dtheta+0.05))
+    dv2 = np.abs(v*dtheta)
+    totalAccel = np.sqrt(dv**2 + dv2**2)
+    c = v * dtheta
+    
+    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    for f in features:
+        result.append(zscore(f))
+
+    return np.array(result)
+
+
 def eb_dba(sequences: List[npt.ArrayLike], distance_measure : str = 'cityblock', timestamp_coord : int = 2) -> npt.ArrayLike:
     """ Calcula a sequência média entre as sequências de entrada usando EB-DBA.
 
@@ -104,11 +168,11 @@ def eb_dba(sequences: List[npt.ArrayLike], distance_measure : str = 'cityblock',
         L += len(seq[0])
         L_min = min(L_min, len(seq[0]))
     
-    L /= len(sequences)
+    L //= len(sequences)
    
     # 2) Resample das frequências usando interpolação linear
     # como não sei como fazer isso, vou truncar as sequências para a menor que tiver
-    L = L_min
+    # L = L_min
     seqs = resample(sequences, L)
     #print("seqs:\n", seqs)
     # 3) Calcula A_EB
@@ -167,7 +231,7 @@ def eb_dba(sequences: List[npt.ArrayLike], distance_measure : str = 'cityblock',
 
         calculated_eb_dba = new_a_eb_dba
              
-    return np.array(calculated_eb_dba).reshape(12,L)
+    return np.array(calculated_eb_dba).reshape(3,L)
 
 #################################
 class butterLPFilter(object):
@@ -336,13 +400,6 @@ def pre_process(input_file : str, output_file : str, database : Literal):
     fd.write(buffer)
     fd.close()
 
-EBIOSIGN1_DS1 = 0
-EBIOSIGN1_DS2 = 1
-MCYT = 3
-BIOSECUR_ID = 4
-BIOSECURE_DS2 = 5
-UNDEFINED = -1
-
 def get_database(user_id : int, scenario : str, development : bool) -> Literal:
     database = UNDEFINED
 
@@ -387,59 +444,132 @@ def get_features(file_name : str, scenario : str, development : bool = True):
     database = get_database(user_id = user_id, scenario=scenario, development=development)
     return generate_features(file_name, scenario, database)
 
+### augmentation
+def get_files(dataset_folder : str):
+    files = os.listdir(dataset_folder)
+    users = {}
+    for file in files:
+        tokens = file.split('_')
+        key = tokens[0] + tokens[1]
+        if key in users:
+            users[key].append(dataset_folder + os.sep + file)
+        else:
+            users[key] = [dataset_folder + os.sep + file]
+
+    return users
+
+def generate_file(folder : str, user : int, sign_state: str, total : int, n_templates : int):
+    """_summary_
+
+    Args:
+        folder (str): pasta que contém o dataset que passará pela augmentation
+        user (int): número do usuário passando pelo processamento
+        sign_state (str): 's' para falsificação e 'g' para original
+        total (int): total de assinaturas daquele usuário consdierando a condição (genuina ou falsificação) da assinatura
+        n_templates (int): números de assinaturas usadas para cada ebdba
+    """
+    scenario = "stylus"
+    database = get_database(user, scenario=scenario, development=True)
+
+    signs = random.sample(list(range(0,total)), total)
+    users = get_files(folder)
+
+    for i in range(0, total+1, n_templates):
+
+        file_name = ''
+        if database == MCYT:
+            file_name = 'u' + f'{user:04d}' + '_' + sign_state + '_' + f'{100 + i:04d}' + 'v' + f'{total + i//n_templates:02d}' + '.txt'
+        if database == BIOSECUR_ID:
+            file_name = 'u' + f'{user:04d}' + '_' + sign_state + '_u' + f'{100 + i:04d}' + 's0005_sg' + f'{total + i//n_templates:04d}' + '.txt'
+        if database == EBIOSIGN1_DS1:
+            file_name = 'u' + f'{user:04d}' + '_' + sign_state + '_u' + f'{100 + i:03d}' + '_s3_aug_' + f'{total + i//n_templates:03d}' + '.txt'
+        if database == EBIOSIGN1_DS2:
+            file_name = 'u' + f'{user:04d}' + '_' + sign_state + '_u' + f'{100 + i:03d}' + '_s3_aug_' + f'{total + i//n_templates:03d}' + '.txt'
+          
+        signatures = np.array(users['u'+f'{user:04d}' + sign_state])[signs[i:i+n_templates]]
+
+        features = []
+        for s in signatures:
+            features.append(get_features(s, scenario=scenario))
+        # features = np.array(features)
+        new_sign = eb_dba(features)
+        df = pd.DataFrame(new_sign)
+        df.to_csv(folder + os.sep + file_name, header=(str(len(new_sign[0]))), index=None, sep=' ', mode='a')
+
+def augmentation(folder : str = "Data/DeepSignDB_Aug/Development/stylus"):
+    scenario = 'stylus'
+    users = list(range(1, 499)) + list(range(1009, 1085))
+    
+    for user in tqdm(users): 
+        database = get_database(user, scenario=scenario, development=True)
+        if database == MCYT:
+            generate_file(folder, user, 'g', 25, 5)
+            generate_file(folder, user, 's', 25, 5)
+        elif database == BIOSECUR_ID:
+            generate_file(folder, user, 'g', 16, 4)
+            generate_file(folder, user, 's', 12, 4)
+        elif database == EBIOSIGN1_DS1 or database == EBIOSIGN1_DS2:
+            generate_file(folder, user, 'g', 8, 4)
+            generate_file(folder, user, 's', 6, 3)
+
+
+
+
 
 
 # if __name__ == '__main__':
-#     DEVELOPMENT = ["DeepSignDB/Development/finger", "DeepSignDB/Development/stylus"]
-#     EVALUATION  = ["DeepSignDB/Evaluation/finger", "DeepSignDB/Evaluation/stylus"]
+    # augmentation()
+    # DEVELOPMENT = ["DeepSignDB/Development/finger", "DeepSignDB/Development/stylus"]
+    # EVALUATION  = ["DeepSignDB/Evaluation/finger", "DeepSignDB/Evaluation/stylus"]
+    # # DEVELOPMENT = ["DeepSignDB/Development/stylus"]
     
-#     for folder in DEVELOPMENT:
-#         print("\n\tWorking on: " + folder)
-#         if not os.path.exists("PreProcessed" + os.sep + folder):
-#             os.makedirs("PreProcessed" + os.sep + folder)
+    # for folder in DEVELOPMENT:
+    #     print("\n\tWorking on: " + folder)
+    #     if not os.path.exists("Augmented" + os.sep + folder):
+    #         os.makedirs("Augmented" + os.sep + folder)
         
-#         files = os.listdir(folder)
+    #     files = os.listdir(folder)
 
-#         for file in tqdm(files):
-#             input_file  = folder + os.sep + file
-#             output_file = "PreProcessed" + os.sep + input_file
-#             user_id = int((file.split("_")[0]).split("u")[-1])
+    #     for file in tqdm(files):
+    #         input_file  = folder + os.sep + file
+    #         output_file = "PreProcessed" + os.sep + input_file
+    #         user_id = int((file.split("_")[0]).split("u")[-1])
 
-#             database = UNDEFINED
-#             if user_id >= 1009 and user_id <= 1038:
-#                 database = EBIOSIGN1_DS1
-#             elif user_id >= 1039 and user_id <= 1084:
-#                 database = EBIOSIGN1_DS2
-#             elif user_id >= 1 and user_id <= 230:
-#                 database = MCYT
-#             elif user_id >= 231 and user_id <= 498:
-#                 database = BIOSECUR_ID
+    #         database = UNDEFINED
+    #         if user_id >= 1009 and user_id <= 1038:
+    #             database = EBIOSIGN1_DS1
+    #         elif user_id >= 1039 and user_id <= 1084:
+    #             database = EBIOSIGN1_DS2
+    #         elif user_id >= 1 and user_id <= 230:
+    #             database = MCYT
+    #         elif user_id >= 231 and user_id <= 498:
+    #             database = BIOSECUR_ID
 
-#             pre_process(input_file, output_file, database)
+    #         pre_process(input_file, output_file, database)
 
 
-#     for folder in EVALUATION:
-#         print("\n\tWorking on: " + folder)
-#         if not os.path.exists("PreProcessed" + os.sep + folder):
-#             os.makedirs("PreProcessed" + os.sep + folder)
+    # for folder in EVALUATION:
+    #     print("\n\tWorking on: " + folder)
+    #     if not os.path.exists("PreProcessed" + os.sep + folder):
+    #         os.makedirs("PreProcessed" + os.sep + folder)
         
-#         files = os.listdir(folder)
+    #     files = os.listdir(folder)
 
-#         for file in tqdm(files):
-#             input_file  = folder + os.sep + file
-#             output_file = "PreProcessed" + os.sep + input_file
-#             user_id = int((file.split("_")[0]).split("u")[-1])
+    #     for file in tqdm(files):
+    #         input_file  = folder + os.sep + file
+    #         output_file = "PreProcessed" + os.sep + input_file
+    #         user_id = int((file.split("_")[0]).split("u")[-1])
 
-#             database = UNDEFINED
-#             if user_id >= 373 and user_id <= 407:
-#                 database = EBIOSIGN1_DS1
-#             elif user_id >= 408 and user_id <= 442:
-#                 database = EBIOSIGN1_DS2
-#             elif user_id >= 1 and user_id <= 100:
-#                 database = MCYT
-#             elif user_id >= 101 and user_id <= 232:
-#                 database = BIOSECUR_ID
-#             elif user_id >= 233 and user_id <= 372:
-#                 database = BIOSECURE_DS2
+    #         database = UNDEFINED
+    #         if user_id >= 373 and user_id <= 407:
+    #             database = EBIOSIGN1_DS1
+    #         elif user_id >= 408 and user_id <= 442:
+    #             database = EBIOSIGN1_DS2
+    #         elif user_id >= 1 and user_id <= 100:
+    #             database = MCYT
+    #         elif user_id >= 101 and user_id <= 232:
+    #             database = BIOSECUR_ID
+    #         elif user_id >= 233 and user_id <= 372:
+    #             database = BIOSECURE_DS2
 
-#             pre_process(input_file, output_file, database)
+    #         pre_process(input_file, output_file, database)
