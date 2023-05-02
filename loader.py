@@ -20,6 +20,9 @@ import torch
 import scipy.signal as ssg
 from typing import List
 
+import warnings
+warnings.filterwarnings("ignore")
+
 ################################
 EBIOSIGN1_DS1 = 0
 EBIOSIGN1_DS2 = 1
@@ -91,30 +94,29 @@ def generate_basic_features(input_file : str, scenario : str, database : Literal
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    return np.array([np.array(df['X']), np.array(df['Y']), np.array(df['P'])])
+    return np.array(df['X']), np.array(df['Y']), np.array(df['P'])
 
-def get_eb_dba(files : List[str], scenario : str, development : bool = True):
+def get_eb_dba(files : List[str], scenario : str, development : bool = True, pre_process : bool = False):
     user_id = int(((files[0].split(os.sep)[-1]).split("_")[0]).split("u")[-1])
     database = get_database(user_id = user_id, scenario=scenario, development=development)
     
     feat = []
     for file in files:
-        feat.append(generate_basic_features(file, scenario, database))
+        x,y,p = generate_basic_features(file, scenario, database)
+        x1, y1 = normalize_x_and_y(x, y)
+        feat.append([x1, y1, zscore(p)])
 
     features = eb_dba(feat)
 
-    x = bf(features[0])[:8000]
-    y = bf(features[1])[:8000]
-    p = bf(features[2])[:8000]
+    x1 = features[0][:8000]
+    y1 = features[1][:8000]
+    p = features[2][:8000]
 
-    x1, y1 = normalize_x_and_y(x, y)
-
-    #result = [x1,y1, zscore(p)]
     result = [x1,y1]
     
     ####################################
-    dx = diff(x)
-    dy = diff(y)
+    dx = diff(x1)
+    dy = diff(y1)
     # theta = np.arctan2(dy, dx)
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
@@ -127,7 +129,13 @@ def get_eb_dba(files : List[str], scenario : str, development : bool = True):
     totalAccel = np.sqrt(dv**2 + dv2**2)
     c = v * dtheta
     
-    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    features = [v, theta, cos, sin]
+    for f in features:
+        result.append(zscore(f))
+
+    result.append(p)
+    
+    features = [dv, dtheta, logCurRadius, c, totalAccel]
     for f in features:
         result.append(zscore(f))
 
@@ -488,14 +496,23 @@ def generate_file(folder : str, user : int, sign_state: str, total : int, n_temp
           
         signatures = np.array(users['u'+f'{user:04d}' + sign_state])[signs[i:i+n_templates]]
 
-        features = []
-        for s in signatures:
-            features.append(get_features(s, scenario=scenario))
-        # features = np.array(features)
-        new_sign = eb_dba(features)
-        df = pd.DataFrame(new_sign)
-        df.to_csv(folder + os.sep + file_name, header=(str(len(new_sign[0]))), index=None, sep=' ', mode='a')
+        features = get_eb_dba(signatures, scenario=scenario, development=True)
 
+        buffer = str(len(features[0])) + '\n'
+
+        if database == MCYT:
+            uk = " 0 0 0 "
+        elif database == EBIOSIGN1_DS1 or database == EBIOSIGN1_DS2:
+            uk = " 0 "
+        elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
+            uk = " 0 0 0 0 "
+
+        for i in range(len(features[0])):
+            buffer += str(features[0][i]) + " " + str(features[1][i]) + uk + str(features[2][i]) +'\n'
+
+        with open(folder + os.sep + file_name, 'w') as fw:
+            fw.write(buffer)
+        
 def augmentation(folder : str = "Data/DeepSignDB_Aug/Development/stylus"):
     scenario = 'stylus'
     users = list(range(1, 499)) + list(range(1009, 1085))
@@ -517,8 +534,8 @@ def augmentation(folder : str = "Data/DeepSignDB_Aug/Development/stylus"):
 
 
 
-# if __name__ == '__main__':
-    # augmentation()
+if __name__ == '__main__':
+    augmentation()
     # DEVELOPMENT = ["DeepSignDB/Development/finger", "DeepSignDB/Development/stylus"]
     # EVALUATION  = ["DeepSignDB/Evaluation/finger", "DeepSignDB/Evaluation/stylus"]
     # # DEVELOPMENT = ["DeepSignDB/Development/stylus"]
