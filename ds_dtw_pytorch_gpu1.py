@@ -142,7 +142,7 @@ class DsDTW(nn.Module):
 
         # Definição da rede
         self.cran  = (nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=8, stride=1, padding=4, bias=True),
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
@@ -392,8 +392,8 @@ class DsDTW(nn.Module):
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
-        # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /((len_x + len_y))
+        # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /((len_x + len_y))
         
         #usando fastdtw
         # d, _ = fastdtw(x[:int(len_x)].cpu().detach().numpy(), y[:int(len_y)].cpu().detach().numpy(), dist=2, radius=2)
