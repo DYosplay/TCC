@@ -220,32 +220,7 @@ class DsDTW(nn.Module):
                     output = torch.from_numpy(output).cuda()
 
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                    # output_aux = torch.ones(output.shape).cuda()
-
-                    # para a lógica inversa:
-                    # output_mask = torch.ones(output.shape).cuda()
-                    # output_aux = torch.zeros(output.shape).cuda()
-
-                    # value = 1
-                    # output_mask[r, c] = value
-
-                    # # for k in range(1, len(r)):
-                    # for k in range(1, self.radius + 1):
-                    #     rk_sub = F.relu(r-k).long().cuda()
-                    #     ck_sub = F.relu(c-k).long().cuda()
-                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     output_mask[rk_sub, ck_sub] = value
-                    #     output_mask[rk_sub, c]      = value
-                    #     output_mask[rk_sub, ck_add] = value
-
-                    #     output_mask[rk_add, ck_sub] = value
-                    #     output_mask[rk_add, c]      = value
-                    #     output_mask[rk_add, ck_add] = value
-
-                    #     output_mask[r, ck_add]      = value
-                    #     output_mask[r, ck_sub]      = value
-
+                  
                     src_masks[j] = output_mask
             
             # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
@@ -262,31 +237,7 @@ class DsDTW(nn.Module):
                 output = torch.from_numpy(output).cuda()
 
                 output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                # output_aux = torch.ones(output.shape).cuda()
-
-                # para a lógica inversa:
-                # output_mask = torch.ones(output.shape).cuda()
-                # output_aux = torch.zeros(output.shape).cuda()
-
-                # value = 1
-                # output_mask[r, c] = value
-
-                # for k in range(1, self.radius + 1):
-                #     rk_sub = F.relu(r-k).long().cuda()
-                #     ck_sub = F.relu(c-k).long().cuda()
-                #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     output_mask[rk_sub, ck_sub] = value
-                #     output_mask[rk_sub, c]      = value
-                #     output_mask[rk_sub, ck_add] = value
-
-                #     output_mask[rk_add, ck_sub] = value
-                #     output_mask[rk_add, c]      = value
-                #     output_mask[rk_add, ck_add] = value
-
-                #     output_mask[r, ck_add]      = value
-                #     output_mask[r, ck_sub]      = value
-
+            
                 src_masks[i] = output_mask
             
             # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
@@ -392,8 +343,8 @@ class DsDTW(nn.Module):
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
-        # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+        # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /((len_x + len_y))
         
         #usando fastdtw

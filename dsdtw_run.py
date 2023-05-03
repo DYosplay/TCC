@@ -111,11 +111,31 @@ def all_scenarios():
         for file in eval:
             model.new_evaluate(file, 119, result_folder=res_folder)
 
+def eval_all_scenarios():
+    cudnn.enabled = True
+    cudnn.benchmark = False
+    cudnn.deterministic = True
+
+    gammas = [0.1, 1, 5, 10]
+    eval = [FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10]
+    cf = [FILE]
+    for gamma in gammas:
+        res_folder = PARENT_FOLDER + "_gamma_" + str(gamma)
+        model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), gamma=gamma, dataset_folder=DATASET_FOLDER)
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+        model.cuda()
+
+        model.train(mode=False)
+        model.eval()
+
+        for file in eval:
+            model.new_evaluate(file, 200, result_folder=res_folder)
+
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 if __name__ == '__main__':
-    all_scenarios()
+    eval_all_scenarios()
 
     # cudnn.enabled = True
     # cudnn.benchmark = False
