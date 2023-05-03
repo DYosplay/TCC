@@ -361,7 +361,7 @@ def generate_features(input_file : str, scenario : str, database : Literal):
 
     return np.array(result)
 
-def pre_process(input_file : str, output_file : str, database : Literal):
+def pre_process(input_file : str, output_file : str, scenario : str, database : Literal):
     df = None
     if database == MCYT:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
@@ -370,17 +370,21 @@ def pre_process(input_file : str, output_file : str, database : Literal):
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    x = np.array(df['X'])
-    y = np.array(df['Y'])
-    p = np.array(df['P'])
+    p = bf(np.array(df['P']))[:8000]
+    x = bf(np.array(df['X']))[:8000]
+    y = bf(np.array(df['Y']))[:8000]
+
+    if scenario=='finger' : p = np.ones(x.shape) #* 255
+
+    # x1, y1 = normalize_x_and_y(x, y)
+
+    #result = [x1,y1, zscore(p)]
+    result = [zscore(x),zscore(y)]
     
+    ####################################
     dx = diff(x)
     dy = diff(y)
-    features = [x,y]
-    
-    # ele calcula o theta com as derivadas
-    # theta = np.arctan2(y, x)
-    theta = np.arctan2(dy, dx)
+    # theta = np.arctan2(dy, dx)
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
     cos = np.cos(theta)
@@ -391,18 +395,31 @@ def pre_process(input_file : str, output_file : str, database : Literal):
     dv2 = np.abs(v*dtheta)
     totalAccel = np.sqrt(dv**2 + dv2**2)
     c = v * dtheta
+    
+    if scenario=='finger': 
+        features = [v, theta, cos, sin] 
+        features2 = [dv, dtheta, logCurRadius, c, totalAccel]
 
-    features += [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+        for f in features:
+            result.append(zscore(f))
+        result.append(p)
+        for f in features2:
+            result.append(zscore(f))
+    
+    else: 
 
-    result = []
-
-    for f in features:
-        result.append(zscore(f))
+        features= np.array([v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel])
+        features = ((features.transpose() - np.mean(features, axis=1)) / np.std(features, axis=1)).transpose()
+        for f in features:
+            result.append(f)
+            # result.append(zscore(f,axis=1))
 
     buffer = str(len(result[0])) + "\n"
 
+    sep = ', '
+
     for i in range(0, len(result[0])):
-        buffer += str(result[0][i]) + " " + str(result[1][i]) + " " + str(result[2][i]) + " " + str(result[3][i]) + " " +str(result[4][i]) + " " +str(result[5][i]) + " " +str(result[6][i]) + " " +str(result[7][i]) + " " +str(result[8][i]) + " " +str(result[9][i]) + " " +str(result[10][i]) + " " +str(result[11][i]) + "\n"
+        buffer += str(result[0][i]) + sep + str(result[1][i]) + sep + str(result[2][i]) + sep + str(result[3][i]) + sep +str(result[4][i]) + sep +str(result[5][i]) + sep +str(result[6][i]) + sep +str(result[7][i]) + sep +str(result[8][i]) + sep +str(result[9][i]) + sep +str(result[10][i]) + sep +str(result[11][i]) + "\n"
 
     fd = open(output_file, "w")
     fd.write(buffer)
@@ -535,34 +552,36 @@ def augmentation(folder : str = "Data/DeepSignDB_Aug/Development/stylus"):
 
 
 if __name__ == '__main__':
-    augmentation()
+    # augmentation()
+    FOLDER = ["Data/Data Investigation/datasetnp78"]
+
     # DEVELOPMENT = ["DeepSignDB/Development/finger", "DeepSignDB/Development/stylus"]
     # EVALUATION  = ["DeepSignDB/Evaluation/finger", "DeepSignDB/Evaluation/stylus"]
     # # DEVELOPMENT = ["DeepSignDB/Development/stylus"]
     
-    # for folder in DEVELOPMENT:
-    #     print("\n\tWorking on: " + folder)
-    #     if not os.path.exists("Augmented" + os.sep + folder):
-    #         os.makedirs("Augmented" + os.sep + folder)
+    for folder in FOLDER:
+        print("\n\tWorking on: " + folder)
+        if not os.path.exists("Data/Data Investigation/PreProcessed" + os.sep + folder):
+            os.makedirs("Data/Data Investigation/PreProcessed" + os.sep + folder)
         
-    #     files = os.listdir(folder)
+        files = os.listdir(folder)
 
-    #     for file in tqdm(files):
-    #         input_file  = folder + os.sep + file
-    #         output_file = "PreProcessed" + os.sep + input_file
-    #         user_id = int((file.split("_")[0]).split("u")[-1])
+        for file in tqdm(files):
+            input_file  = folder + os.sep + file
+            output_file = "Data/Data Investigation/PreProcessed" + os.sep + input_file + '.csv'
+            user_id = int((file.split("_")[0]).split("u")[-1])
 
-    #         database = UNDEFINED
-    #         if user_id >= 1009 and user_id <= 1038:
-    #             database = EBIOSIGN1_DS1
-    #         elif user_id >= 1039 and user_id <= 1084:
-    #             database = EBIOSIGN1_DS2
-    #         elif user_id >= 1 and user_id <= 230:
-    #             database = MCYT
-    #         elif user_id >= 231 and user_id <= 498:
-    #             database = BIOSECUR_ID
+            database = UNDEFINED
+            if user_id >= 1009 and user_id <= 1038:
+                database = EBIOSIGN1_DS1
+            elif user_id >= 1039 and user_id <= 1084:
+                database = EBIOSIGN1_DS2
+            elif user_id >= 1 and user_id <= 230:
+                database = MCYT
+            elif user_id >= 231 and user_id <= 498:
+                database = BIOSECUR_ID
 
-    #         pre_process(input_file, output_file, database)
+            pre_process(input_file, output_file, 'stylus', database)
 
 
     # for folder in EVALUATION:
