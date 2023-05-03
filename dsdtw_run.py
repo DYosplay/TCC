@@ -135,21 +135,21 @@ def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 if __name__ == '__main__':
-    eval_all_scenarios()
+    # eval_all_scenarios()
 
-    # cudnn.enabled = True
-    # cudnn.benchmark = False
-    # cudnn.deterministic = True
+    cudnn.enabled = True
+    cudnn.benchmark = False
+    cudnn.deterministic = True
 
-    # res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
-    # # model = torch.compile(model)
+    res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
+    model = torch.compile(model)
 
     # print(count_parameters(model))
 
-    # model.cuda()
-    # model.train(mode=True)
-    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
+    model.cuda()
+    model.train(mode=True)
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
