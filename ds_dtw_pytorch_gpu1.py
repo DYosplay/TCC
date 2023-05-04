@@ -307,19 +307,19 @@ class DsDTW(nn.Module):
 
             # aa = self.new_sdtw(anchor[None, :int(len_a)], anchor[None, :int(len_a)])
             '''Average_Pooling_2,4,6'''
-            for i in range(len(positives)):
-                dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
-                dists[i] = dist_g[i].item()
-                label[i] = 0
+            for j in range(len(positives)):
+                dist_g[j] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists[i * (step-1) + j] = dist_g[j].item()
+                label[i * (step-1) + j] = 0
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
                 # dist_g[i] = (ap - (0.5 * (aa+pp))) / (len_a + len_p[i])
 
-            for i in range(len(negatives)):
-                dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
-                dists[i+len(positives)] = dist_n[i].item()
-                label[i] = 1
+            for j in range(len(negatives)):
+                dist_n[j] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists[i * (step-1) + j + len(positives)] = dist_n[j].item()
+                label[i * (step-1) + j + len(positives)] = 1
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
