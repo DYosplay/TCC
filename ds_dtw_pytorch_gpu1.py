@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 1.0
+        self.margin = 0.3
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -346,9 +346,9 @@ class DsDTW(nn.Module):
         
         total_loss /= self.nw
 
-        eer, th = self.get_eer(label, dists)
+        #eer, th = self.get_eer(label, dists)
 
-        return total_loss + eer
+        return total_loss #+ eer
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
