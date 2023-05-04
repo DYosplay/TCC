@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 2
+        self.margin = 1
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -129,6 +129,11 @@ class DsDTW(nn.Module):
         self.batch_size = batch_size
         self.radius = 0
         self.gamma = gamma
+
+        # variáveis para a loss
+        self.scores = []
+        self.labels = []
+
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -290,10 +295,10 @@ class DsDTW(nn.Module):
         l    = 0
         total_loss = 0
 
-        dists = [0] * (len(data)-self.nw)
-        label = [0] * (len(data)-self.nw)
-
         for i in range(0, self.nw):
+            dists = []
+            label = []
+
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng] 
             negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
@@ -309,8 +314,8 @@ class DsDTW(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
                 dist_g[j] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists[i * (step-1) + j] = dist_g[j].item() *2
-                label[i * (step-1) + j] = 0
+                dists.append(dist_g[j].item() *2)
+                label.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
@@ -318,14 +323,15 @@ class DsDTW(nn.Module):
 
             for j in range(len(negatives)):
                 dist_n[j] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists[i * (step-1) + j + len(positives)] = dist_n[j].item() *2
-                label[i * (step-1) + j + len(positives)] = 1
+                dists.append(dist_n[j].item() *2)
+                label.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
                 # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
 
-            eer, th = self.get_eer(label[i*(step-1):(i+1)*(step-1)], dists[i*(step-1):(i+1)*(step-1)])
+            self.scores += dists
+            self.labels += label
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
@@ -333,7 +339,7 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + eer - n)
+                    temp = F.relu(g + self.margin - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -411,6 +417,7 @@ class DsDTW(nn.Module):
         optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
         lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
 
+        th = -1
         running_loss = 0
 
         if not os.path.exists(result_folder):
@@ -423,7 +430,7 @@ class DsDTW(nn.Module):
         for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/epoch_size))
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(running_loss/epoch_size) +" Margin: " + "{:.3f}".format(self.margin) +" th: " + "{:.3f}".format(th))
 
             running_loss = 0
             
@@ -448,6 +455,10 @@ class DsDTW(nn.Module):
                 pbar.update(1)
 
             pbar.close()
+
+            self.margin, th = self.get_eer(self.labels, self.scores)
+            self.labels = []
+            self.scores = []
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
             if i % 5 == 0 or i > (n_epochs - 3): 
