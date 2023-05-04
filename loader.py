@@ -329,8 +329,8 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     result = [x1,y1]
     
     ####################################
-    dx = diff(x)
-    dy = diff(y)
+    dx = diff(x1)
+    dy = diff(y1)
     # theta = np.arctan2(dy, dx)
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
@@ -354,9 +354,9 @@ def generate_features(input_file : str, scenario : str, database : Literal):
             result.append(zscore(f))
     
     else:
-        features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+        features = [v, theta, cos, sin, zscore(p), dv, dtheta, logCurRadius, c, totalAccel]
         for f in features:
-            result.append(zscore(f))
+            result.append((f))
     ####################################
 
     return np.array(result)
@@ -376,14 +376,14 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
 
     if scenario=='finger' : p = np.ones(x.shape) #* 255
 
-    # x1, y1 = normalize_x_and_y(x, y)
+    x1, y1 = normalize_x_and_y(x, y)
 
-    #result = [x1,y1, zscore(p)]
-    result = [zscore(x),zscore(y)]
+    result = [x1,y1]
+    # result = [zscore(x),zscore(y)]
     
     ####################################
-    dx = diff(x)
-    dy = diff(y)
+    dx = diff(x1)
+    dy = diff(y1)
     # theta = np.arctan2(dy, dx)
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
@@ -408,11 +408,11 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
     
     else: 
 
-        features= np.array([v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel])
-        features = ((features.transpose() - np.mean(features, axis=1)) / np.std(features, axis=1)).transpose()
+        features= np.array([v, theta, cos, sin, zscore(p), dv, dtheta, logCurRadius, c, totalAccel])
+        # features = ((features.transpose() - np.mean(features, axis=1)) / np.std(features, axis=1)).transpose()
         for f in features:
             result.append(f)
-            # result.append(zscore(f,axis=1))
+            # result.append(zscore(f))
 
     buffer = str(len(result[0])) + "\n"
 
