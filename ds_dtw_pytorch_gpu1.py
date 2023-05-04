@@ -141,22 +141,22 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        self.cran  = (nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        nn.AvgPool1d(4,4, ceil_mode=True),
-        nn.ReLU(inplace=True),
-        nn.Dropout(0.1)
-        ))
-
         # self.cran  = (nn.Sequential(
-        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=8, stride=1, padding=4, bias=True),
+        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=1, bias=True),
-        # # nn.AvgPool1d(4,4, ceil_mode=True),
         # nn.ReLU(inplace=True),
         # nn.Dropout(0.1)
         # ))
+
+        self.cran  = (nn.Sequential(
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=2, stride=1, padding=1, bias=True),
+        nn.AvgPool1d(4,4, ceil_mode=True),
+        nn.ReLU(inplace=True),
+        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=2, stride=1, padding=0, bias=True),
+        # nn.AvgPool1d(4,4, ceil_mode=True),
+        nn.ReLU(inplace=True),
+        nn.Dropout(0.1)
+        ))
 
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
@@ -189,7 +189,7 @@ class DsDTW(nn.Module):
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens+4) //4
+        lens = (lens) //4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
