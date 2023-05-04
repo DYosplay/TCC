@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 0.3
+        self.margin = 2
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -325,7 +325,7 @@ class DsDTW(nn.Module):
 
                 # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
 
-            
+            eer, th = self.get_eer(label[i*(step-1):(i+1)*(step-1)], dists[i*(step-1):(i+1)*(step-1)])
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
@@ -333,7 +333,7 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n)
+                    temp = F.relu(g + eer - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
