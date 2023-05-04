@@ -141,22 +141,22 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        # self.cran  = (nn.Sequential(
-        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Dropout(0.1)
-        # ))
-
         self.cran  = (nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=2, stride=1, padding=1, bias=True),
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
-        nn.ReLU(inplace=True),
-        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=2, stride=1, padding=0, bias=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         ))
+
+        # self.cran  = (nn.Sequential(
+        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=2, stride=1, padding=1, bias=True),
+        # nn.AvgPool1d(4,4, ceil_mode=True),
+        # nn.ReLU(inplace=True),
+        # nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=2, stride=1, padding=0, bias=True),
+        # # nn.AvgPool1d(4,4, ceil_mode=True),
+        # nn.ReLU(inplace=True),
+        # nn.Dropout(0.1)
+        # ))
 
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
@@ -189,7 +189,7 @@ class DsDTW(nn.Module):
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens) //4
+        lens = (lens+4) //4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
@@ -290,6 +290,9 @@ class DsDTW(nn.Module):
         l    = 0
         total_loss = 0
 
+        dists = [0] * (len(data)-self.nw)
+        label = [0] * (len(data)-self.nw)
+
         for i in range(0, self.nw):
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng] 
@@ -306,7 +309,8 @@ class DsDTW(nn.Module):
             '''Average_Pooling_2,4,6'''
             for i in range(len(positives)):
                 dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
-                
+                dists[i] = dist_g[i].item()
+                label[i] = 0
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
@@ -314,11 +318,14 @@ class DsDTW(nn.Module):
 
             for i in range(len(negatives)):
                 dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
-                
+                dists[i+len(positives)] = dist_n[i].item()
+                label[i] = 1
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
                 # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
+
+            
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
@@ -339,7 +346,9 @@ class DsDTW(nn.Module):
         
         total_loss /= self.nw
 
-        return total_loss
+        eer, th = self.get_eer(label, dists)
+
+        return total_loss + eer
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
@@ -523,7 +532,7 @@ class DsDTW(nn.Module):
 
         return s_avg + s_min, user_key, result
 
-    def get_eer(self, y_true = List[int], y_scores = List[int], result_folder : str = None, generate_graph : bool = False, n_epoch : int = None) -> Tuple[float, float]:
+    def get_eer(self, y_true = List[int], y_scores = List[float], result_folder : str = None, generate_graph : bool = False, n_epoch : int = None) -> Tuple[float, float]:
         fpr, tpr, threshold = roc_curve(y_true=y_true, y_score=y_scores, pos_label=1)
         fnr = 1 - tpr
 

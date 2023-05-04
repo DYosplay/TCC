@@ -10,7 +10,7 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 30
 GAMMA = 5
-PARENT_FOLDER = "ds_test224"
+PARENT_FOLDER = "ds_test225"
 LEARNING_RATE = 0.001
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-    # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
+    # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
     # model.cuda()
     # model = torch.compile(model)
 
@@ -172,7 +172,7 @@ if __name__ == '__main__':
     # model.new_evaluate(FILE5, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE6, 119, result_folder=PARENT_FOLDER)
 
-    # model.new_evaluate(FILE, 300, result_folder=res_folder)
+    # model.new_evaluate(FILE3, 300, result_folder=res_folder)
     # model.new_evaluate(FILE8, 100, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE9, 2, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE10, 2, result_folder=PARENT_FOLDER)
