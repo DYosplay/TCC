@@ -309,7 +309,7 @@ class DsDTW(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
                 dist_g[j] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists[i * (step-1) + j] = dist_g[j].item()
+                dists[i * (step-1) + j] = dist_g[j].item() *2
                 label[i * (step-1) + j] = 0
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
@@ -318,7 +318,7 @@ class DsDTW(nn.Module):
 
             for j in range(len(negatives)):
                 dist_n[j] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists[i * (step-1) + j + len(positives)] = dist_n[j].item()
+                dists[i * (step-1) + j + len(positives)] = dist_n[j].item() *2
                 label[i * (step-1) + j + len(positives)] = 1
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
@@ -346,7 +346,7 @@ class DsDTW(nn.Module):
         
         total_loss /= self.nw
 
-        eer, th = self.get_eer(label, dists*2)
+        eer, th = self.get_eer(label, dists)
 
         return total_loss + eer
 
