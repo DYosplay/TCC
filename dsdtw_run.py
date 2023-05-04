@@ -116,38 +116,41 @@ def eval_all_scenarios():
     cudnn.benchmark = False
     cudnn.deterministic = True
 
+
+    best_w = [25,28,20,20]
     gammas = [0.1, 1, 5, 10]
-    eval = [FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10]
+    # eval_f = [FILE_FINGER1, FILE_FINGER2, FILE_FINGER3, FILE_FINGER4, FILE, FILE8, FILE9, FILE10]
+    eval_f = [FILE8, FILE_FINGER1, FILE_FINGER2]
     cf = [FILE]
-    for gamma in gammas:
-        res_folder = PARENT_FOLDER + "_gamma_" + str(gamma)
-        model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), gamma=gamma, dataset_folder=DATASET_FOLDER)
-        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+    for i in range(len(gammas)):
+        res_folder = PARENT_FOLDER + "_gamma_" + str(gammas[i])
+        model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), gamma=gammas[i], dataset_folder=DATASET_FOLDER)
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch" + str(best_w[i]) + ".pt"))
         model.cuda()
 
         model.train(mode=False)
         model.eval()
 
-        for file in eval:
-            model.new_evaluate(file, 200, result_folder=res_folder)
+        for file in eval_f:
+            model.new_evaluate(file, 400, result_folder=res_folder)
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 if __name__ == '__main__':
-    # eval_all_scenarios()
+    eval_all_scenarios()
 
-    cudnn.enabled = True
-    cudnn.benchmark = False
-    cudnn.deterministic = True
+    # cudnn.enabled = True
+    # cudnn.benchmark = False
+    # cudnn.deterministic = True
 
-    res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
+    # res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
+    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
     # model = torch.compile(model)
-    model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+    # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
     # print(count_parameters(model))
 
-    model.cuda()
+    # model.cuda()
     # model.train(mode=True)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
@@ -156,8 +159,8 @@ if __name__ == '__main__':
     # model.cuda()
     # model = torch.compile(model)
 
-    model.train(mode=False)
-    model.eval()
+    # model.train(mode=False)
+    # model.eval()
 
 
     # eval_all_weights(model)
@@ -169,7 +172,7 @@ if __name__ == '__main__':
     # model.new_evaluate(FILE5, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE6, 119, result_folder=PARENT_FOLDER)
 
-    model.new_evaluate(FILE, 300, result_folder=res_folder)
+    # model.new_evaluate(FILE, 300, result_folder=res_folder)
     # model.new_evaluate(FILE8, 100, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE9, 2, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE10, 2, result_folder=PARENT_FOLDER)
