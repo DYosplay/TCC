@@ -314,7 +314,7 @@ class DsDTW(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
                 dist_g[j] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists.append(dist_g[j].item() *2)
+                dists.append(dist_g[j].item())
                 label.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
@@ -323,7 +323,7 @@ class DsDTW(nn.Module):
 
             for j in range(len(negatives)):
                 dist_n[j] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists.append(dist_n[j].item() *2)
+                dists.append(dist_n[j].item())
                 label.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
@@ -457,6 +457,7 @@ class DsDTW(nn.Module):
             pbar.close()
 
             self.margin, th = self.get_eer(self.labels, self.scores)
+            self.margin *= self.gamma
             self.labels = []
             self.scores = []
           
