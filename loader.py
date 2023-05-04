@@ -329,8 +329,8 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     result = [x1,y1]
     
     ####################################
-    dx = diff(x1)
-    dy = diff(y1)
+    dx = diff(x)
+    dy = diff(y)
     # theta = np.arctan2(dy, dx)
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
@@ -354,9 +354,9 @@ def generate_features(input_file : str, scenario : str, database : Literal):
             result.append(zscore(f))
     
     else:
-        features = [v, theta, cos, sin, zscore(p), dv, dtheta, logCurRadius, c, totalAccel]
+        features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
         for f in features:
-            result.append((f))
+            result.append(zscore(f))
     ####################################
 
     return np.array(result)
