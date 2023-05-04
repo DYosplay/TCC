@@ -147,7 +147,7 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
     # print(count_parameters(model))
 
-    # model.cuda()
+    model.cuda()
     # model.train(mode=True)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
