@@ -350,7 +350,7 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in distances_g[i]:
                 for n in distances_n[i]:
-                    temp = F.relu(g + eer*100 - n)
+                    temp = F.relu(g + torch.max(eer*100, 1) - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
