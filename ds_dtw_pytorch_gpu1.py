@@ -457,7 +457,7 @@ class DsDTW(nn.Module):
             pbar.close()
 
             self.margin, th = self.get_eer(self.labels, self.scores)
-            self.margin *= 100
+            self.margin *= 20
             self.labels = []
             self.scores = []
           
