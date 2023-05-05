@@ -302,6 +302,9 @@ class DsDTW(nn.Module):
         distances_g = []
         distances_n = []
 
+        data -= data.min(1, keepdim=True)[0]
+        data /= data.max(1, keepdim=True)[0]
+
         for i in range(0, self.nw):
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng] 
@@ -340,8 +343,8 @@ class DsDTW(nn.Module):
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             only_positives.append(only_pos)
         
-        eer, th = self.get_eer(label, dists)
-        self.mean_eer += eer
+        # eer, th = self.get_eer(label, dists)
+        self.mean_eer += 0
 
         assert len(distances_g) == len(distances_n)
 
@@ -350,7 +353,7 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in distances_g[i]:
                 for n in distances_n[i]:
-                    temp = F.relu(g + max(eer*100, 1) - n)
+                    temp = F.relu(g + 1 - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
