@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 1
+        self.margin = 10
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -457,7 +457,7 @@ class DsDTW(nn.Module):
             pbar.close()
 
             self.margin, th = self.get_eer(self.labels, self.scores)
-            self.margin *= self.gamma
+            self.margin *= 100
             self.labels = []
             self.scores = []
           
