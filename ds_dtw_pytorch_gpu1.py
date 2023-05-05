@@ -296,9 +296,6 @@ class DsDTW(nn.Module):
         total_loss = 0
 
         for i in range(0, self.nw):
-            dists = []
-            label = []
-
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng] 
             negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
@@ -309,6 +306,9 @@ class DsDTW(nn.Module):
 
             dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            dists = []
+            label = []
 
             # aa = self.new_sdtw(anchor[None, :int(len_a)], anchor[None, :int(len_a)])
             '''Average_Pooling_2,4,6'''
@@ -330,8 +330,7 @@ class DsDTW(nn.Module):
 
                 # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
 
-            self.scores += dists
-            self.labels += label
+            eer, th = self.get_eer(label, dists)
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
@@ -339,7 +338,7 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n)
+                    temp = F.relu(g + eer*100 - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -456,10 +455,10 @@ class DsDTW(nn.Module):
 
             pbar.close()
 
-            self.margin, th = self.get_eer(self.labels, self.scores)
-            self.margin *= 20
-            self.labels = []
-            self.scores = []
+            # self.margin, th = self.get_eer(self.labels, self.scores)
+            # self.margin *= 20
+            # self.labels = []
+            # self.scores = []
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
             if i % 5 == 0 or i > (n_epochs - 3): 
