@@ -253,10 +253,10 @@ class DsDTW(nn.Module):
         h = self.linear(h)
 
         if self.training:
-            h = F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+            h = F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1)
             h -= h.min(1, keepdim=True)[0]
             h /= h.max(1, keepdim=True)[0]
-            return h
+            return h, (length//2).float()
         
         h -= h.min(1, keepdim=True)[0]
         h /= h.max(1, keepdim=True)[0]
