@@ -253,7 +253,13 @@ class DsDTW(nn.Module):
         h = self.linear(h)
 
         if self.training:
-            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+            h = F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+            h -= h.min(1, keepdim=True)[0]
+            h /= h.max(1, keepdim=True)[0]
+            return h
+        
+        h -= h.min(1, keepdim=True)[0]
+        h /= h.max(1, keepdim=True)[0]
 
         return h * mask.unsqueeze(2), length.float()
 
@@ -301,9 +307,6 @@ class DsDTW(nn.Module):
         only_positives = []
         distances_g = []
         distances_n = []
-
-        data -= data.min(1, keepdim=True)[0]
-        data /= data.max(1, keepdim=True)[0]
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
