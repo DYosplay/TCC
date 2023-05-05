@@ -133,6 +133,7 @@ class DsDTW(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
+        self.mean_eer = 0
 
 
         # Variáveis que lidam com as métricas/resultados
@@ -292,8 +293,14 @@ class DsDTW(nn.Module):
             Loss de um batch
         """
         step = (self.ng + self.nf + 1)
-        l    = 0
         total_loss = 0
+
+        dists = []
+        label = []
+
+        only_positives = []
+        distances_g = []
+        distances_n = []
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -306,9 +313,6 @@ class DsDTW(nn.Module):
 
             dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
-
-            dists = []
-            label = []
 
             # aa = self.new_sdtw(anchor[None, :int(len_a)], anchor[None, :int(len_a)])
             '''Average_Pooling_2,4,6'''
@@ -330,14 +334,22 @@ class DsDTW(nn.Module):
 
                 # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
 
-            eer, th = self.get_eer(label, dists)
+            distances_g.append(dist_g)
+            distances_n.append(dist_n)
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            
+            only_positives.append(only_pos)
+        
+        eer, th = self.get_eer(label, dists)
+        self.mean_eer += eer
+
+        assert len(distances_g) == len(distances_n)
+
+        for i in range(len(distances_g)):
             lk = 0
             non_zeros = 1
-            for g in dist_g:
-                for n in dist_n:
+            for g in distances_g[i]:
+                for n in distances_n[i]:
                     temp = F.relu(g + eer*100 - n)
                     if temp > 0:
                         lk += temp
@@ -345,7 +357,7 @@ class DsDTW(nn.Module):
 
             lk /= non_zeros
 
-            user_loss = lk + only_pos
+            user_loss = lk + only_positives[i]
 
             total_loss += user_loss
         
@@ -429,10 +441,10 @@ class DsDTW(nn.Module):
         for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(running_loss/epoch_size) +" Margin: " + "{:.3f}".format(self.margin) +" th: " + "{:.3f}".format(th))
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(running_loss/epoch_size) +" mEER: " + "{:.3f}".format(self.mean_eer))
 
             running_loss = 0
-            
+            self.mean_eer = 0
             #PAL = Previous Accumulated Loss
             while epoch != []:
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
@@ -459,6 +471,7 @@ class DsDTW(nn.Module):
             # self.margin *= 20
             # self.labels = []
             # self.scores = []
+            self.mean_eer /= (epoch_size * batch_size//16)
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
             if i % 5 == 0 or i > (n_epochs - 3): 
