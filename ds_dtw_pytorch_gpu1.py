@@ -321,8 +321,8 @@ class DsDTW(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
                 dist_g[j] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists.append(dist_g[j].item())
-                label.append(0)
+                # dists.append(dist_g[j].item())
+                # label.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
@@ -330,8 +330,8 @@ class DsDTW(nn.Module):
 
             for j in range(len(negatives)):
                 dist_n[j] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists.append(dist_n[j].item())
-                label.append(1)
+                # dists.append(dist_n[j].item())
+                # label.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
@@ -341,18 +341,14 @@ class DsDTW(nn.Module):
             distances_n.append(dist_n)
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            only_positives.append(only_pos)
         
-        # eer, th = self.get_eer(label, dists)
-        self.mean_eer += 0
+            # eer, th = self.get_eer(label, dists)
+            self.mean_eer += 0
 
-        assert len(distances_g) == len(distances_n)
-
-        for i in range(len(distances_g)):
             lk = 0
             non_zeros = 1
-            for g in distances_g[i]:
-                for n in distances_n[i]:
+            for g in dist_g:
+                for n in dist_n:
                     temp = F.relu(g + 1 - n)
                     if temp > 0:
                         lk += temp
@@ -360,7 +356,7 @@ class DsDTW(nn.Module):
 
             lk /= non_zeros
 
-            user_loss = lk + only_positives[i]
+            user_loss = lk + only_pos
 
             total_loss += user_loss
         
