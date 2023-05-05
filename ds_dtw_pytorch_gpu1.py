@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 1
+        self.margin = 5
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
