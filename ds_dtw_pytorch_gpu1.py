@@ -134,6 +134,7 @@ class DsDTW(nn.Module):
         self.scores = []
         self.labels = []
         self.mean_eer = 0
+        self.loss_value = math.inf
 
 
         # Variáveis que lidam com as métricas/resultados
@@ -442,6 +443,8 @@ class DsDTW(nn.Module):
         optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
         lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
 
+        losses = [math.inf]*10
+
         th = -1
         running_loss = 0
 
@@ -455,7 +458,15 @@ class DsDTW(nn.Module):
         for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(running_loss/epoch_size) +" mEER: " + "{:.3f}".format(self.mean_eer))
+            self.loss_value = running_loss/epoch_size
+            losses.append(self.loss_value)
+            losses = losses[1:]
+
+            if self.loss_value > max(losses):
+                print("\n\nTreino encerrado pois a loss é superior as 10 losses anteriores.")
+                break
+
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value) +" mEER: " + "{:.3f}".format(self.mean_eer))
 
             running_loss = 0
             self.mean_eer = 0
@@ -488,7 +499,7 @@ class DsDTW(nn.Module):
             self.mean_eer /= (epoch_size * batch_size//16)
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if i % 5 == 0 or i > (n_epochs - 3): 
+            if i % 5 == 0 or i > (n_epochs - 3) and self.loss_value < 0.35: 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
