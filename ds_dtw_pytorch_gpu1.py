@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 1
+        self.margin = 2
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -350,8 +350,8 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.
-                    temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - g) * 0.25 + F.relu(n + self.margin) * 0.25
+                    temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
+                    # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - g) * 0.25 + F.relu(n + self.margin) * 0.25
                     if temp > 0:
                         # temp += self.margin - n
                         lk += temp
