@@ -349,7 +349,7 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) + (self.margin - n)
+                    temp = F.relu(g + self.margin - n) + F.relu(self.margin - n) * 0.1
                     if temp > 0:
                         # temp += self.margin - n
                         lk += temp
