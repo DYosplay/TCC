@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 5
+        self.margin = 1
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -345,28 +345,29 @@ class DsDTW(nn.Module):
             # eer, th = self.get_eer(label, dists)
             # self.mean_eer += 0
 
-            # lk = 0
-            # non_zeros = 1
-            # for g in dist_g:
-            #     for n in dist_n:
-            #         temp = F.relu(g + 1 - n)
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
-
             lk = 0
             non_zeros = 1
             for g in dist_g:
-                v = torch.pow(g, 2)
-                if v > 0:
-                    lk += v
-                    non_zeros+=1
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n) + F.relu(self.margin - n)
+                    if temp > 0:
+                        # temp += self.margin - n
+                        lk += temp
+                        non_zeros+=1
 
-            for n in dist_n:
-                v = torch.pow(torch.max(self.margin - n, torch.tensor(0)), 2)
-                if v > 0:
-                    lk += v
-                    non_zeros+=1
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     v = torch.pow(g, 2)
+            #     if v > 0:
+            #         lk += v
+            #         non_zeros+=1
+
+            # for n in dist_n:
+            #     v = torch.pow(torch.max(self.margin - n, torch.tensor(0)), 2)
+            #     if v > 0:
+            #         lk += v
+            #         non_zeros+=1
 
             lk /= non_zeros
 
