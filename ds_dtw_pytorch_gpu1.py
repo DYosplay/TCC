@@ -119,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 2
+        self.margin = 1
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -367,7 +367,7 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) * 0.5 + F.relu(2 - n) * 0.25 + F.relu(g - 2) * 0.25
+                    temp = F.relu(g + self.margin - n) * 0.5 + F.relu(self.margin - n) * 0.25 + F.relu(g - self.margin) * 0.25
                     # m = max(((torch.sum(dist_g)+torch.sum(dist_n))/15),torch.tensor(self.margin))
                     # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(m - n) * 0.25 + F.relu(g - m) * 0.25
                     # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
