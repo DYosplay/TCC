@@ -154,30 +154,17 @@ class DsDTW(nn.Module):
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         ))
-
-        # self.cran  = (nn.Sequential(
-        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=2, stride=1, padding=1, bias=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=2, stride=1, padding=0, bias=True),
-        # # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Dropout(0.1)
-        # ))
-
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        # self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
-        # self.enc1 = torch.nn.TransformerEncoder(self.e1, 4)
-
-        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = (nn.Linear(self.n_hidden, 16, bias=False))
+        self.linear = nn.Linear(self.n_hidden, 16, bias=True)
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
@@ -186,11 +173,11 @@ class DsDTW(nn.Module):
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
-        self.linear = (self.linear)
+        # self.linear = torch.compile(self.linear)
         
         self.new_sdtw_fw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
-        self.new_sdtw = (new_soft_dtw.SoftDTW(True, gamma=self.gamma, normalize=False, bandwidth=0.1))
+        self.new_sdtw = (new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1))
         self.dtw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
@@ -220,44 +207,88 @@ class DsDTW(nn.Module):
             step = (self.ng + self.nf + 1)
             # for i in range(0, self.nw):
             #     anchor = h[i*step]
-            #     for j in range(i*step, (i+1)*step):
-            #         value, output = ((self.new_sdtw_fw)(anchor[None,], h[j:j+1,]))
-            #         output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+                # for j in range(i*step, (i+1)*step):
+                #     value, output = ((self.new_sdtw_fw)(anchor[None,], h[j:j+1,]))
+                #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-            #         output = torch.from_numpy(output).cuda()
+                #     output = torch.from_numpy(output).cuda()
 
-            #         output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                  
-            #         src_masks[j] = output_mask
+                #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                    # output_aux = torch.ones(output.shape).cuda()
+
+                    # para a lógica inversa:
+                    # output_mask = torch.ones(output.shape).cuda()
+                    # output_aux = torch.zeros(output.shape).cuda()
+
+                    # value = 1
+                    # output_mask[r, c] = value
+
+                    # # for k in range(1, len(r)):
+                    # for k in range(1, self.radius + 1):
+                    #     rk_sub = F.relu(r-k).long().cuda()
+                    #     ck_sub = F.relu(c-k).long().cuda()
+                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                    #     output_mask[rk_sub, ck_sub] = value
+                    #     output_mask[rk_sub, c]      = value
+                    #     output_mask[rk_sub, ck_add] = value
+
+                    #     output_mask[rk_add, ck_sub] = value
+                    #     output_mask[rk_add, c]      = value
+                    #     output_mask[rk_add, ck_add] = value
+
+                    #     output_mask[r, ck_add]      = value
+                    #     output_mask[r, ck_sub]      = value
+
+                    # src_masks[j] = output_mask
             
-            # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            # sign = h[-1]
+            sign = h[-1]
 
             # for i in range(len(h)):
-            #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-            #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+                # value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                # output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-            #     output = torch.from_numpy(output).cuda()
+                # output = torch.from_numpy(output).cuda()
 
-            #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                # output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                # output_aux = torch.ones(output.shape).cuda()
+
+                # para a lógica inversa:
+                # output_mask = torch.ones(output.shape).cuda()
+                # output_aux = torch.zeros(output.shape).cuda()
+
+                # value = 1
+                # output_mask[r, c] = value
+
+                # for k in range(1, self.radius + 1):
+                #     rk_sub = F.relu(r-k).long().cuda()
+                #     ck_sub = F.relu(c-k).long().cuda()
+                #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
+                #     output_mask[rk_sub, ck_sub] = value
+                #     output_mask[rk_sub, c]      = value
+                #     output_mask[rk_sub, ck_add] = value
+
+                #     output_mask[rk_add, ck_sub] = value
+                #     output_mask[rk_add, c]      = value
+                #     output_mask[rk_add, ck_add] = value
+
+                #     output_mask[r, ck_add]      = value
+                #     output_mask[r, ck_sub]      = value
+
+                # src_masks[i] = output_mask
             
-            #     src_masks[i] = output_mask
-            
-            # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
 
         if self.training:
-            h = F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1)
-            h -= h.min(1, keepdim=True)[0]
-            h /= h.max(1, keepdim=True)[0]
-            return h, (length//2).float()
+            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
 
         return h * mask.unsqueeze(2), length.float()
 
@@ -297,14 +328,8 @@ class DsDTW(nn.Module):
             Loss de um batch
         """
         step = (self.ng + self.nf + 1)
+        l    = 0
         total_loss = 0
-
-        dists = []
-        label = []
-
-        only_positives = []
-        distances_g = []
-        distances_n = []
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -320,57 +345,34 @@ class DsDTW(nn.Module):
 
             # aa = self.new_sdtw(anchor[None, :int(len_a)], anchor[None, :int(len_a)])
             '''Average_Pooling_2,4,6'''
-            for j in range(len(positives)):
-                dist_g[j] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                # dists.append(dist_g[j].item())
-                # label.append(0)
+            for i in range(len(positives)):
+                dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
+                
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
                 # dist_g[i] = (ap - (0.5 * (aa+pp))) / (len_a + len_p[i])
 
-            for j in range(len(negatives)):
-                dist_n[j] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                # dists.append(dist_n[j].item())
-                # label.append(1)
+            for i in range(len(negatives)):
+                dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
+                
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
                 # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
 
-            # distances_g.append(dist_g)
-            # distances_n.append(dist_n)
-
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-        
-            # eer, th = self.get_eer(label, dists)
-            # self.mean_eer += 0
-
+            
             lk = 0
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
-                    temp = F.relu(g + self.margin - n) * 0.75 + F.relu(g) * 0.25 #+ F.relu(g + self.margin) * 0.25
+                    temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
                     # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - g) * 0.25 + F.relu(n + self.margin) * 0.25
+                    # temp = F.relu(g + self.margin - n)
                     if temp > 0:
-                        # temp += self.margin - n
                         lk += temp
                         non_zeros+=1
-
-            # lk = 0
-            # non_zeros = 1
-            # for g in dist_g:
-            #     v = torch.pow(g, 2)
-            #     if v > 0:
-            #         lk += v
-            #         non_zeros+=1
-
-            # for n in dist_n:
-            #     v = torch.pow(torch.max(self.margin - n, torch.tensor(0)), 2)
-            #     if v > 0:
-            #         lk += v
-            #         non_zeros+=1
 
             lk /= non_zeros
 
@@ -380,9 +382,7 @@ class DsDTW(nn.Module):
         
         total_loss /= self.nw
 
-        #eer, th = self.get_eer(label, dists)
-
-        return total_loss #+ eer
+        return total_loss
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
@@ -464,8 +464,8 @@ class DsDTW(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if self.loss_value > max(losses):
-                print("\n\nTreino encerrado pois a loss é superior as 10 losses anteriores.")
+            if self.loss_value > min(losses) and i > 50:
+                print("\n\nEarly stop!")
                 break
 
             pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value) +" mEER: " + "{:.3f}".format(self.mean_eer))
