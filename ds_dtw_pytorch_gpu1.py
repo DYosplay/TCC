@@ -133,7 +133,7 @@ class DsDTW(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
-        self.th_loss = 1
+        self.th_loss = 4.6518
         self.loss_value = math.inf
 
 
