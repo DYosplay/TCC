@@ -133,7 +133,7 @@ class DsDTW(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
-        self.mean_eer = 0
+        self.th_loss = 1
         self.loss_value = math.inf
 
 
@@ -349,7 +349,10 @@ class DsDTW(nn.Module):
             '''Average_Pooling_2,4,6'''
             for i in range(len(positives)):
                 dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
-                dists.append(dist_g[i].item())
+                
+                if n_epoch == 25:
+                    self.scores.append(dist_g[i].item()*2)
+                    self.labels.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
@@ -357,7 +360,10 @@ class DsDTW(nn.Module):
 
             for i in range(len(negatives)):
                 dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
-                dists.append(dist_n[i].item())
+                
+                if n_epoch == 25:
+                    self.scores.append(dist_n[i].item()*2)
+                    self.labels.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
@@ -388,13 +394,13 @@ class DsDTW(nn.Module):
                 lk = 0
                 non_zeros = 1
                 for g in dist_g:
-                    temp = F.relu(g - self.margin) * 0.01
+                    temp = F.relu(g - self.th_loss) * 0.1
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
 
                 for n in dist_n:
-                    temp = F.relu(self.margin - n) * 0.01
+                    temp = F.relu(self.th_loss - n) * 0.1
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -493,7 +499,10 @@ class DsDTW(nn.Module):
                 print("\n\nEarly stop!")
                 break
 
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value) +" mEER: " + "{:.3f}".format(self.mean_eer))
+            if i == 25:
+                _, self.th_loss = self.get_eer(self.labels, self.scores)
+
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value) +" thl: " + "{:.4f}".format(self.th_loss))
 
             running_loss = 0
             self.mean_eer = 0
@@ -519,10 +528,6 @@ class DsDTW(nn.Module):
 
             pbar.close()
 
-            # self.margin, th = self.get_eer(self.labels, self.scores)
-            # self.margin *= 20
-            # self.labels = []
-            # self.scores = []
             self.mean_eer /= (epoch_size * batch_size//16)
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
