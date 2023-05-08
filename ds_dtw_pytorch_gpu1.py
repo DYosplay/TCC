@@ -207,13 +207,13 @@ class DsDTW(nn.Module):
             step = (self.ng + self.nf + 1)
             for i in range(0, self.nw):
                 anchor = h[i*step]
-                # for j in range(i*step, (i+1)*step):
-                #     value, output = ((self.new_sdtw_fw)(anchor[None,], h[j:j+1,]))
-                #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+                for j in range(i*step, (i+1)*step):
+                    value, output = ((self.new_sdtw_fw)(anchor[None,], h[j:j+1,]))
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-                #     output = torch.from_numpy(output).cuda()
+                    output = torch.from_numpy(output).cuda()
 
-                #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
@@ -240,7 +240,7 @@ class DsDTW(nn.Module):
                     #     output_mask[r, ck_add]      = value
                     #     output_mask[r, ck_sub]      = value
 
-                    # src_masks[j] = output_mask
+                    src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
@@ -248,13 +248,13 @@ class DsDTW(nn.Module):
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             sign = h[-1]
 
-            # for i in range(len(h)):
-            #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-            #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            for i in range(len(h)):
+                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-            #     output = torch.from_numpy(output).cuda()
+                output = torch.from_numpy(output).cuda()
 
-            #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
@@ -280,7 +280,7 @@ class DsDTW(nn.Module):
                 #     output_mask[r, ck_add]      = value
                 #     output_mask[r, ck_sub]      = value
 
-                # src_masks[i] = output_mask
+                src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
@@ -351,7 +351,7 @@ class DsDTW(nn.Module):
                 dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
                 
                 if n_epoch == 25:
-                    self.scores.append(dist_g[i].item()*2)
+                    self.scores.append(dist_g[i].item())
                     self.labels.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
@@ -362,7 +362,7 @@ class DsDTW(nn.Module):
                 dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
                 
                 if n_epoch == 25:
-                    self.scores.append(dist_n[i].item()*2)
+                    self.scores.append(dist_n[i].item())
                     self.labels.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
