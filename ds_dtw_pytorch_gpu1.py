@@ -392,20 +392,30 @@ class DsDTW(nn.Module):
                             lk += temp
                             non_zeros+=1
 
+                lk /= non_zeros
+                user_loss = lk + only_pos
+
             else:
+
+                gs = (dist_g - self.th_loss) 
+                gv = torch.sum(gs) / gs.data.nonzero(as_tuple=False).size(0) + 1
+
+                ns = (self.th_loss - dist_n)
+                nv = torch.sum(ns) / ns.data.nonzero(as_tuple=False).size(0) + 1
+
                 lk = 0
                 non_zeros = 1
-                for g in dist_g:
-                    temp = F.relu(g - self.th_loss) * 0.1
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
+                # for g in dist_g:
+                #     temp = F.relu(g - self.th_loss) * 0.1
+                #     if temp > 0:
+                #         lk += temp
+                #         non_zeros+=1
 
-                for n in dist_n:
-                    temp = F.relu(self.th_loss - n) * 0.1
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
+                # for n in dist_n:
+                #     temp = F.relu(self.th_loss - n) * 0.1
+                #     if temp > 0:
+                #         lk += temp
+                        # non_zeros+=1
 
                 for g in dist_g:
                     for n in dist_n:
@@ -414,8 +424,9 @@ class DsDTW(nn.Module):
                             lk += temp
                             non_zeros+=1
 
-            lk /= non_zeros
-            user_loss = lk + only_pos
+                user_loss = temp + gv * 0.2 + nv * 0.2
+
+            
 
             total_loss += user_loss
         
