@@ -133,7 +133,7 @@ class DsDTW(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
-        self.th_loss = 4.3293
+        self.th_loss = 4.6518
         self.loss_value = math.inf
 
 
@@ -499,7 +499,7 @@ class DsDTW(nn.Module):
             os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
 
-        for i in range(1, n_epochs+1):
+        for i in range(26, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
@@ -538,7 +538,7 @@ class DsDTW(nn.Module):
 
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
             # if (i % 5 == 0 or i > (n_epochs - 3) ) and self.loss_value < 0.35: 
-            if (i % 5 == 0 or i > (n_epochs - 3) ) and i >= 25:
+            if (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
