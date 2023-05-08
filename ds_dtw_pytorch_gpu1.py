@@ -365,7 +365,7 @@ class DsDTW(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
-            eer, th = self.get_eer([0]*5 + [1]*10, dists)
+            # eer, th = self.get_eer([0]*5 + [1]*10, dists)
 
 
             lk = 0
@@ -511,7 +511,8 @@ class DsDTW(nn.Module):
             self.mean_eer /= (epoch_size * batch_size//16)
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            if (i % 5 == 0 or i > (n_epochs - 3) ) and self.loss_value < 0.35: 
+            # if (i % 5 == 0 or i > (n_epochs - 3) ) and self.loss_value < 0.35: 
+            if (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
