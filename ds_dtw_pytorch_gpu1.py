@@ -397,10 +397,10 @@ class DsDTW(nn.Module):
 
             else:
 
-                gs = (dist_g - self.th_loss) 
+                gs = F.relu(dist_g - self.th_loss) 
                 gv = torch.sum(gs) / gs.data.nonzero(as_tuple=False).size(0) + 1
 
-                ns = (self.th_loss - dist_n)
+                ns = F.relu(self.th_loss - dist_n)
                 nv = torch.sum(ns) / ns.data.nonzero(as_tuple=False).size(0) + 1
 
                 lk = 0

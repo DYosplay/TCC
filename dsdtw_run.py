@@ -163,7 +163,7 @@ if __name__ == '__main__':
 
     model.train(mode=True)
     # model.eval()
-    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+str(ITERATION))
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
 
 
     # eval_all_weights(model)
