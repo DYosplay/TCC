@@ -429,7 +429,7 @@ class DsDTW(nn.Module):
                 lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
                 lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1) )
 
-                user_loss = lv + gv * 0.3 + nv * 0.3
+                user_loss = lv + gv * 0.05 + nv * 0.05
 
             
 
