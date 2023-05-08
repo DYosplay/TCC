@@ -499,9 +499,6 @@ class DsDTW(nn.Module):
                 print("\n\nEarly stop!")
                 break
 
-            if i == 25:
-                _, self.th_loss = self.get_eer(self.labels, self.scores)
-
             pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value) +" thl: " + "{:.4f}".format(self.th_loss))
 
             running_loss = 0
@@ -528,8 +525,6 @@ class DsDTW(nn.Module):
 
             pbar.close()
 
-            self.mean_eer /= (epoch_size * batch_size//16)
-          
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
             # if (i % 5 == 0 or i > (n_epochs - 3) ) and self.loss_value < 0.35: 
             if (i % 5 == 0 or i > (n_epochs - 3) ) and i >= 25:
@@ -537,6 +532,9 @@ class DsDTW(nn.Module):
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
               #  self.margin -= 0.5
+
+            if i == 25:
+                _, self.th_loss = self.get_eer(self.labels, self.scores)
             
             self.loss_variation.append(running_loss/epoch_size)
             
