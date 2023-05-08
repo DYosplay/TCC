@@ -368,7 +368,7 @@ class DsDTW(nn.Module):
             # eer, th = self.get_eer([0]*5 + [1]*10, dists)
 
 
-            if n_epoch <= 10:
+            if n_epoch <= 25:
                 lk = 0
                 non_zeros = 1
                 for g in dist_g:
@@ -529,7 +529,7 @@ class DsDTW(nn.Module):
           
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
             # if (i % 5 == 0 or i > (n_epochs - 3) ) and self.loss_value < 0.35: 
-            if (i % 5 == 0 or i > (n_epochs - 3) ):
+            if (i % 5 == 0 or i > (n_epochs - 3) ) and i >= 25:
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
