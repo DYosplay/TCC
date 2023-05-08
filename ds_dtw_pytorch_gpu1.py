@@ -398,13 +398,13 @@ class DsDTW(nn.Module):
             else:
 
                 gs = F.relu(dist_g - self.th_loss) 
-                gv = torch.sum(gs) / gs.data.nonzero(as_tuple=False).size(0) + 1
+                gv = torch.div(torch.sum(gs), gs.data.nonzero(as_tuple=False).size(0) + 1)
 
                 ns = F.relu(self.th_loss - dist_n)
-                nv = torch.sum(ns) / ns.data.nonzero(as_tuple=False).size(0) + 1
+                nv = torch.div(torch.sum(ns), ns.data.nonzero(as_tuple=False).size(0) + 1)
 
-                lk = 0
-                non_zeros = 1
+                # lk = 0
+                # non_zeros = 1
                 # for g in dist_g:
                 #     temp = F.relu(g - self.th_loss) * 0.1
                 #     if temp > 0:
@@ -417,14 +417,19 @@ class DsDTW(nn.Module):
                 #         lk += temp
                         # non_zeros+=1
 
-                for g in dist_g:
-                    for n in dist_n:
-                        temp = F.relu(g + self.margin - n).float()
-                        if temp > 0:
-                            lk += temp
-                            non_zeros+=1
+                # for g in dist_g:
+                #     for n in dist_n:
+                #         temp = F.relu(g + self.margin - n).float()
+                #         if temp > 0:
+                #             lk += temp
+                #             non_zeros+=1
+                
+                # lk /= non_zeros
 
-                user_loss = lk + gv * 0.3 + nv * 0.3
+                lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
+                lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1) )
+
+                user_loss = lv + gv * 0.2 + nv * 0.2
 
             
 
