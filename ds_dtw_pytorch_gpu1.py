@@ -331,6 +331,8 @@ class DsDTW(nn.Module):
         l    = 0
         total_loss = 0
 
+        dists = []
+
         for i in range(0, self.nw):
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng] 
@@ -347,7 +349,7 @@ class DsDTW(nn.Module):
             '''Average_Pooling_2,4,6'''
             for i in range(len(positives)):
                 dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
-                
+                dists.append(dist_g[i].item())
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
@@ -355,7 +357,7 @@ class DsDTW(nn.Module):
 
             for i in range(len(negatives)):
                 dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
-                
+                dists.append(dist_n[i].item())
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
@@ -363,11 +365,15 @@ class DsDTW(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
+            eer, th = self.get_eer([0]*5 + [1]*10, dists)
+
+
             lk = 0
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) + torch.pow((F.relu(self.margin - n)), 2) + torch.pow(F.relu(g - self.margin), 2)
+                    temp = F.relu(g + self.margin - n) + F.relu(th - n) + F.relu(g - th)
+                    # temp = F.relu(g + self.margin - n) + torch.pow((F.relu(self.margin - n)), 2) + torch.pow(F.relu(g - self.margin), 2)
                     # m = max(((torch.sum(dist_g)+torch.sum(dist_n))/15),torch.tensor(self.margin))
                     # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(m - n) * 0.25 + F.relu(g - m) * 0.25
                     # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
