@@ -392,10 +392,6 @@ class DsDTW(nn.Module):
                             lk += temp
                             non_zeros+=1
 
-                lk /= non_zeros
-
-                user_loss = lk + only_pos
-                
             else:
                 lk = 0
                 non_zeros = 1
@@ -411,14 +407,15 @@ class DsDTW(nn.Module):
                         lk += temp
                         non_zeros+=1
 
-                # for g in dist_g:
-                #     for n in dist_n:
-                #         temp = F.relu(g + self.margin - n).float()
-                #         if temp > 0:
-                #             lk += temp
-                #             non_zeros+=1
+                for g in dist_g:
+                    for n in dist_n:
+                        temp = F.relu(g + self.margin - n).float()
+                        if temp > 0:
+                            lk += temp
+                            non_zeros+=1
 
-                user_loss = lk/non_zeros
+            lk /= non_zeros
+            user_loss = lk + only_pos
 
             total_loss += user_loss
         
