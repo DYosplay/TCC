@@ -424,7 +424,7 @@ class DsDTW(nn.Module):
                             lk += temp
                             non_zeros+=1
 
-                user_loss = temp + gv * 0.2 + nv * 0.2
+                user_loss = lk + gv * 0.2 + nv * 0.2
 
             
 
