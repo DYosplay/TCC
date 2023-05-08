@@ -373,6 +373,7 @@ class DsDTW(nn.Module):
             
             # eer, th = self.get_eer([0]*5 + [1]*10, dists)
 
+            user_loss = torch.tensor(0)
 
             if n_epoch <= 25:
                 lk = 0
@@ -396,8 +397,8 @@ class DsDTW(nn.Module):
                 user_loss = lk + only_pos
                 
             else:
-                lk = 0
-                non_zeros = 1
+                lk = torch.tensor(0)
+                non_zeros = torch.tensor(1)
                 for g in dist_g:
                     temp = F.relu(g - self.th_loss) * 0.1
                     if temp > 0:
@@ -417,9 +418,7 @@ class DsDTW(nn.Module):
                             lk += temp
                             non_zeros+=1
 
-
-
-                user_loss = lk/non_zeros
+                user_loss = torch.tensor(lk/non_zeros)
 
             total_loss += user_loss
         
