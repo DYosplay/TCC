@@ -397,23 +397,23 @@ class DsDTW(nn.Module):
                 user_loss = lk + only_pos
                 
             else:
-                lk = torch.tensor(0).cuda()
-                non_zeros = torch.tensor(1).cuda()
+                lk = torch.tensor(0).float().cuda()
+                non_zeros = torch.tensor(1).float().cuda()
                 for g in dist_g:
-                    temp = F.relu(g - self.th_loss) * 0.1
+                    temp = F.relu(g - self.th_loss).float().cuda() * 0.1
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
 
                 for n in dist_n:
-                    temp = F.relu(self.th_loss - n) * 0.1
+                    temp = F.relu(self.th_loss - n).float().cuda() * 0.1
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
 
                 for g in dist_g:
                     for n in dist_n:
-                        temp = F.relu(g + self.margin - n)
+                        temp = F.relu(g + self.margin - n).float()
                         if temp > 0:
                             lk += temp
                             non_zeros+=1
