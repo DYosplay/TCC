@@ -372,7 +372,8 @@ class DsDTW(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) + F.relu(th - n)*0.1 + F.relu(g - th) *0.01
+                    temp = torch.pow(g/(g+n), 2) + torch.pow(1 - (n/(g+n)),2)
+                    # temp = F.relu(g + self.margin - n) + F.relu(th - n)*0.1 + F.relu(g - th) *0.01
                     # temp = F.relu(g + self.margin - n) + torch.pow((F.relu(self.margin - n)), 2) + torch.pow(F.relu(g - self.margin), 2)
                     # m = max(((torch.sum(dist_g)+torch.sum(dist_n))/15),torch.tensor(self.margin))
                     # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(m - n) * 0.25 + F.relu(g - m) * 0.25
