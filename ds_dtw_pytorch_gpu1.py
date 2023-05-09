@@ -20,6 +20,8 @@ CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
 
+CHANGE_TRAIN_MODE = 20
+
 ###############################################################################
 def lengths_to_mask(lengths, max_len=None, dtype=None):
     """
@@ -328,10 +330,7 @@ class DsDTW(nn.Module):
             Loss de um batch
         """
         step = (self.ng + self.nf + 1)
-        l    = 0
         total_loss = 0
-
-        dists = []
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -350,7 +349,7 @@ class DsDTW(nn.Module):
             for i in range(len(positives)):
                 dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
                 
-                if n_epoch == 25:
+                if n_epoch >= CHANGE_TRAIN_MODE:
                     self.scores.append(dist_g[i].item())
                     self.labels.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
@@ -361,7 +360,7 @@ class DsDTW(nn.Module):
             for i in range(len(negatives)):
                 dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
                 
-                if n_epoch == 25:
+                if n_epoch >= CHANGE_TRAIN_MODE:
                     self.scores.append(dist_n[i].item())
                     self.labels.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
@@ -372,66 +371,42 @@ class DsDTW(nn.Module):
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
             # eer, th = self.get_eer([0]*5 + [1]*10, dists)
+            
+            if n_epoch <= CHANGE_TRAIN_MODE:
+                lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
+                lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
+                user_loss = lv + only_pos
+            #     lk = 0
+            #     non_zeros = 1
+            #     for g in dist_g:
+            #         for n in dist_n:
+            #             # temp = torch.pow(g/(g+n), 2) + torch.pow(1 - (n/(g+n)),2)
+            #             # temp = F.relu(g + self.margin - n) + F.relu(th - n)*0.1 + F.relu(g - th) *0.01
+            #             # temp = F.relu(g + self.margin - n) + torch.pow((F.relu(self.margin - n)), 2) + torch.pow(F.relu(g - self.margin), 2)
+            #             # m = max(((torch.sum(dist_g)+torch.sum(dist_n))/15),torch.tensor(self.margin))
+            #             # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(m - n) * 0.25 + F.relu(g - m) * 0.25
+            #             # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
+            #             # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - g) * 0.25 + F.relu(n + self.margin) * 0.25
+            #             temp = F.relu(g + self.margin - n)
+            #             if temp > 0:
+            #                 lk += temp
+            #                 non_zeros+=1
 
-            user_loss = 0
-
-            if n_epoch <= 25:
-                lk = 0
-                non_zeros = 1
-                for g in dist_g:
-                    for n in dist_n:
-                        # temp = torch.pow(g/(g+n), 2) + torch.pow(1 - (n/(g+n)),2)
-                        # temp = F.relu(g + self.margin - n) + F.relu(th - n)*0.1 + F.relu(g - th) *0.01
-                        # temp = F.relu(g + self.margin - n) + torch.pow((F.relu(self.margin - n)), 2) + torch.pow(F.relu(g - self.margin), 2)
-                        # m = max(((torch.sum(dist_g)+torch.sum(dist_n))/15),torch.tensor(self.margin))
-                        # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(m - n) * 0.25 + F.relu(g - m) * 0.25
-                        # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
-                        # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - g) * 0.25 + F.relu(n + self.margin) * 0.25
-                        temp = F.relu(g + self.margin - n)
-                        if temp > 0:
-                            lk += temp
-                            non_zeros+=1
-
-                lk /= non_zeros
-                user_loss = lk + only_pos
-
+                # lk /= non_zeros
+                
+                # user_loss = lv + only_pos
             else:
 
-                gs = F.relu(dist_g - self.th_loss) 
+                gs = F.relu(dist_g - (self.th_loss + self.margin/2)) 
                 gv = torch.div(torch.sum(gs), gs.data.nonzero(as_tuple=False).size(0) + 1)
 
-                ns = F.relu(self.th_loss - dist_n)
+                ns = F.relu((self.th_loss - self.margin/2) - dist_n)
                 nv = torch.div(torch.sum(ns), ns.data.nonzero(as_tuple=False).size(0) + 1)
 
-                # lk = 0
-                # non_zeros = 1
-                # for g in dist_g:
-                #     temp = F.relu(g - self.th_loss) * 0.1
-                #     if temp > 0:
-                #         lk += temp
-                #         non_zeros+=1
-
-                # for n in dist_n:
-                #     temp = F.relu(self.th_loss - n) * 0.1
-                #     if temp > 0:
-                #         lk += temp
-                        # non_zeros+=1
-
-                # for g in dist_g:
-                #     for n in dist_n:
-                #         temp = F.relu(g + self.margin - n).float()
-                #         if temp > 0:
-                #             lk += temp
-                #             non_zeros+=1
-                
-                # lk /= non_zeros
-
-                lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
+                lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin/2)
                 lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1) )
 
                 user_loss = lv + gv * 0.05 + nv * 0.05
-
-            
 
             total_loss += user_loss
         
@@ -442,6 +417,8 @@ class DsDTW(nn.Module):
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
         return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+        # return self.new_sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] / (len_x + len_y)
+        
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /((len_x + len_y))
         
@@ -512,14 +489,14 @@ class DsDTW(nn.Module):
             os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
 
-        for i in range(26, n_epochs+1):
+        for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if self.loss_value > min(losses) and i > 50:
+            if self.loss_value > min(losses) and i > 80:
                 print("\n\nEarly stop!")
                 break
 
@@ -551,14 +528,16 @@ class DsDTW(nn.Module):
 
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
             # if (i % 5 == 0 or i > (n_epochs - 3) ) and self.loss_value < 0.35: 
-            if i >= 25 or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
               #  self.margin -= 0.5
 
-            if i == 25:
+            if i >= CHANGE_TRAIN_MODE:
                 _, self.th_loss = self.get_eer(self.labels, self.scores)
+                self.labels = []
+                self.scores = []
             
             self.loss_variation.append(running_loss/epoch_size)
             
@@ -569,7 +548,7 @@ class DsDTW(nn.Module):
         # Loss graph
         plt.xlabel("#Epoch")
         plt.ylabel("Loss")
-        plt.plot(list(range(0,n_epochs)), self.loss_variation)
+        plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
         plt.clf()
