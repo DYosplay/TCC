@@ -152,18 +152,19 @@ if __name__ == '__main__':
     # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
     # print(count_parameters(model))
 
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
-    model.cuda()
-    model.train(mode=True)
-    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
+    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
+    # model.cuda()
+    # model.train(mode=True)
+    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
+    
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
    
     # Continuar treino
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-    # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch25.pt"))
-    # model.cuda()
-    # model.train(mode=True)
-    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
+    model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch15.pt"))
+    model.cuda()
+    model.train(mode=True)
+    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
 
     # Avaliar
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
