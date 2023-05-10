@@ -135,7 +135,7 @@ class DsDTW(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
-        self.th_loss = 4.6518
+        self.th_loss = 4.8131
         self.loss_value = math.inf
 
 
@@ -489,7 +489,7 @@ class DsDTW(nn.Module):
             os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
 
-        for i in range(1, n_epochs+1):
+        for i in range(16, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
