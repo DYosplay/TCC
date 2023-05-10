@@ -20,7 +20,7 @@ CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
 
-CHANGE_TRAIN_MODE = 15
+CHANGE_TRAIN_MODE = 20
 
 ###############################################################################
 def lengths_to_mask(lengths, max_len=None, dtype=None):
@@ -406,7 +406,7 @@ class DsDTW(nn.Module):
                 lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin/2)
                 lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1) )
 
-                user_loss = lv + gv * 0.2 #+ nv * 0.2
+                user_loss = lv + gv * 0.05 #+ nv * 0.2
 
             total_loss += user_loss
         
@@ -489,7 +489,7 @@ class DsDTW(nn.Module):
             os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
 
-        for i in range(16, n_epochs+1):
+        for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
