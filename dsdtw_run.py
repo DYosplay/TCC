@@ -154,7 +154,9 @@ if __name__ == '__main__':
     cudnn.benchmark = False
     cudnn.deterministic = True
 
-    res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
+    jprotocol()
+
+    # res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
     # model = torch.compile(model)
     # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
