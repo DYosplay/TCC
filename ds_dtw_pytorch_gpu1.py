@@ -20,7 +20,7 @@ CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
 
-CHANGE_TRAIN_MODE = 20
+CHANGE_TRAIN_MODE = 25
 
 ###############################################################################
 def lengths_to_mask(lengths, max_len=None, dtype=None):
@@ -156,7 +156,7 @@ class DsDTW(nn.Module):
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
         ))
-        # self.bn = MaskedBatchNorm1d(self.n_hidden)
+        self.bn = MaskedBatchNorm1d(16)
 
         self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
@@ -288,6 +288,8 @@ class DsDTW(nn.Module):
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
+
+        h = self.bn(h.transpose(1,2), length.int()).transpose(1,2)
 
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
