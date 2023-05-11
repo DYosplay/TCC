@@ -10,9 +10,9 @@ FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
 N_EPOCHS = 500
 GAMMA = 5
-PARENT_FOLDER = "ds_test276"
+PARENT_FOLDER = "ds_test187"
 ITERATION = 2
-LEARNING_RATE = 0.0001
+LEARNING_RATE = 0.01
 
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
@@ -139,6 +139,14 @@ def eval_all_scenarios():
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+def jprotocol():
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
+    model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
+    model.cuda()
+    model.train(mode=False)
+    model.eval()
+    model.new_evaluate(FILE7, 10000, result_folder=PARENT_FOLDER)
+
 if __name__ == '__main__':
     # eval_all_scenarios()
 
@@ -160,11 +168,11 @@ if __name__ == '__main__':
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
    
     # Continuar treino
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-    model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch50.pt"))
-    model.cuda()
-    model.train(mode=True)
-    model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
+    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
+    # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch50.pt"))
+    # model.cuda()
+    # model.train(mode=True)
+    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
 
     # Avaliar
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)

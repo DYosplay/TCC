@@ -16,7 +16,7 @@ import new_soft_dtw
 import dtw_cuda
 from sklearn.metrics import roc_curve, auc
 from typing import Tuple
-CHEAT = False
+CHEAT = True
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -135,7 +135,7 @@ class DsDTW(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
-        self.th_loss = 4.8131
+        self.th_loss = 3.1549
         self.loss_value = math.inf
 
 
@@ -150,15 +150,15 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        self.cran  = (nn.Sequential(
+        self.cran  = nn.Sequential(
         nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
         nn.Dropout(0.1)
-        ))
-        self.bn = MaskedBatchNorm1d(16)
+        )
+        # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
-        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
         # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
@@ -175,12 +175,11 @@ class DsDTW(nn.Module):
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
-        # self.linear = torch.compile(self.linear)
         
-        self.new_sdtw_fw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
+        self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
-        self.new_sdtw = (new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1))
-        self.dtw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
+        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
+        self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
     def getOutputMask(self, lens):    
@@ -207,15 +206,15 @@ class DsDTW(nn.Module):
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
             step = (self.ng + self.nf + 1)
-            # for i in range(0, self.nw):
-                # anchor = h[i*step]
-                # for j in range(i*step, (i+1)*step):
-                #     value, output = ((self.new_sdtw_fw)(anchor[None,], h[j:j+1,]))
-                #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            for i in range(0, self.nw):
+                anchor = h[i*step]
+                for j in range(i*step, (i+1)*step):
+                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-                #     output = torch.from_numpy(output).cuda()
+                    output = torch.from_numpy(output).cuda()
 
-                #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
@@ -242,21 +241,21 @@ class DsDTW(nn.Module):
                     #     output_mask[r, ck_add]      = value
                     #     output_mask[r, ck_sub]      = value
 
-                    # src_masks[j] = output_mask
+                    src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            sign = h[-1]
+            sign = h[0]
 
-            # for i in range(len(h)):
-            #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-            #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            for i in range(len(h)):
+                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-            #     output = torch.from_numpy(output).cuda()
+                output = torch.from_numpy(output).cuda()
 
-            #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
@@ -282,14 +281,12 @@ class DsDTW(nn.Module):
                 #     output_mask[r, ck_add]      = value
                 #     output_mask[r, ck_sub]      = value
 
-                # src_masks[i] = output_mask
+                src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
-
-        h = self.bn(h.transpose(1,2), length.int()).transpose(1,2)
 
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
@@ -351,9 +348,9 @@ class DsDTW(nn.Module):
             for i in range(len(positives)):
                 dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
                 
-                if n_epoch >= CHANGE_TRAIN_MODE:
-                    self.scores.append(dist_g[i].item())
-                    self.labels.append(0)
+                # if n_epoch >= CHANGE_TRAIN_MODE:
+                #     self.scores.append(dist_g[i].item())
+                #     self.labels.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
@@ -362,9 +359,9 @@ class DsDTW(nn.Module):
             for i in range(len(negatives)):
                 dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
                 
-                if n_epoch >= CHANGE_TRAIN_MODE:
-                    self.scores.append(dist_n[i].item())
-                    self.labels.append(1)
+                # if n_epoch >= CHANGE_TRAIN_MODE:
+                #     self.scores.append(dist_n[i].item())
+                #     self.labels.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
@@ -374,10 +371,13 @@ class DsDTW(nn.Module):
             
             # eer, th = self.get_eer([0]*5 + [1]*10, dists)
             
-            if n_epoch <= CHANGE_TRAIN_MODE:
-                lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
-                lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
-                user_loss = lv + only_pos
+            lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
+            lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
+            total_loss = lv + only_pos
+            # if n_epoch <= CHANGE_TRAIN_MODE:
+            #     lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
+            #     lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
+            #     user_loss = lv + only_pos
             #     lk = 0
             #     non_zeros = 1
             #     for g in dist_g:
@@ -397,22 +397,22 @@ class DsDTW(nn.Module):
                 # lk /= non_zeros
                 
                 # user_loss = lv + only_pos
-            else:
+            # else:
 
-                gs = F.relu(dist_g - (self.th_loss + self.margin/2)) 
-                gv = torch.div(torch.sum(gs), gs.data.nonzero(as_tuple=False).size(0) + 1)
+            #     gs = F.relu(dist_g - (self.th_loss + self.margin/2)) 
+            #     gv = torch.div(torch.sum(gs), gs.data.nonzero(as_tuple=False).size(0) + 1)
 
-                # ns = F.relu((self.th_loss - self.margin/2) - dist_n)
-                # nv = torch.div(torch.sum(ns), ns.data.nonzero(as_tuple=False).size(0) + 1)
+            #     # ns = F.relu((self.th_loss - self.margin/2) - dist_n)
+            #     # nv = torch.div(torch.sum(ns), ns.data.nonzero(as_tuple=False).size(0) + 1)
 
-                lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin/2)
-                lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1) )
+            #     lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin/2)
+            #     lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1) )
 
-                # user_loss = lv + gv * 0.05 #+ nv * 0.2
+            #     # user_loss = lv + gv * 0.05 #+ nv * 0.2
 
-                user_loss = lv * 0.5
+            #     user_loss = lv * 0.5
 
-            total_loss += user_loss
+            # total_loss += user_loss
         
         total_loss /= self.nw
 
