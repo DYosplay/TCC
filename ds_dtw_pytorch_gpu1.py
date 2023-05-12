@@ -697,8 +697,9 @@ class DsDTW(nn.Module):
             eer, eer_threshold = self.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
             
             global_true_label += users[user]["true_label"]
-            global_distances  += users[user]["distances"] 
-            # global_distances += (np.array(users[user]["distances"]) - (abs(self.th - eer_threshold))).tolist()
+            # global_distances  += users[user]["distances"]
+            aux = np.array(users[user]["distances"])
+            global_distances += np.where(aux >= self.th, aux - abs(self.th - eer_threshold), aux + abs(self.th - eer_threshold)).tolist()
             
             eers.append(eer)
             local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + "\n"
