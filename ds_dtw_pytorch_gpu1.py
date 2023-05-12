@@ -16,7 +16,7 @@ import new_soft_dtw
 import dtw_cuda
 from sklearn.metrics import roc_curve, auc
 from typing import Tuple
-CHEAT = True
+CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -131,6 +131,7 @@ class DsDTW(nn.Module):
         self.batch_size = batch_size
         self.radius = 0
         self.gamma = gamma
+        self.th = 0.76804
 
         # variáveis para a loss
         self.scores = []
@@ -420,7 +421,7 @@ class DsDTW(nn.Module):
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
         # return self.new_sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] / (len_x + len_y)
         
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
@@ -692,7 +693,7 @@ class DsDTW(nn.Module):
         # Calculo do EER local por usuário:
         for user in tqdm(users, desc="Obtendo EER local..."):
             global_true_label += users[user]["true_label"]
-            global_distances  += users[user]["distances"]
+            global_distances  += (np.array(users[user]["distances"]) - (np.abs(np.array(users[user]["distances"]) - self.th))).tolist()
 
             eer, eer_threshold = self.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
             eers.append(eer)

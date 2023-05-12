@@ -154,7 +154,7 @@ if __name__ == '__main__':
     cudnn.benchmark = False
     cudnn.deterministic = True
 
-    jprotocol()
+    # jprotocol()
 
     # res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
@@ -183,6 +183,13 @@ if __name__ == '__main__':
     # model.train(mode=False)
     # model.eval()
     # model.new_evaluate(FILE, 119, result_folder=res_folder+'_'+str(ITERATION))
+
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
+    model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
+    model.cuda()
+    model.train(mode=False)
+    model.eval()
+    model.new_evaluate(FILE, 20000, result_folder=PARENT_FOLDER)
 
 
     # eval_all_weights(model)
