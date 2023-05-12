@@ -618,7 +618,9 @@ class DsDTW(nn.Module):
         s_avg = np.mean(dists)
         s_min = min(dists)
 
-        return s_avg + s_min, user_key, result
+        score = s_avg + s_min
+        corrected_score = score - abs(score - self.th)
+        return corrected_score, user_key, result
 
     def get_eer(self, y_true = List[int], y_scores = List[float], result_folder : str = None, generate_graph : bool = False, n_epoch : int = None) -> Tuple[float, float]:
         fpr, tpr, threshold = roc_curve(y_true=y_true, y_score=y_scores, pos_label=1)
@@ -693,7 +695,7 @@ class DsDTW(nn.Module):
         # Calculo do EER local por usuário:
         for user in tqdm(users, desc="Obtendo EER local..."):
             global_true_label += users[user]["true_label"]
-            global_distances  += (np.array(users[user]["distances"]) - (np.abs(np.array(users[user]["distances"]) - self.th))).tolist()
+            global_distances  += users[user]["distances"]
 
             eer, eer_threshold = self.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
             eers.append(eer)
