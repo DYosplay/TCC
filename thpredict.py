@@ -16,9 +16,9 @@ num_out = 1
 
 batch_size = 100
 
-num_epochs = 200
-learning_rate = 0.0001
-TEST = "th_test17_lstm"
+num_epochs = 600
+learning_rate = 0.00001
+TEST = "th_test19"
 RESULT_FOLDER = "thPredict" + os.sep + TEST
 DEVELOPMENT = True
 
@@ -46,15 +46,16 @@ class NeuralNet(nn.Module):
     
     def forward(self, x):
         # MLP
-        # out = self.fc01(x)
-        # out = self.relu(out)
-        # out = self.fc02(out)
-        # out = torch.mean(out)
+        out = self.fc01(x)
+        out = self.relu(out)
+        out = self.fc02(out)
+        out = self.relu(out)
+        out = torch.mean(out)
 
         # LSTM
-        out, _ = self.lstm(x)
-        out = self.l1(out)
-        out = torch.mean(out)
+        # out, _ = self.lstm(x)
+        # out = self.l1(out)
+        # out = torch.mean(out)
         return out
     
     def evaluation(self, test, users, labels, epoch_n):
