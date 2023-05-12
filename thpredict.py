@@ -16,7 +16,7 @@ num_out = 1
 
 batch_size = 100
 
-num_epochs = 50
+num_epochs = 200
 learning_rate = 0.0001
 TEST = "th_test17_lstm"
 RESULT_FOLDER = "thPredict" + os.sep + TEST
