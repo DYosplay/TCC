@@ -420,7 +420,7 @@ class DsDTW(nn.Module):
 
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
         # return self.new_sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] / (len_x + len_y)
         
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
