@@ -189,7 +189,7 @@ if __name__ == '__main__':
     model.cuda()
     model.train(mode=False)
     model.eval()
-    model.new_evaluate(FILE, 50000, result_folder=PARENT_FOLDER)
+    model.new_evaluate(FILE, 60000, result_folder=PARENT_FOLDER)
 
 
     # eval_all_weights(model)
