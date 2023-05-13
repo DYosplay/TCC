@@ -96,28 +96,28 @@ class DsTransformer(nn.Module):
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
             
-            step = (self.ng + self.nf + 1)
-            for i in range(0, self.nw):
-                anchor = h[i*step]
-                for j in range(i*step, (i+1)*step):
-                    value, output = self.dtw(anchor[None,], h[j:j+1,])
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
-                    output = torch.from_numpy(output).cuda()
-                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                    src_masks[j] = output_mask
+            # step = (self.ng + self.nf + 1)
+            # for i in range(0, self.nw):
+            #     anchor = h[i*step]
+            #     for j in range(i*step, (i+1)*step):
+            #         value, output = self.dtw(anchor[None,], h[j:j+1,])
+            #         output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            #         output = torch.from_numpy(output).cuda()
+            #         output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+            #         src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
 
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             
-            sign = h[0]
-            for i in range(len(h)):
-                value, output = self.dtw(sign[None, ], h[i:i+1, ])
-                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
-                output = torch.from_numpy(output).cuda()
-                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                src_masks[i] = output_mask
+            # sign = h[0]
+            # for i in range(len(h)):
+            #     value, output = self.dtw(sign[None, ], h[i:i+1, ])
+            #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            #     output = torch.from_numpy(output).cuda()
+            #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+            #     src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
 
@@ -194,10 +194,25 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)        
             
-            lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
-            lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
+            # lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
+            # lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
             
-            user_loss = lv + only_pos
+            # user_loss = lv + only_pos
+
+            # total_loss += user_loss
+
+            lk = 0
+            non_zeros = 1
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+
+            lk /= non_zeros
+
+            user_loss = lk + only_pos
 
             total_loss += user_loss
 
@@ -299,7 +314,9 @@ class DsTransformer(nn.Module):
         if 'finger' in comparison_file:
             scenario = 'finger'
 
-        file_name = (comparison_file.split(".")[0]).split(os.sep)[-1]
+        if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+        file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
         print("\n\tAvaliando " + file_name)
         comparison_folder = result_folder + os.sep + file_name
         if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
