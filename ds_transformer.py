@@ -43,7 +43,7 @@ class DsTransformer(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
-        # self.th_loss = 3.1549
+        self.th = 3.1549
         # self.loss_value = math.inf
 
 
@@ -170,7 +170,7 @@ class DsTransformer(nn.Module):
             torch.tensor (float): valor da loss
         """
         step = (self.ng + self.nf + 1)
-        l    = 0
+        sep_loss = 0
         total_loss = 0
 
         for i in range(0, self.nw):
@@ -198,7 +198,7 @@ class DsTransformer(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) + F.relu(g - 0.7) * 0.5
+                    temp = F.relu(g + self.margin - n) #+ F.relu(g - 0.7) * 0.5
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -208,15 +208,23 @@ class DsTransformer(nn.Module):
             user_loss = lk + only_pos
 
             total_loss += user_loss
+
+            lp = torch.sum(F.relu(torch.sub(dist_g, self.th)))
+            pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
+            sep_loss += pv
         
+
+        sep_loss /= self.nw
         total_loss /= self.nw
 
-        return total_loss
+        return total_loss, sep_loss
     
     def _triplet_loss(self, dists):
         
         step = (self.ng + self.nf) # ignora a ancora mesmo, isso são as distâncias e não o mini batch
         total_loss = 0
+
+        sep_loss = torch.tensor(0, requires_grad=True)
 
         for i in range(0, self.nw):
 
@@ -239,10 +247,14 @@ class DsTransformer(nn.Module):
             user_loss = lk + only_pos
 
             total_loss += user_loss
+
+            lp = torch.sum(F.relu(torch.sub(dist_g, self.th))) 
+            pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
+            sep_loss += pv
         
         total_loss /= self.nw
-
-        return total_loss
+        sep_loss /= self.nw
+        return total_loss, sep_loss
         
     def _sep_loss(self, dists):
         step = (self.ng + self.nf) # ignora a ancora mesmo, isso são as distâncias e não o mini batch
@@ -255,13 +267,13 @@ class DsTransformer(nn.Module):
       
             lp = 0
 
-            lp = F.relu(dist_g + self.th) 
+            lp = F.relu(dist_g - self.th) 
             pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
 
-            ln = F.relu(self.th - dist_n)
-            nv = ln / (ln.data.nonzero(as_tuple=False).size(0) + 1)
-
-            user_loss = pv * 0.5 + nv * 0.5
+            # ln = F.relu(self.th - dist_n)
+            # nv = ln / (ln.data.nonzero(as_tuple=False).size(0) + 1)
+            user_loss = pv 
+            # user_loss = pv * 0.5 + nv * 0.5
 
             total_loss += user_loss
         
@@ -304,7 +316,8 @@ class DsTransformer(nn.Module):
 
             for j in range(len(positives), len(positives)+len(negatives)):
                 # dist_n[i] = self.sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
-                dists[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                k = j - len(positives)
+                dists[j] = self.sdtw(anchor[None, :int(len_a)], negatives[k:k+1, :int(len_n[k])])[0] / (len_a + len_n[k])
 
         return dists
     # def _sep_loss(self, data, lens)
@@ -507,7 +520,14 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 outputs, length = self(inputs.float(), mask)
 
-                loss = self._loss(outputs, length, i)
+                triplet_loss, sep_loss = self._loss(outputs, length, i)
+                loss = (triplet_loss*0.7 + sep_loss*0.3)
+                # loss = self._loss(outputs, length, i)
+                
+                # dists = self.get_distances(outputs, length)
+                # triplet_loss = self._triplet_loss(dists)
+                # sep_loss = self._sep_loss(dists)
+                # loss = (triplet_loss*0.7 + sep_loss*0.3)
 
                 loss.backward()
                 optimizer.step()
