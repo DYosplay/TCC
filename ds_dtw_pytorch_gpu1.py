@@ -195,8 +195,6 @@ class DsDTW(nn.Module):
     def forward(self, x, mask):
         length = torch.sum(mask, dim=1)
 
-
-
         h = self.cran(x)
         # h = self.bn(h, length.int())
         
@@ -207,15 +205,15 @@ class DsDTW(nn.Module):
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
             step = (self.ng + self.nf + 1)
-            for i in range(0, self.nw):
-                anchor = h[i*step]
-                for j in range(i*step, (i+1)*step):
-                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            # for i in range(0, self.nw):
+            #     anchor = h[i*step]
+            #     for j in range(i*step, (i+1)*step):
+            #         value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+            #         output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-                    output = torch.from_numpy(output).cuda()
+            #         output = torch.from_numpy(output).cuda()
 
-                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+            #         output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
@@ -242,7 +240,7 @@ class DsDTW(nn.Module):
                     #     output_mask[r, ck_add]      = value
                     #     output_mask[r, ck_sub]      = value
 
-                    src_masks[j] = output_mask
+                    # src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
@@ -250,13 +248,13 @@ class DsDTW(nn.Module):
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             sign = h[0]
 
-            for i in range(len(h)):
-                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            # for i in range(len(h)):
+            #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+            #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-                output = torch.from_numpy(output).cuda()
+            #     output = torch.from_numpy(output).cuda()
 
-                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+            #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
@@ -282,7 +280,7 @@ class DsDTW(nn.Module):
                 #     output_mask[r, ck_add]      = value
                 #     output_mask[r, ck_sub]      = value
 
-                src_masks[i] = output_mask
+                # src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
@@ -325,11 +323,12 @@ class DsDTW(nn.Module):
         return np.array(r), np.array(c)
 
 
-    def loss(self, data, lens, n_epoch):
+    def loss(self, data, lens):
         """ 
             Loss de um batch
         """
         step = (self.ng + self.nf + 1)
+        l    = 0
         total_loss = 0
 
         for i in range(0, self.nw):
@@ -349,9 +348,6 @@ class DsDTW(nn.Module):
             for i in range(len(positives)):
                 dist_g[i] = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
                 
-                # if n_epoch >= CHANGE_TRAIN_MODE:
-                #     self.scores.append(dist_g[i].item())
-                #     self.labels.append(0)
                 # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
                 # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
 
@@ -360,9 +356,6 @@ class DsDTW(nn.Module):
             for i in range(len(negatives)):
                 dist_n[i] = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
                 
-                # if n_epoch >= CHANGE_TRAIN_MODE:
-                #     self.scores.append(dist_n[i].item())
-                #     self.labels.append(1)
                 # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
                 # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
@@ -370,55 +363,25 @@ class DsDTW(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
-            # eer, th = self.get_eer([0]*5 + [1]*10, dists)
-            
-            lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
-            lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
-            total_loss = lv + only_pos
-            # if n_epoch <= CHANGE_TRAIN_MODE:
-            #     lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
-            #     lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
-            #     user_loss = lv + only_pos
-            #     lk = 0
-            #     non_zeros = 1
-            #     for g in dist_g:
-            #         for n in dist_n:
-            #             # temp = torch.pow(g/(g+n), 2) + torch.pow(1 - (n/(g+n)),2)
-            #             # temp = F.relu(g + self.margin - n) + F.relu(th - n)*0.1 + F.relu(g - th) *0.01
-            #             # temp = F.relu(g + self.margin - n) + torch.pow((F.relu(self.margin - n)), 2) + torch.pow(F.relu(g - self.margin), 2)
-            #             # m = max(((torch.sum(dist_g)+torch.sum(dist_n))/15),torch.tensor(self.margin))
-            #             # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(m - n) * 0.25 + F.relu(g - m) * 0.25
-            #             # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - n) * 0.25 + F.relu(g + self.margin) * 0.25
-            #             # temp = F.relu(g + self.margin - n) * 0.5 + F.relu(- self.margin - g) * 0.25 + F.relu(n + self.margin) * 0.25
-            #             temp = F.relu(g + self.margin - n)
-            #             if temp > 0:
-            #                 lk += temp
-            #                 non_zeros+=1
+            lk = 0
+            non_zeros = 1
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
 
-                # lk /= non_zeros
-                
-                # user_loss = lv + only_pos
-            # else:
+            lk /= non_zeros
 
-            #     gs = F.relu(dist_g - (self.th_loss + self.margin/2)) 
-            #     gv = torch.div(torch.sum(gs), gs.data.nonzero(as_tuple=False).size(0) + 1)
+            user_loss = lk + only_pos
 
-            #     # ns = F.relu((self.th_loss - self.margin/2) - dist_n)
-            #     # nv = torch.div(torch.sum(ns), ns.data.nonzero(as_tuple=False).size(0) + 1)
-
-            #     lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin/2)
-            #     lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1) )
-
-            #     # user_loss = lv + gv * 0.05 #+ nv * 0.2
-
-            #     user_loss = lv * 0.5
-
-            # total_loss += user_loss
+            total_loss += user_loss
         
         total_loss /= self.nw
 
         return total_loss
-
+    
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
         return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
@@ -494,7 +457,7 @@ class DsDTW(nn.Module):
             os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
 
-        for i in range(50, n_epochs+1):
+        for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
@@ -520,7 +483,7 @@ class DsDTW(nn.Module):
                 optimizer.zero_grad()
                 outputs, length = self(inputs.float(), mask)
 
-                loss = self.loss(outputs, length, i)
+                loss = self.loss(outputs, length)
 
                 loss.backward()
                 optimizer.step()
