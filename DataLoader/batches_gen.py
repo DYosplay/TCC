@@ -24,7 +24,7 @@ def files2array(batch, scenario : str, developtment : bool):
     #     batch = batch[1:]
 
     for file in batch:
-        if developtment == False: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file
+        if developtment == False: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file
         
         # Se quiser testar usando o conjunto de treino
         # if developtment == True: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + "stylus" + os.sep + file
