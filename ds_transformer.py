@@ -469,7 +469,7 @@ class DsTransformer(nn.Module):
         
         self.train(mode=True)
 
-    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str):
+    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.7):
         """ Loop de treinamento
 
         Args:
@@ -521,7 +521,7 @@ class DsTransformer(nn.Module):
                 outputs, length = self(inputs.float(), mask)
 
                 triplet_loss, sep_loss = self._loss(outputs, length, i)
-                loss = (triplet_loss*0.7 + sep_loss*0.3)
+                loss = (triplet_loss*triplet_loss_w + sep_loss* (1-triplet_loss_w) )
                 # loss = self._loss(outputs, length, i)
                 
                 # dists = self.get_distances(outputs, length)
@@ -538,7 +538,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if i == 1 or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 

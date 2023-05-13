@@ -152,7 +152,8 @@ if __name__ == '__main__':
     # parser.add_argument("-cf", "--comparison_file", help="set the comparison file used in the evaluation during training", default='FILE', type=str)
     parser.add_argument("-t", "--test_name", help="set name of current test", type=str, required=True)
     parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
-    
+    parser.add_argument("-tl", "--triplet_loss_w", help="set triplet loss weight", default=0.7, type=float)
+
     # Read arguments from command line
     args = parser.parse_args()
 
@@ -173,7 +174,7 @@ if __name__ == '__main__':
         print(count_parameters(model))
         model.cuda()
         model.train(mode=True)
-        model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder)
+        model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
     else:
         """Avaliar modelo"""
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate)
