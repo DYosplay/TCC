@@ -19,7 +19,6 @@ import DTW.dtw_cuda as dtw
 import utils.metrics as metrics
 
 CHEAT = False
-CHANGE_TRAIN_MODE = 25
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -65,19 +64,18 @@ class DsTransformer(nn.Module):
         nn.Dropout(0.1)
         )
 
-        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        
-        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
-        
-        nn.init.kaiming_normal_(self.linear.weight, a=1)
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
 
+        self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        
+        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
+        nn.init.kaiming_normal_(self.linear.weight, a=1)
+        
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
-    def getOutputMask(self, lens):   
-        """ Define a máscara referente ao padding realizado nas assinaturas (1 é dado, 0 é padding)""" 
+    def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
         lens = (lens+4) //4
         N = len(lens); D = np.max(lens)
@@ -90,25 +88,28 @@ class DsTransformer(nn.Module):
         length = torch.sum(mask, dim=1)
 
         h = self.cran(x)
+        
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
         
+        # src_mask
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
             step = (self.ng + self.nf + 1)
             for i in range(0, self.nw):
                 anchor = h[i*step]
                 for j in range(i*step, (i+1)*step):
-                    value, output = self.sdtw(anchor[None,], h[j:j+1,])
+                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                     output = torch.from_numpy(output).cuda()
 
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-
+    
                     src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             sign = h[0]
@@ -120,6 +121,7 @@ class DsTransformer(nn.Module):
                 output = torch.from_numpy(output).cuda()
 
                 output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+
                 src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
@@ -199,7 +201,10 @@ class DsTransformer(nn.Module):
             
             lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
             lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
-            total_loss = lv + only_pos
+            
+            user_loss = lv + only_pos
+
+            total_loss += user_loss
 
         total_loss /= self.nw
 
@@ -412,7 +417,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
