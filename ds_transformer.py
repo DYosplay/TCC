@@ -170,6 +170,7 @@ class DsTransformer(nn.Module):
             torch.tensor (float): valor da loss
         """
         step = (self.ng + self.nf + 1)
+        l    = 0
         total_loss = 0
 
         for i in range(0, self.nw):
@@ -189,18 +190,21 @@ class DsTransformer(nn.Module):
             for i in range(len(positives)):
                 dist_g[i] = self.sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
                 
+                # ap = self.new_sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])
+                # pp = self.new_sdtw(positives[i:i+1, :int(len_p[i])], positives[i:i+1, :int(len_p[i])])
+
+                # dist_g[i] = (ap - (0.5 * (aa+pp))) / (len_a + len_p[i])
+
             for i in range(len(negatives)):
                 dist_n[i] = self.sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
+                
+                # an = self.new_sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])
+                # nn = self.new_sdtw(negatives[i:i+1, :int(len_n[i])], negatives[i:i+1, :int(len_n[i])])
 
-            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)        
+                # dist_n[i] = (an - (0.5 * (aa+nn))) / (len_a + len_n[i])
+
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
-            # lk = F.relu(dist_g.unsqueeze(1) - dist_n.unsqueeze(0) + self.margin)
-            # lv = torch.div(torch.sum(lk), (lk.data.nonzero(as_tuple=False).size(0) + 1))
-            
-            # user_loss = lv + only_pos
-
-            # total_loss += user_loss
-
             lk = 0
             non_zeros = 1
             for g in dist_g:
@@ -215,10 +219,13 @@ class DsTransformer(nn.Module):
             user_loss = lk + only_pos
 
             total_loss += user_loss
-
+        
         total_loss /= self.nw
 
         return total_loss
+
+
+    # def _sep_loss(self, data, lens)
 
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
