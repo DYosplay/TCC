@@ -186,11 +186,11 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
     
     else: 
 
-        features= np.array([v, theta, cos, sin, zscore(p), dv, dtheta, logCurRadius, c, totalAccel])
+        features= np.array([v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel])
         # features = ((features.transpose() - np.mean(features, axis=1)) / np.std(features, axis=1)).transpose()
         for f in features:
-            result.append(f)
-            # result.append(zscore(f))
+            # result.append(f)
+            result.append(zscore(f))
 
     buffer = str(len(result[0])) + "\n"
 
