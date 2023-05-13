@@ -99,7 +99,7 @@ class DsTransformer(nn.Module):
             for i in range(0, self.nw):
                 anchor = h[i*step]
                 for j in range(i*step, (i+1)*step):
-                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    value, output = self.dtw(anchor[None,], h[j:j+1,])
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                     output = torch.from_numpy(output).cuda()
@@ -115,7 +115,7 @@ class DsTransformer(nn.Module):
             sign = h[0]
 
             for i in range(len(h)):
-                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                value, output = self.dtw(sign[None, ], h[i:i+1, ])
                 output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                 output = torch.from_numpy(output).cuda()
