@@ -4,12 +4,12 @@ import gc
 import inspect
 import torch
 import torch.backends.cudnn as cudnn
-BATCH_SIZE = 64
+BATCH_SIZE = 16
 FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
-N_EPOCHS = 20
-PARENT_FOLDER = "recriar6"
+N_EPOCHS = 30
+PARENT_FOLDER = "recriar7"
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE2 = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W1_skilled_stylus_4vs1.txt"
