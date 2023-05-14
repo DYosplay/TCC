@@ -19,6 +19,11 @@ from typing import Tuple
 CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
+# os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:256"
+# PyTorch models inherit from torch.nn.Module
+
+CUDA0 = torch.device('cuda:0')
+#RESULTFOLDER = "RESULT_UNION_10_L2_ALL_FEATURES"
 
 ###############################################################################
 def lengths_to_mask(lengths, max_len=None, dtype=None):
@@ -112,7 +117,7 @@ class MaskedBatchNorm1d(nn.BatchNorm1d):
 ###############################################################################
 
 class DsDTW(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, lr : float = 0.01):
         super(DsDTW, self).__init__()
 
         # Variáveis do modelo
@@ -128,7 +133,6 @@ class DsDTW(nn.Module):
         self.n_layers = 2
         self.batch_size = batch_size
         self.radius = 0
-        self.gamma = gamma
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -139,14 +143,6 @@ class DsDTW(nn.Module):
         self.best_eer = math.inf
         self.loss_variation = []
         self.worse = {}
-
-        # Definição da rede
-        # self.cran  = (nn.Sequential(
-        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        # nn.AvgPool1d(4,4, ceil_mode=True),
-        # nn.ReLU(inplace=True),
-        # nn.Dropout(0.1)
-        # ))
 
         # Definição da rede
         self.cran  = nn.Sequential(
@@ -204,16 +200,16 @@ class DsDTW(nn.Module):
         # src_mask
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
-            # step = (self.ng + self.nf + 1)
-            # for i in range(0, self.nw):
-            #     anchor = h[i*step]
-            #     for j in range(i*step, (i+1)*step):
-            #         value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
-            #         output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            step = (self.ng + self.nf + 1)
+            for i in range(0, self.nw):
+                anchor = h[i*step]
+                for j in range(i*step, (i+1)*step):
+                    value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-            #         output = torch.from_numpy(output).cuda()
+                    output = torch.from_numpy(output).cuda()
 
-            #         output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                     # output_aux = torch.ones(output.shape).cuda()
 
                     # para a lógica inversa:
@@ -240,21 +236,21 @@ class DsDTW(nn.Module):
                     #     output_mask[r, ck_add]      = value
                     #     output_mask[r, ck_sub]      = value
 
-                    # src_masks[j] = output_mask
+                    src_masks[j] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            # sign = h[0]
+            sign = h[0]
 
-            # for i in range(len(h)):
-            #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
-            #     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+            for i in range(len(h)):
+                value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
+                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-            #     output = torch.from_numpy(output).cuda()
+                output = torch.from_numpy(output).cuda()
 
-            #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
                 # output_aux = torch.ones(output.shape).cuda()
 
                 # para a lógica inversa:
@@ -280,7 +276,7 @@ class DsDTW(nn.Module):
                 #     output_mask[r, ck_add]      = value
                 #     output_mask[r, ck_sub]      = value
 
-                # src_masks[i] = output_mask
+                src_masks[i] = output_mask
             
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
@@ -385,7 +381,6 @@ class DsDTW(nn.Module):
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
         return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
-        # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /((len_x + len_y))
         
         #usando fastdtw
@@ -502,7 +497,7 @@ class DsDTW(nn.Module):
         plt.cla()
         plt.clf()
 
-    def inference(self, files : str, scenario : str) -> Tuple[float, str, int]:
+    def inference(self, files : str) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
@@ -524,7 +519,7 @@ class DsDTW(nn.Module):
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
-        test_batch, lens = batches_gen.files2array(refs + [sign], scenario=scenario, developtment=CHEAT)
+        test_batch, lens = batches_gen.files2array(refs + [sign], developtment=CHEAT)
 
         mask = self.getOutputMask(lens)
         
@@ -605,10 +600,6 @@ class DsDTW(nn.Module):
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
 
-        scenario = 'stylus'
-        if 'finger' in comparison_file:
-            scenario = 'finger'
-
         file_name = (comparison_file.split(".")[0]).split(os.sep)[-1]
         print("\n\tAvaliando " + file_name)
         comparison_folder = result_folder + os.sep + file_name
@@ -617,7 +608,7 @@ class DsDTW(nn.Module):
         users = {}
 
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self.inference(line, scenario=scenario)
+            distance, user_id, true_label = self.inference(line)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
