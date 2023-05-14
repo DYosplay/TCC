@@ -373,7 +373,7 @@ class DsTransformer(nn.Module):
         """
         return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
 
-    def _inference(self, files : str, scenario : str) -> Tuple[float, str, int]:
+    def _inference(self, files : str, scenario : str, n_epoch : int) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
