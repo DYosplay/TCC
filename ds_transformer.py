@@ -586,10 +586,10 @@ class DsTransformer(nn.Module):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
-            if i >= CHANGE_TRAIN_MODE:
-                self.cran.requires_grad_(False)
-                self.linear.requires_grad_(False)
-                self.enc1.requires_grad_(False)
+            # if i >= CHANGE_TRAIN_MODE:
+            #     self.cran.requires_grad_(False)
+            #     self.linear.requires_grad_(False)
+            #     self.enc1.requires_grad_(False)
 
                 # _, self.th_loss = metrics.get_eer(self.labels, self.scores)
                 # self.labels = []
