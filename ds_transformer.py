@@ -19,6 +19,7 @@ import DTW.dtw_cuda as dtw
 import utils.metrics as metrics
 
 CHEAT = False
+CHANGE_TRAIN_MODE=20
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -43,7 +44,7 @@ class DsTransformer(nn.Module):
         # variáveis para a loss
         self.scores = []
         self.labels = []
-        self.th = 3.1549
+        self.th = 3.5
         # self.loss_value = math.inf
 
 
@@ -75,6 +76,22 @@ class DsTransformer(nn.Module):
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
+        # Segunda parte
+
+        # self.cran2  = nn.Sequential(
+        # nn.Conv1d(in_channels=16, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        # nn.ReLU(inplace=True),
+        # nn.Dropout(0.1))
+        # nn.init.kaiming_normal_(self.cran2[0].weight, a=0)
+        # nn.init.zeros_(self.cran2[0].bias)
+
+        self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+
+        self.linear2 = nn.Linear(16, self.n_hidden, bias=False)
+        self.linear3 = nn.Linear(self.n_hidden, 16, bias=False)
+        nn.init.kaiming_normal_(self.linear.weight, a=1)
+        
+
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
         lens = (lens+4) //4
@@ -83,8 +100,8 @@ class DsTransformer(nn.Module):
         for i in range(N):
             mask[i, 0:lens[i]] = 1.0
         return mask
-    
-    def forward(self, x, mask):
+
+    def forward(self, x, mask, n_epoch):
         length = torch.sum(mask, dim=1)
 
         h = self.cran(x)
@@ -123,10 +140,24 @@ class DsTransformer(nn.Module):
 
         h = self.linear(h)
 
-        if self.training:
-            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+        if n_epoch <= CHANGE_TRAIN_MODE:
 
-        return h * mask.unsqueeze(2), length.float()
+            if self.training:
+                return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+
+            return h * mask.unsqueeze(2), length.float()
+        else:
+
+            # h = self.cran2(h.transpose(1,2))
+            # h = h.transpose(1,2)
+            h = self.linear2(h)
+            h = self.enc2(h)
+            h = self.linear3(h)
+
+            if self.training:
+                return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+            
+            return h, length.float()
 
     def _traceback(self, acc_cost_matrix : npt.DTypeLike):
         """ Encontra a path (matching) dado uma matriz de custo acumulado obtida a partir do cálculo do DTW.
@@ -170,7 +201,8 @@ class DsTransformer(nn.Module):
             torch.tensor (float): valor da loss
         """
         step = (self.ng + self.nf + 1)
-        sep_loss = 0
+        sep_loss_p = 0
+        sep_loss_n = 0
         total_loss = 0
 
         for i in range(0, self.nw):
@@ -211,13 +243,18 @@ class DsTransformer(nn.Module):
 
             lp = torch.sum(F.relu(torch.sub(dist_g, self.th)))
             pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
-            sep_loss += pv
+            sep_loss_p += pv
+
+            ln = torch.sum(F.relu(torch.sub(self.th, dist_n)))
+            nv = ln / (ln.data.nonzero(as_tuple=False).size(0) + 1)
+            sep_loss_n += nv
         
 
-        sep_loss /= self.nw
+        sep_loss_p /= self.nw
+        sep_loss_n /= self.nw
         total_loss /= self.nw
 
-        return total_loss, sep_loss
+        return total_loss, sep_loss_p, sep_loss_n
     
     def _triplet_loss(self, dists):
         
@@ -365,7 +402,7 @@ class DsTransformer(nn.Module):
         mask = Variable(torch.from_numpy(mask)).cuda()
         inputs = Variable(torch.from_numpy(test_batch)).cuda()
 
-        embeddings, lengths = self(inputs.float(), mask)    
+        embeddings, lengths = self(inputs.float(), mask, n_epoch)    
         refs = embeddings[:len(embeddings)-1]
         sign = embeddings[-1]
 
@@ -426,7 +463,7 @@ class DsTransformer(nn.Module):
         users = {}
 
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._inference(line, scenario=scenario)
+            distance, user_id, true_label = self._inference(line, scenario=scenario, n_epoch=n_epoch)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
@@ -469,7 +506,7 @@ class DsTransformer(nn.Module):
         
         self.train(mode=True)
 
-    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.7):
+    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5):
         """ Loop de treinamento
 
         Args:
@@ -514,14 +551,21 @@ class DsTransformer(nn.Module):
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
                 
                 mask = self.getOutputMask(lens)
+
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
                 
                 optimizer.zero_grad()
-                outputs, length = self(inputs.float(), mask)
+                outputs, length = self(inputs.float(), mask, i)
 
-                triplet_loss, sep_loss = self._loss(outputs, length, i)
-                loss = (triplet_loss*triplet_loss_w + sep_loss* (1-triplet_loss_w) )
+                triplet_loss, sep_loss_p, sep_loss_n = self._loss(outputs, length, i)
+
+                loss = None
+                if i <= CHANGE_TRAIN_MODE:
+                    loss = triplet_loss
+                else:
+                    loss = (triplet_loss_w * sep_loss_p) + ( (1-triplet_loss_w)*sep_loss_n )
+                
                 # loss = self._loss(outputs, length, i)
                 
                 # dists = self.get_distances(outputs, length)
@@ -542,10 +586,14 @@ class DsTransformer(nn.Module):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
-            # if i >= CHANGE_TRAIN_MODE:
-            #     _, self.th_loss = metrics.get_eer(self.labels, self.scores)
-            #     self.labels = []
-            #     self.scores = []
+            if i >= CHANGE_TRAIN_MODE:
+                self.cran.requires_grad_(False)
+                self.linear.requires_grad_(False)
+                self.enc1.requires_grad_(False)
+
+                # _, self.th_loss = metrics.get_eer(self.labels, self.scores)
+                # self.labels = []
+                # self.scores = []
             
             self.loss_variation.append(running_loss/epoch_size)
             
