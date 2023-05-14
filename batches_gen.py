@@ -17,28 +17,18 @@ def get_files(dataset_folder : str = "Data/DeepSignDB/Development/stylus"):
 
     return users
 
-def files2array(batch, scenario : str, developtment : bool):
+def files2array(batch, developtment : bool):
     data = []; lens = []
 
-    # if developtment:
-    #     batch = batch[1:]
-
     for file in batch:
-        if developtment == False: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file
+        if developtment == False: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + "stylus" + os.sep + file
         
         # Se quiser testar usando o conjunto de treino
         # if developtment == True: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + "stylus" + os.sep + file
         
-        feat = loader.get_features(file, scenario=scenario, development=developtment)
+        feat = loader.get_features(file, development=developtment)
         data.append(feat)
         lens.append(len(feat[0]))
-
-    # if developtment:
-    
-    #     ebdba = loader.get_eb_dba(batch[:6], scenario=scenario, development=developtment)            
-
-    #     data.insert(0, ebdba)
-    #     lens.insert(0, len(ebdba[0]))
 
     max_size = max(lens)
 
@@ -59,7 +49,7 @@ def get_batch_from_epoch(epoch, batch_size : int):
     for i in range(0, step):
         batch += epoch.pop()
 
-    data, lens = files2array(batch, scenario='stylus', developtment=True)
+    data, lens = files2array(batch, developtment=True)
 
     return data, lens, epoch
 
@@ -82,7 +72,7 @@ def generate_epoch(dataset_folder : str = "Data/DeepSignDB/Development/stylus", 
 
     for user_id in tqdm(train_users):
         
-        database = loader.get_database(user_id=user_id, scenario='stylus', development=development)
+        database = loader.get_database(user_id=user_id, development=development)
 
         if database == loader.EBIOSIGN1_DS1 or database == loader.EBIOSIGN1_DS2:
             number_of_mini_baches = 1
