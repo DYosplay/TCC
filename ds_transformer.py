@@ -65,12 +65,12 @@ class DsTransformer(nn.Module):
         nn.Dropout(0.1)
         )
 
-        nn.init.kaiming_normal_(self.cran[0].weight, a=0)
-        nn.init.zeros_(self.cran[0].bias)
-
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
         
         self.linear = nn.Linear(self.n_hidden, 16, bias=False)
+
+        nn.init.kaiming_normal_(self.cran[0].weight, a=0)
+        nn.init.zeros_(self.cran[0].bias)
         nn.init.kaiming_normal_(self.linear.weight, a=1)
         
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
@@ -85,11 +85,12 @@ class DsTransformer(nn.Module):
         # nn.init.kaiming_normal_(self.cran2[0].weight, a=0)
         # nn.init.zeros_(self.cran2[0].bias)
 
-        self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
+        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
-        self.linear2 = nn.Linear(16, self.n_hidden, bias=False)
-        self.linear3 = nn.Linear(self.n_hidden, 16, bias=False)
-        nn.init.kaiming_normal_(self.linear.weight, a=1)
+
+        # self.linear2 = nn.Linear(16, self.n_hidden, bias=False)
+        # self.linear3 = nn.Linear(self.n_hidden, 16, bias=False)
+        # nn.init.kaiming_normal_(self.linear.weight, a=1)
         
 
     def getOutputMask(self, lens):    
@@ -140,24 +141,29 @@ class DsTransformer(nn.Module):
 
         h = self.linear(h)
 
-        if n_epoch <= CHANGE_TRAIN_MODE:
+        if self.training:
+            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
 
-            if self.training:
-                return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+        return h * mask.unsqueeze(2), length.float()
 
-            return h * mask.unsqueeze(2), length.float()
-        else:
+        # if n_epoch <= CHANGE_TRAIN_MODE:
 
-            # h = self.cran2(h.transpose(1,2))
-            # h = h.transpose(1,2)
-            h = self.linear2(h)
-            h = self.enc2(h)
-            h = self.linear3(h)
+        #     if self.training:
+        #         return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
 
-            if self.training:
-                return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+        #     return h * mask.unsqueeze(2), length.float()
+        # else:
+
+        #     # h = self.cran2(h.transpose(1,2))
+        #     # h = h.transpose(1,2)
+        #     h = self.linear2(h)
+        #     h = self.enc2(h)
+        #     h = self.linear3(h)
+
+        #     if self.training:
+        #         return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
             
-            return h, length.float()
+        #     return h, length.float()
 
     def _traceback(self, acc_cost_matrix : npt.DTypeLike):
         """ Encontra a path (matching) dado uma matriz de custo acumulado obtida a partir do cálculo do DTW.
@@ -188,7 +194,7 @@ class DsTransformer(nn.Module):
         
         return np.array(r), np.array(c)
 
-    def _loss(self, data, lens, n_epoch):
+    def _loss(self, data, lens):
         """ Loss de um batch
 
         Args:
@@ -241,123 +247,122 @@ class DsTransformer(nn.Module):
 
             total_loss += user_loss
 
-            lp = torch.sum(F.relu(torch.sub(dist_g, self.th)))
-            pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
-            sep_loss_p += pv
+            # lp = torch.sum(F.relu(torch.sub(dist_g, self.th)))
+            # pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
+            # sep_loss_p += pv
 
-            ln = torch.sum(F.relu(torch.sub(self.th, dist_n)))
-            nv = ln / (ln.data.nonzero(as_tuple=False).size(0) + 1)
-            sep_loss_n += nv
-        
-
-        sep_loss_p /= self.nw
-        sep_loss_n /= self.nw
-        total_loss /= self.nw
-
-        return total_loss, sep_loss_p, sep_loss_n
-    
-    def _triplet_loss(self, dists):
-        
-        step = (self.ng + self.nf) # ignora a ancora mesmo, isso são as distâncias e não o mini batch
-        total_loss = 0
-
-        sep_loss = torch.tensor(0, requires_grad=True)
-
-        for i in range(0, self.nw):
-
-            dist_g = dists[step * i: step * i + self.ng]
-            dist_n = dists[step * i + self.ng: step * (i+1)]
-
-            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n:
-                    temp = F.relu(g + self.margin - n)
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-
-            lk /= non_zeros
-
-            user_loss = lk + only_pos
-
-            total_loss += user_loss
-
-            lp = torch.sum(F.relu(torch.sub(dist_g, self.th))) 
-            pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
-            sep_loss += pv
-        
-        total_loss /= self.nw
-        sep_loss /= self.nw
-        return total_loss, sep_loss
-        
-    def _sep_loss(self, dists):
-        step = (self.ng + self.nf) # ignora a ancora mesmo, isso são as distâncias e não o mini batch
-        total_loss = 0
-
-        for i in range(0, self.nw):
-
-            dist_g = dists[step * i: step * i + self.ng]
-            dist_n = dists[step * i + self.ng: step * (i+1)]
-      
-            lp = 0
-
-            lp = F.relu(dist_g - self.th) 
-            pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
-
-            # ln = F.relu(self.th - dist_n)
+            # ln = torch.sum(F.relu(torch.sub(self.th, dist_n)))
             # nv = ln / (ln.data.nonzero(as_tuple=False).size(0) + 1)
-            user_loss = pv 
-            # user_loss = pv * 0.5 + nv * 0.5
-
-            total_loss += user_loss
+            # sep_loss_n += nv
         
+
+        # sep_loss_p /= self.nw
+        # sep_loss_n /= self.nw
         total_loss /= self.nw
 
-        return total_loss
+        return total_loss #, sep_loss_p, sep_loss_n
+    
+    # def _triplet_loss(self, dists):
+        
+    #     step = (self.ng + self.nf) # ignora a ancora mesmo, isso são as distâncias e não o mini batch
+    #     total_loss = 0
 
-    def get_distances(self, data, lens):
-        """ Loss de um batch
+    #     sep_loss = torch.tensor(0, requires_grad=True)
 
-        Args:
-            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
-            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
-            lens (torch tensor (int)): tamanho de cada assinatura no batch
-            n_epoch (int): número da época que se está calculando.
+    #     for i in range(0, self.nw):
 
-        Returns:
-            torch.tensor (float): valor da loss
-        """
-        step = (self.ng + self.nf + 1)
+    #         dist_g = dists[step * i: step * i + self.ng]
+    #         dist_n = dists[step * i + self.ng: step * (i+1)]
 
-        dists = torch.zeros(self.batch_size - self.nw, dtype=data.dtype, device=data.device)
+    #         only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+            
+    #         lk = 0
+    #         non_zeros = 1
+    #         for g in dist_g:
+    #             for n in dist_n:
+    #                 temp = F.relu(g + self.margin - n)
+    #                 if temp > 0:
+    #                     lk += temp
+    #                     non_zeros+=1
 
-        for i in range(0, self.nw):
-            anchor    = data[i * step]
-            positives = data[i * step + 1 : i * step + 1 + self.ng] 
-            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+    #         lk /= non_zeros
 
-            len_a = lens[i * step]
-            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
-            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+    #         user_loss = lk + only_pos
 
-            # dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
-            # dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+    #         total_loss += user_loss
 
-            '''Average_Pooling_2,4,6'''
-            for j in range(len(positives)):
-                # dist_g[i] = self.sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
-                dists[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+    #         lp = torch.sum(F.relu(torch.sub(dist_g, self.th))) 
+    #         pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
+    #         sep_loss += pv
+        
+    #     total_loss /= self.nw
+    #     sep_loss /= self.nw
+    #     return total_loss, sep_loss
+        
+    # def _sep_loss(self, dists):
+    #     step = (self.ng + self.nf) # ignora a ancora mesmo, isso são as distâncias e não o mini batch
+    #     total_loss = 0
 
-            for j in range(len(positives), len(positives)+len(negatives)):
-                # dist_n[i] = self.sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
-                k = j - len(positives)
-                dists[j] = self.sdtw(anchor[None, :int(len_a)], negatives[k:k+1, :int(len_n[k])])[0] / (len_a + len_n[k])
+    #     for i in range(0, self.nw):
 
-        return dists
-    # def _sep_loss(self, data, lens)
+    #         dist_g = dists[step * i: step * i + self.ng]
+    #         dist_n = dists[step * i + self.ng: step * (i+1)]
+      
+    #         lp = 0
+
+    #         lp = F.relu(dist_g - self.th) 
+    #         pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
+
+    #         # ln = F.relu(self.th - dist_n)
+    #         # nv = ln / (ln.data.nonzero(as_tuple=False).size(0) + 1)
+    #         user_loss = pv 
+    #         # user_loss = pv * 0.5 + nv * 0.5
+
+    #         total_loss += user_loss
+        
+    #     total_loss /= self.nw
+
+    #     return total_loss
+
+    # def get_distances(self, data, lens):
+    #     """ Loss de um batch
+
+    #     Args:
+    #         data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+    #         [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+    #         lens (torch tensor (int)): tamanho de cada assinatura no batch
+    #         n_epoch (int): número da época que se está calculando.
+
+    #     Returns:
+    #         torch.tensor (float): valor da loss
+    #     """
+    #     step = (self.ng + self.nf + 1)
+
+    #     dists = torch.zeros(self.batch_size - self.nw, dtype=data.dtype, device=data.device)
+
+    #     for i in range(0, self.nw):
+    #         anchor    = data[i * step]
+    #         positives = data[i * step + 1 : i * step + 1 + self.ng] 
+    #         negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+    #         len_a = lens[i * step]
+    #         len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+    #         len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+    #         # dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+    #         # dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+    #         '''Average_Pooling_2,4,6'''
+    #         for j in range(len(positives)):
+    #             # dist_g[i] = self.sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
+    #             dists[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+
+    #         for j in range(len(positives), len(positives)+len(negatives)):
+    #             # dist_n[i] = self.sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
+    #             k = j - len(positives)
+    #             dists[j] = self.sdtw(anchor[None, :int(len_a)], negatives[k:k+1, :int(len_n[k])])[0] / (len_a + len_n[k])
+
+    #     return dists
 
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
@@ -558,13 +563,14 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 outputs, length = self(inputs.float(), mask, i)
 
-                triplet_loss, sep_loss_p, sep_loss_n = self._loss(outputs, length, i)
+                # triplet_loss, sep_loss_p, sep_loss_n = self._loss(outputs, length)
+                loss = self._loss(outputs, length)
 
-                loss = None
-                if i <= CHANGE_TRAIN_MODE:
-                    loss = triplet_loss
-                else:
-                    loss = (triplet_loss_w * sep_loss_p) + ( (1-triplet_loss_w)*sep_loss_n )
+                # loss = None
+                # if i <= CHANGE_TRAIN_MODE:
+                #     loss = triplet_loss
+                # else:
+                #     loss = (triplet_loss_w * sep_loss_p) + ( (1-triplet_loss_w)*sep_loss_n )
                 
                 # loss = self._loss(outputs, length, i)
                 
