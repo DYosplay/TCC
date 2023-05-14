@@ -87,9 +87,9 @@ def generate_features(input_file : str, database : Literal):
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    p = bf(np.array(df['P']))[:8000]
-    x = bf(np.array(df['X']))[:8000]
-    y = bf(np.array(df['Y']))[:8000]
+    p = bf(np.array(df['P']))#[:1000]
+    x = bf(np.array(df['X']))#[:1000]
+    y = bf(np.array(df['Y']))#[:1000]
 
     x1, y1 = normalize_x_and_y(x, y)
 
