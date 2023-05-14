@@ -20,8 +20,6 @@ CHEAT = False
 import warnings
 warnings.filterwarnings("ignore")
 
-CHANGE_TRAIN_MODE = 25
-
 ###############################################################################
 def lengths_to_mask(lengths, max_len=None, dtype=None):
     """
@@ -121,7 +119,7 @@ class DsDTW(nn.Module):
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 1
+        self.margin = 1.0
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -131,14 +129,6 @@ class DsDTW(nn.Module):
         self.batch_size = batch_size
         self.radius = 0
         self.gamma = gamma
-        self.th = 0.76804
-
-        # variáveis para a loss
-        self.scores = []
-        self.labels = []
-        self.th_loss = 3.1549
-        self.loss_value = math.inf
-
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -151,23 +141,36 @@ class DsDTW(nn.Module):
         self.worse = {}
 
         # Definição da rede
-        self.cran  = nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        # self.cran  = (nn.Sequential(
+        # nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        # nn.AvgPool1d(4,4, ceil_mode=True),
+        # nn.ReLU(inplace=True),
+        # nn.Dropout(0.1)
+        # ))
+
+        self.cran  = (nn.Sequential(
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=2, stride=1, padding=1, bias=True),
         nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
+        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=2, stride=1, padding=0, bias=True),
+        # nn.AvgPool1d(4,4, ceil_mode=True),
+        nn.ReLU(inplace=True),
         nn.Dropout(0.1)
-        )
+        ))
+
         # self.bn = MaskedBatchNorm1d(self.n_hidden)
 
+        # self.e1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        # self.enc1 = torch.nn.TransformerEncoder(self.e1, 4)
+
         self.enc1 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
-        # self.enc2 = torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1)
 
         # Fecha a update gate (pra virar uma GARU)
         # for i in range(self.n_layers):
         #     eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
         #     eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
+        self.linear = (nn.Linear(self.n_hidden, 16, bias=False))
         # self.linear2 = nn.Linear(64, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
@@ -176,16 +179,17 @@ class DsDTW(nn.Module):
         # nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
         # nn.init.zeros_(self.cran[3].bias)
+        self.linear = (self.linear)
         
-        self.new_sdtw_fw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
+        self.new_sdtw_fw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
         # self.new_sdtw_fw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=1)
-        self.new_sdtw = new_soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
-        self.dtw = dtw_cuda.DTW(True, normalize=False, bandwidth=1)
+        self.new_sdtw = (new_soft_dtw.SoftDTW(True, gamma=self.gamma, normalize=False, bandwidth=0.1))
+        self.dtw = (dtw_cuda.DTW(True, normalize=False, bandwidth=1))
         # self.sdtw = soft_dtw_cuda.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens+4) //4
+        lens = (lens) //4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
@@ -194,6 +198,8 @@ class DsDTW(nn.Module):
     
     def forward(self, x, mask):
         length = torch.sum(mask, dim=1)
+
+
 
         h = self.cran(x)
         # h = self.bn(h, length.int())
@@ -208,45 +214,21 @@ class DsDTW(nn.Module):
             # for i in range(0, self.nw):
             #     anchor = h[i*step]
             #     for j in range(i*step, (i+1)*step):
-            #         value, output = self.new_sdtw_fw(anchor[None,], h[j:j+1,])
+            #         value, output = ((self.new_sdtw_fw)(anchor[None,], h[j:j+1,]))
             #         output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
             #         output = torch.from_numpy(output).cuda()
 
             #         output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                    # output_aux = torch.ones(output.shape).cuda()
-
-                    # para a lógica inversa:
-                    # output_mask = torch.ones(output.shape).cuda()
-                    # output_aux = torch.zeros(output.shape).cuda()
-
-                    # value = 1
-                    # output_mask[r, c] = value
-
-                    # # for k in range(1, len(r)):
-                    # for k in range(1, self.radius + 1):
-                    #     rk_sub = F.relu(r-k).long().cuda()
-                    #     ck_sub = F.relu(c-k).long().cuda()
-                    #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                    #     output_mask[rk_sub, ck_sub] = value
-                    #     output_mask[rk_sub, c]      = value
-                    #     output_mask[rk_sub, ck_add] = value
-
-                    #     output_mask[rk_add, ck_sub] = value
-                    #     output_mask[rk_add, c]      = value
-                    #     output_mask[rk_add, ck_add] = value
-
-                    #     output_mask[r, ck_add]      = value
-                    #     output_mask[r, ck_sub]      = value
-
-                    # src_masks[j] = output_mask
+                  
+            #         src_masks[j] = output_mask
             
+            # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            sign = h[0]
+            # sign = h[-1]
 
             # for i in range(len(h)):
             #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
@@ -255,33 +237,10 @@ class DsDTW(nn.Module):
             #     output = torch.from_numpy(output).cuda()
 
             #     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-                # output_aux = torch.ones(output.shape).cuda()
-
-                # para a lógica inversa:
-                # output_mask = torch.ones(output.shape).cuda()
-                # output_aux = torch.zeros(output.shape).cuda()
-
-                # value = 1
-                # output_mask[r, c] = value
-
-                # for k in range(1, self.radius + 1):
-                #     rk_sub = F.relu(r-k).long().cuda()
-                #     ck_sub = F.relu(c-k).long().cuda()
-                #     rk_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     ck_add = torch.min(c+k, torch.tensor(output.shape[1]-1)).long().cuda()
-                #     output_mask[rk_sub, ck_sub] = value
-                #     output_mask[rk_sub, c]      = value
-                #     output_mask[rk_sub, ck_add] = value
-
-                #     output_mask[rk_add, ck_sub] = value
-                #     output_mask[rk_add, c]      = value
-                #     output_mask[rk_add, ck_add] = value
-
-                #     output_mask[r, ck_add]      = value
-                #     output_mask[r, ck_sub]      = value
-
-                # src_masks[i] = output_mask
             
+            #     src_masks[i] = output_mask
+            
+            # h = self.enc1(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
 
@@ -381,12 +340,10 @@ class DsDTW(nn.Module):
         total_loss /= self.nw
 
         return total_loss
-    
+
     def dte(self, x, y, len_x, len_y):
         #3 usando dtw cuda
         return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
-        # return self.new_sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] / (len_x + len_y)
-        
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) /((len_x + len_y))
         
@@ -445,9 +402,6 @@ class DsDTW(nn.Module):
         optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
         lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
 
-        losses = [math.inf]*10
-
-        th = -1
         running_loss = 0
 
         if not os.path.exists(result_folder):
@@ -460,18 +414,10 @@ class DsDTW(nn.Module):
         for i in range(1, n_epochs+1):
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
-            self.loss_value = running_loss/epoch_size
-            losses.append(self.loss_value)
-            losses = losses[1:]
-
-            if self.loss_value > min(losses) and i > 80:
-                print("\n\nEarly stop!")
-                break
-
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value) +" thl: " + "{:.4f}".format(self.th_loss))
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.2f}".format(running_loss/epoch_size))
 
             running_loss = 0
-            self.mean_eer = 0
+            
             #PAL = Previous Accumulated Loss
             while epoch != []:
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
@@ -493,19 +439,13 @@ class DsDTW(nn.Module):
                 pbar.update(1)
 
             pbar.close()
-
+          
             # if i % 5 == 0: self.new_evaluate(comparison_file=comparison_files[0], n_epoch=i, result_folder=result_folder)
-            # if (i % 5 == 0 or i > (n_epochs - 3) ) and self.loss_value < 0.35: 
-            if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if i % 5 == 0 or i > (n_epochs - 3): 
                 for cf in comparison_files:
                     # self.evaluate(comparions_files=comparison_files, n_epoch=i, result_folder=result_folder)
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
               #  self.margin -= 0.5
-
-            if i >= CHANGE_TRAIN_MODE:
-                _, self.th_loss = self.get_eer(self.labels, self.scores)
-                self.labels = []
-                self.scores = []
             
             self.loss_variation.append(running_loss/epoch_size)
             
@@ -516,7 +456,7 @@ class DsDTW(nn.Module):
         # Loss graph
         plt.xlabel("#Epoch")
         plt.ylabel("Loss")
-        plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
+        plt.plot(list(range(0,n_epochs)), self.loss_variation)
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
         plt.clf()
@@ -581,11 +521,9 @@ class DsDTW(nn.Module):
         s_avg = np.mean(dists)
         s_min = min(dists)
 
-        score = s_avg + s_min
-        # corrected_score = score - abs(score - self.th)
-        return score, user_key, result
+        return s_avg + s_min, user_key, result
 
-    def get_eer(self, y_true = List[int], y_scores = List[float], result_folder : str = None, generate_graph : bool = False, n_epoch : int = None) -> Tuple[float, float]:
+    def get_eer(self, y_true = List[int], y_scores = List[int], result_folder : str = None, generate_graph : bool = False, n_epoch : int = None) -> Tuple[float, float]:
         fpr, tpr, threshold = roc_curve(y_true=y_true, y_score=y_scores, pos_label=1)
         fnr = 1 - tpr
 
@@ -657,13 +595,10 @@ class DsDTW(nn.Module):
 
         # Calculo do EER local por usuário:
         for user in tqdm(users, desc="Obtendo EER local..."):
-            eer, eer_threshold = self.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
-            
             global_true_label += users[user]["true_label"]
-            # global_distances  += users[user]["distances"]
-            aux = np.array(users[user]["distances"])
-            global_distances += np.where(eer_threshold >= self.th, aux - abs(self.th - eer_threshold), aux + abs(self.th - eer_threshold)).tolist()
-            
+            global_distances  += users[user]["distances"]
+
+            eer, eer_threshold = self.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
             eers.append(eer)
             local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + "\n"
 

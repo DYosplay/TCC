@@ -8,12 +8,10 @@ BATCH_SIZE = 16
 FEATURES = [0,1,2,3,4,5,6,7,8,9,10,11]
 # FEATURES=[0,1,2]
 DATASET_FOLDER = "Data" + os.sep + "DeepSignDB"
-N_EPOCHS = 500
+N_EPOCHS = 30
 GAMMA = 5
-PARENT_FOLDER = "ds_test281"
-ITERATION = 2
+PARENT_FOLDER = "recriar"
 LEARNING_RATE = 0.001
-
 
 FILE = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE8 = "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "1vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_1vs1.txt"
@@ -139,14 +137,6 @@ def eval_all_scenarios():
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def jprotocol():
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-    model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
-    model.cuda()
-    model.train(mode=False)
-    model.eval()
-    model.new_evaluate(FILE7, 10000, result_folder=PARENT_FOLDER)
-
 if __name__ == '__main__':
     # eval_all_scenarios()
 
@@ -154,42 +144,23 @@ if __name__ == '__main__':
     cudnn.benchmark = False
     cudnn.deterministic = True
 
-    # jprotocol()
-
     res_folder = PARENT_FOLDER + "_gamma_" + str(GAMMA)
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
+    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
     # model = torch.compile(model)
     # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
-    # print(count_parameters(model))
+    print(count_parameters(model))
 
-    model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=GAMMA, lr=LEARNING_RATE)
     model.cuda()
     model.train(mode=True)
     model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder)
-    
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=PARENT_FOLDER)
-   
-    # Continuar treino
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-    # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch50.pt"))
-    # model.cuda()
-    # model.train(mode=True)
-    # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
-
-    # Avaliar
-    # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-    # model.load_state_dict(torch.load(res_folder+'_'+str(ITERATION) + os.sep + "Backup" + os.sep + "epoch48.pt"))
-    # model.cuda()
-    # model.train(mode=False)
-    # model.eval()
-    # model.new_evaluate(FILE, 119, result_folder=res_folder+'_'+str(ITERATION))
-
     # model = DsDTW(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
     # model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
     # model.cuda()
+    # model = torch.compile(model)
+
     # model.train(mode=False)
     # model.eval()
-    # model.new_evaluate(FILE, 60000, result_folder=PARENT_FOLDER)
 
 
     # eval_all_weights(model)
@@ -201,7 +172,7 @@ if __name__ == '__main__':
     # model.new_evaluate(FILE5, 119, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE6, 119, result_folder=PARENT_FOLDER)
 
-    # model.new_evaluate(FILE3, 300, result_folder=res_folder)
+    # model.new_evaluate(FILE, 300, result_folder=res_folder)
     # model.new_evaluate(FILE8, 100, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE9, 2, result_folder=PARENT_FOLDER)
     # model.new_evaluate(FILE10, 2, result_folder=PARENT_FOLDER)
