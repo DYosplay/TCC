@@ -470,6 +470,9 @@ class DsDTW(nn.Module):
         Returns:
             float, str, int: distância da assinatura, usuário, label 
         """
+        
+    
+
         tokens = files.split(" ")
         user_key = tokens[0].split("_")[0]
         
@@ -558,6 +561,8 @@ class DsDTW(nn.Module):
         # Para cada usuário gerar duas listas: uma com as labels e a outra com a predição
         # 0 é positivo (original), 1 é negativo (falsificação)
 
+        self.train(False)
+
         lines = []
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
@@ -608,3 +613,5 @@ class DsDTW(nn.Module):
 
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
+
+        self.train(True)
