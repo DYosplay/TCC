@@ -63,34 +63,19 @@ class DsTransformer(nn.Module):
         self.loss_variation = []
 
         # Definição da rede
-        self.cran  = nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=7, stride=1, padding=3, bias=True),
-        nn.MaxPool1d(kernel_size=2, stride=2, ceil_mode=True), 
+        self.cran  = (nn.Sequential(
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
+        nn.AvgPool1d(4,4, ceil_mode=True),
         nn.ReLU(inplace=True),
-        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=3, stride=1, padding=1, bias=True),
-        nn.ReLU(inplace=True),
-        nn.Dropout(p=0.1)
-        )
-        # self.bn = mbn.MaskedBatchNorm1d(self.n_hidden)
+        nn.Dropout(0.1)
+        ))
 
-        self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.1, batch_first=True, bidirectional=False)
-
-        self.h0 = Variable(torch.zeros(self.n_layers, batch_size, self.n_hidden).cuda(), requires_grad=False)
-        self.h1 = Variable(torch.zeros(self.n_layers, 5, self.n_hidden).cuda(), requires_grad=False)
-        self.h2 = Variable(torch.zeros(self.n_layers, 2, self.n_hidden).cuda(), requires_grad=False)
-
-        # Fecha a update gate (pra virar uma GARU)
-        for i in range(self.n_layers):
-            eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
-            eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
-    
+        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
 
-        nn.init.kaiming_normal_(self.linear.weight, a=1) 
+        nn.init.kaiming_normal_(self.linear.weight, a=1)
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
-        nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
-        nn.init.zeros_(self.cran[3].bias)
 
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
@@ -100,7 +85,7 @@ class DsTransformer(nn.Module):
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens + 1) // 2
+        lens = (lens + 4) // 4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
@@ -109,29 +94,43 @@ class DsTransformer(nn.Module):
     
     def forward(self, x, mask, n_epoch):
         length = torch.sum(mask, dim=1)
-        length, indices = torch.sort(length, descending=True)
-        x = torch.index_select(x, 0, indices)
-        mask = torch.index_select(mask, 0, indices)
-
+        
         h = self.cran(x)
-        # h = self.bn(h, length.int())
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
-
-        h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
-        if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
-        elif len(x) > 2: h, _ = self.rnn(h, self.h1)
-        else: h, _ = self.rnn(h, self.h2)
         
-        h, length = nutils.rnn.pad_packed_sequence(h, batch_first=True) 
-        length = Variable(length).cuda()
+        if self.training:
+            src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
+            step = (self.ng + self.nf + 1)
+            for i in range(0, self.nw):
+                anchor = h[i*step]
+                for j in range(i*step, (i+1)*step):
+                    value, output = ((self.dtw)(anchor[None,], h[j:j+1,]))
+                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
-        '''Recover the original order'''
-        _, indices = torch.sort(indices, descending=False)
-        h = torch.index_select(h, 0, indices)
-        length = torch.index_select(length, 0, indices)
-        mask = torch.index_select(mask, 0, indices)
-        
+                    output = torch.from_numpy(output).cuda()
+
+                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+
+                    src_masks[j] = output_mask
+
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+        else:
+            src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
+            sign = h[-1]
+
+            for i in range(len(h)):
+                value, output = self.dtw(sign[None, ], h[i:i+1, ])
+                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+
+                output = torch.from_numpy(output).cuda()
+
+                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+
+                src_masks[i] = output_mask
+
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+
         h = self.linear(h)
 
         if self.training:
