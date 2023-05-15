@@ -2,6 +2,7 @@ from typing import List, Tuple
 from numpy import typing as npt
 
 from utils import masked_batch_normalization as mbn
+from utils import center_loss as cl
 
 import torch.nn.utils as nutils
 import torch.nn as nn
@@ -70,7 +71,7 @@ class DsTransformer(nn.Module):
         nn.ReLU(inplace=True),
         nn.Dropout(p=0.1)
         )
-        self.bn = mbn.MaskedBatchNorm1d(self.n_hidden)
+        # self.bn = mbn.MaskedBatchNorm1d(self.n_hidden)
 
         self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.1, batch_first=True, bidirectional=False)
 
@@ -83,7 +84,7 @@ class DsTransformer(nn.Module):
             eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
             eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
-        self.linear = nn.Linear(self.n_hidden, batch_size, bias=False)
+        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
@@ -93,6 +94,8 @@ class DsTransformer(nn.Module):
 
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
+
+        self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
         
 
     def getOutputMask(self, lens):    
@@ -111,7 +114,7 @@ class DsTransformer(nn.Module):
         mask = torch.index_select(mask, 0, indices)
 
         h = self.cran(x)
-        h = self.bn(h, length.int())
+        # h = self.bn(h, length.int())
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
 
@@ -178,9 +181,9 @@ class DsTransformer(nn.Module):
             torch.tensor (float): valor da loss
         """
         step = (self.ng + self.nf + 1)
-        sep_loss_p = 0
-        sep_loss_n = 0
         total_loss = 0
+
+        dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -195,42 +198,41 @@ class DsTransformer(nn.Module):
             dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
 
             '''Average_Pooling_2,4,6'''
-            for i in range(len(positives)):
-                dist_g[i] = self.sdtw(anchor[None, :int(len_a)], positives[i:i+1, :int(len_p[i])])[0] / (len_a + len_p[i])
+            for j in range(len(positives)):
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists[i*step + j] = dist_g[j]
 
-            for i in range(len(negatives)):
-                dist_n[i] = self.sdtw(anchor[None, :int(len_a)], negatives[i:i+1, :int(len_n[i])])[0] / (len_a + len_n[i])
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists[i*step + self.ng + j] = dist_n[j]
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n:
-                    temp = F.relu(g + self.margin - n) #+ F.relu(g - 0.7) * 0.5
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n:
+            #         temp = F.relu(g + self.margin - n) #+ F.relu(g - 0.7) * 0.5
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lk = lk / non_zeros
 
-            lk /= non_zeros
+            lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
+            lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
 
-            user_loss = lk + only_pos
+            user_loss = lv + only_pos
 
             total_loss += user_loss
-
-            lp = torch.sum(F.relu(torch.sub(dist_g, self.th)))
-            pv = lp / (lp.data.nonzero(as_tuple=False).size(0) + 1)
-            sep_loss_p += pv
-
-            ln = torch.sum(F.relu(torch.sub(self.th, dist_n)))
-            nv = ln / (ln.data.nonzero(as_tuple=False).size(0) + 1)
-            sep_loss_n += nv
     
-        sep_loss_p /= self.nw
-        sep_loss_n /= self.nw
         total_loss /= self.nw
+        triplet_loss = total_loss
 
-        return total_loss, sep_loss_p, sep_loss_n
+        labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
+        feat = torch.unsqueeze(dists, 0).transpose(0,1)
+        c_loss = self.center_loss(feat, labels)
+
+        return triplet_loss, c_loss
 
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
@@ -389,8 +391,14 @@ class DsTransformer(nn.Module):
             result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
         """
         
-        optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-        lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+        # optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+        # lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+
+        # optimizer_centloss = torch.optim.SGD(self.center_loss.parameters(), lr=0.5)
+
+        params = list(self.parameters()) + list(self.center_loss.parameters())
+        optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
+        lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
         losses = [math.inf]*10
 
@@ -428,11 +436,21 @@ class DsTransformer(nn.Module):
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
                 
-                optimizer.zero_grad()
+                
                 outputs, length = self(inputs.float(), mask, i)
 
-                triplet_loss, sep_loss_p, sep_loss_n = self._loss(outputs, length)
-                loss = triplet_loss
+                triplet_loss, c_loss = self._loss(outputs, length)
+                loss = (triplet_loss_w*triplet_loss) + ((1-triplet_loss_w) * c_loss)
+           
+                optimizer.zero_grad()
+                loss.backward()
+
+                for param in self.center_loss.parameters():
+                    # lr_cent is learning rate for center loss, e.g. lr_cent = 0.5
+                    param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
+                
+                optimizer.step()
+
                 # loss = self._loss(outputs, length)
 
                 # loss = None
@@ -447,9 +465,7 @@ class DsTransformer(nn.Module):
                 # triplet_loss = self._triplet_loss(dists)
                 # sep_loss = self._sep_loss(dists)
                 # loss = (triplet_loss*0.7 + sep_loss*0.3)
-
-                loss.backward()
-                optimizer.step()
+                
 
                 running_loss += loss.item()
             
@@ -457,7 +473,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if i >= CHANGE_TRAIN_MODE or i == 1 or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
