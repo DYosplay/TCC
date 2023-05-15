@@ -29,7 +29,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -45,6 +45,7 @@ class DsTransformer(nn.Module):
         self.batch_size = batch_size
         self.gamma = gamma
         self.n_layers = 2
+        self.use_mask = use_mask
 
         # variáveis para a loss
         self.scores = []
@@ -101,33 +102,37 @@ class DsTransformer(nn.Module):
         
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
-            step = (self.ng + self.nf + 1)
-            for i in range(0, self.nw):
-                anchor = h[i*step]
-                for j in range(i*step, (i+1)*step):
-                    value, output = ((self.dtw)(anchor[None,], h[j:j+1,]))
+            
+            if self.use_mask:
+                step = (self.ng + self.nf + 1)
+                for i in range(0, self.nw):
+                    anchor = h[i*step]
+                    for j in range(i*step, (i+1)*step):
+                        value, output = ((self.dtw)(anchor[None,], h[j:j+1,]))
+                        output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+
+                        output = torch.from_numpy(output).cuda()
+
+                        output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
+
+                        src_masks[j] = output_mask
+
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+        else:
+            src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
+            
+            if self.use_mask:
+                sign = h[-1]
+
+                for i in range(len(h)):
+                    value, output = self.dtw(sign[None, ], h[i:i+1, ])
                     output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
 
                     output = torch.from_numpy(output).cuda()
 
                     output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
 
-                    src_masks[j] = output_mask
-
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-        else:
-            src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            sign = h[-1]
-
-            for i in range(len(h)):
-                value, output = self.dtw(sign[None, ], h[i:i+1, ])
-                output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
-
-                output = torch.from_numpy(output).cuda()
-
-                output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-
-                src_masks[i] = output_mask
+                    src_masks[i] = output_mask
 
             h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
 
