@@ -179,7 +179,7 @@ if __name__ == '__main__':
         """Avaliar modelo"""
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask)
         print(count_parameters(model))
-        # model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
         model.cuda()
         model.train(mode=False)
         model.eval()
