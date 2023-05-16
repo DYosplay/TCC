@@ -154,6 +154,7 @@ if __name__ == '__main__':
     parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
     parser.add_argument("-tl", "--triplet_loss_w", help="set triplet loss weight", default=0.5, type=float)
     parser.add_argument("-m", "--mask", help="set triplet loss weight", action='store_true')
+    parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
 
     # Read arguments from command line
     args = parser.parse_args()
@@ -171,6 +172,8 @@ if __name__ == '__main__':
     if not args.evaluate:
         """Iniciar treino"""
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask)
+        if args.compile:
+            model = torch.compile(model)
         print(count_parameters(model))
         model.cuda()
         model.train(mode=True)
@@ -178,6 +181,8 @@ if __name__ == '__main__':
     else:
         """Avaliar modelo"""
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask)
+        if args.compile:
+            model = torch.compile(model)
         print(count_parameters(model))
         model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
         model.cuda()
