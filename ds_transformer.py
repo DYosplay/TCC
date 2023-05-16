@@ -212,18 +212,19 @@ class DsTransformer(nn.Module):
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
-            # lk = 0
-            # non_zeros = 1
-            # for g in dist_g:
-            #     for n in dist_n:
-            #         temp = F.relu(g + self.margin - n) #+ F.relu(g - 0.7) * 0.5
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
-            # lk = lk / non_zeros
+            lk = 0
+            non_zeros = 1
+            alpha = 0.2
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n) * (-alpha) * ((n - g)/2)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
 
-            lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
-            lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
+            # lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
+            # lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
 
@@ -444,14 +445,21 @@ class DsTransformer(nn.Module):
                 outputs, length = self(inputs.float(), mask, i)
 
                 triplet_loss, c_loss = self._loss(outputs, length)
-                loss = (triplet_loss_w*triplet_loss) + ((1-triplet_loss_w) * c_loss)
-           
+                
                 optimizer.zero_grad()
-                loss.backward()
+                
+                loss = None
+                if triplet_loss_w == 1:
+                    loss = triplet_loss  
+                    loss.backward()
 
-                for param in self.center_loss.parameters():
-                    # lr_cent is learning rate for center loss, e.g. lr_cent = 0.5
-                    param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
+                else:
+                    loss = (triplet_loss_w*triplet_loss) + ((1-triplet_loss_w) * c_loss)
+
+                    loss.backward()
+                    for param in self.center_loss.parameters():
+                        # lr_cent is learning rate for center loss, e.g. lr_cent = 0.5
+                        param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
                 
                 optimizer.step()
 
