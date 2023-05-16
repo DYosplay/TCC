@@ -106,7 +106,7 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     x = bf(np.array(df['X']))[:8000]
     y = bf(np.array(df['Y']))[:8000]
 
-    if scenario=='finger' : p = np.ones(x.shape) #* 255
+    # if scenario=='finger' : p = np.ones(x.shape) #* 255
 
     x1, y1 = normalize_x_and_y(x, y)
 
@@ -125,20 +125,24 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     totalAccel = np.sqrt(dv**2 + dv2**2)
     c = v * dtheta
     
-    if scenario=='finger': 
-        features = [v, theta, cos, sin] 
-        features2 = [dv, dtheta, logCurRadius, c, totalAccel]
 
-        for f in features:
-            result.append(zscore(f))
-        result.append(p)
-        for f in features2:
-            result.append(zscore(f))
+    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    for f in features:
+        result.append(zscore(f))
+    # if scenario=='finger': 
+    #     features = [v, theta, cos, sin] 
+    #     features2 = [dv, dtheta, logCurRadius, c, totalAccel]
+
+    #     for f in features:
+    #         result.append(zscore(f))
+    #     result.append(p)
+    #     for f in features2:
+    #         result.append(zscore(f))
     
-    else:
-        features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
-        for f in features:
-            result.append(zscore(f))
+    # else:
+    #     features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    #     for f in features:
+    #         result.append(zscore(f))
 
     return np.array(result)
 
