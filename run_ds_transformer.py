@@ -206,7 +206,7 @@ if __name__ == '__main__':
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
-        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch25.pt"))
         model.cuda()
         model.train(mode=False)
         model.eval()
