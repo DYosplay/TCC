@@ -60,6 +60,18 @@ def validation(model : DsTransformer):
     with open(PARENT_FOLDER + os.sep + "log.csv", "w") as fw:
         fw.write(model.buffer)
 
+def validate(model : DsTransformer, res_folder : str):
+    stylus_path = PATH + os.sep + "stylus"
+
+    path = stylus_path + os.sep + "4vs1" + os.sep + "skilled" + os.sep
+    files = os.listdir(path)
+
+    for file in files:
+        model.new_evaluate(path + file, n_epoch=777, result_folder=res_folder)
+
+    with open(res_folder + os.sep + "log.csv", "w") as fw:
+        fw.write(model.buffer)
+
 def eval_all_weights(model):
     if not os.path.exists(PARENT_FOLDER + os.sep + "all_weights"):
         os.mkdir(PARENT_FOLDER + os.sep + "all_weights")
@@ -155,7 +167,7 @@ if __name__ == '__main__':
     parser.add_argument("-tl", "--triplet_loss_w", help="set triplet loss weight", default=0.5, type=float)
     parser.add_argument("-m", "--mask", help="set triplet loss weight", action='store_true')
     parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
-
+    parser.add_argument("-val", "--validate", help="eval stylus 4vs1 scenario", action='store_true')
     # Read arguments from command line
     args = parser.parse_args()
     
@@ -169,7 +181,7 @@ if __name__ == '__main__':
     cudnn.deterministic = True
     res_folder = "Resultados" + os.sep + args.test_name
 
-    if not args.evaluate:
+    if not args.evaluate and not args.validate:
         """Iniciar treino"""
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask)
         if args.compile:
@@ -178,7 +190,7 @@ if __name__ == '__main__':
         model.cuda()
         model.train(mode=True)
         model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
-    else:
+    elif args.evaluate:
         """Avaliar modelo"""
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask)
         if args.compile:
@@ -189,6 +201,16 @@ if __name__ == '__main__':
         model.train(mode=False)
         model.eval()
         model.new_evaluate(FILE, 0, result_folder=res_folder)
+    elif args.validate:
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask)
+        if args.compile:
+            model = torch.compile(model)
+        print(count_parameters(model))
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+        model.cuda()
+        model.train(mode=False)
+        model.eval()
+        validate(model, res_folder)
 
     """Continuar treino""" 
     # model = DsTransformer(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
