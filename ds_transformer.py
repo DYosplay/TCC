@@ -81,7 +81,7 @@ class DsTransformer(nn.Module):
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
-        self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
+        self.center_loss = cl.CenterLoss(num_classes=1, feat_dim=1, use_gpu=True)
         
 
     def getOutputMask(self, lens):    
@@ -187,7 +187,8 @@ class DsTransformer(nn.Module):
         step = (self.ng + self.nf + 1)
         total_loss = 0
 
-        dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -204,11 +205,12 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists[i*(step-1) + j] = dist_g[j]
+                # dists[i*(step-1) + j] = dist_g[j]
+                dists[i*(5) + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists[i*(step-1) + self.ng + j] = dist_n[j]
+                # dists[i*(step-1) + self.ng + j] = dist_n[j]
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
@@ -233,7 +235,8 @@ class DsTransformer(nn.Module):
         total_loss /= self.nw
         triplet_loss = total_loss
 
-        labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
+        # labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
+        labels = torch.tensor(([0] * 5) * self.nw, device=data.device)
         feat = torch.unsqueeze(dists, 0).transpose(0,1)
         c_loss = self.center_loss(feat, labels)
 
@@ -330,8 +333,8 @@ class DsTransformer(nn.Module):
             lines = fr.readlines()
 
         scenario = 'stylus'
-        if 'finger' in comparison_file:
-            scenario = 'finger'
+        # if 'finger' in comparison_file:
+        #     scenario = 'finger'
 
         if not os.path.exists(result_folder): os.mkdir(result_folder)
 
@@ -395,15 +398,16 @@ class DsTransformer(nn.Module):
             comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
             result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
         """
-        
-        # optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-        # lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+        optimizer = None
+        lr_scheduler = None
 
-        # optimizer_centloss = torch.optim.SGD(self.center_loss.parameters(), lr=0.5)
-
-        params = list(self.parameters()) + list(self.center_loss.parameters())
-        optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
-        lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+        if triplet_loss_w == 1:
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+        else:
+            params = list(self.parameters()) + list(self.center_loss.parameters())
+            optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
         losses = [math.inf]*10
 
