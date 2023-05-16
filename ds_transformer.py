@@ -72,7 +72,7 @@ class DsTransformer(nn.Module):
         ))
 
         self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
-        self.linear = nn.Linear(self.n_hidden, 64, bias=False)
+        self.linear = nn.Linear(self.n_hidden, 16, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
