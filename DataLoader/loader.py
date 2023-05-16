@@ -165,8 +165,8 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
 
     result = [x1,y1]
     
-    dx = diff(x1)
-    dy = diff(y1)
+    dx = diff(x)
+    dy = diff(y)
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
     cos = np.cos(theta)
