@@ -200,7 +200,7 @@ class DsDTW(nn.Module):
         # src_mask
         if self.training:
             src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
-            step = (self.ng + self.nf + 1)
+            # step = (self.ng + self.nf + 1)
             # for i in range(0, self.nw):
             #     anchor = h[i*step]
             #     for j in range(i*step, (i+1)*step):
@@ -242,7 +242,7 @@ class DsDTW(nn.Module):
             # h = self.enc2(src=h, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            # sign = h[0]
+            sign = h[0]
 
             # for i in range(len(h)):
             #     value, output = self.new_sdtw_fw(sign[None, ], h[i:i+1, ])
