@@ -217,7 +217,7 @@ class DsTransformer(nn.Module):
             alpha = 0.2
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) * (-alpha) * ((n - g)/2)
+                    temp = F.relu(g + self.margin - n) #* (-alpha) * ((n - g)/2)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
