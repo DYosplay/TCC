@@ -3,6 +3,7 @@ from numpy import typing as npt
 
 from utils import masked_batch_normalization as mbn
 from utils import center_loss as cl
+from utils import angular_losses as al
 
 import torch.nn.utils as nutils
 import torch.nn as nn
@@ -29,7 +30,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss'):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -46,6 +47,7 @@ class DsTransformer(nn.Module):
         self.gamma = gamma
         self.n_layers = 2
         self.use_mask = use_mask
+        self.loss_type = loss_type
 
         # variáveis para a loss
         self.scores = []
@@ -81,7 +83,11 @@ class DsTransformer(nn.Module):
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
-        self.center_loss = cl.CenterLoss(num_classes=1, feat_dim=1, use_gpu=True)
+        self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
+
+        self.angular_loss = None
+        if self.loss_type == 'cosface' or self.loss_type == 'sphereface' or self.loss_type == 'arcface':
+            self.angular_loss = al.AngularPenaltySMLoss(in_features=1, out_features=2, loss_type=self.loss_type)
         
 
     def getOutputMask(self, lens):    
@@ -187,8 +193,8 @@ class DsTransformer(nn.Module):
         step = (self.ng + self.nf + 1)
         total_loss = 0
 
-        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
-        dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -205,12 +211,12 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                # dists[i*(step-1) + j] = dist_g[j]
-                dists[i*(5) + j] = dist_g[j]
+                dists[i*(step-1) + j] = dist_g[j]
+                # dists[i*(5) + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                # dists[i*(step-1) + self.ng + j] = dist_n[j]
+                dists[i*(step-1) + self.ng + j] = dist_n[j]
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             
@@ -235,12 +241,14 @@ class DsTransformer(nn.Module):
         total_loss /= self.nw
         triplet_loss = total_loss
 
-        # labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
-        labels = torch.tensor(([0] * 5) * self.nw, device=data.device)
+        labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
         feat = torch.unsqueeze(dists, 0).transpose(0,1)
+        
         c_loss = self.center_loss(feat, labels)
 
-        return triplet_loss, c_loss
+        a_loss = self.angular_loss(feat, labels)
+
+        return triplet_loss, c_loss, a_loss
 
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
@@ -384,8 +392,9 @@ class DsTransformer(nn.Module):
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
 
-        if eer_global < self.best_eer:
-            torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
+        if n_epoch != 0:
+            if eer_global < self.best_eer:
+                torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
         
         self.train(mode=True)
 
@@ -401,6 +410,7 @@ class DsTransformer(nn.Module):
         optimizer = None
         lr_scheduler = None
 
+
         if triplet_loss_w == 1:
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
@@ -411,7 +421,6 @@ class DsTransformer(nn.Module):
 
         losses = [math.inf]*10
 
-        th = -1
         running_loss = 0
 
         if not os.path.exists(result_folder):
@@ -447,14 +456,17 @@ class DsTransformer(nn.Module):
                 
                 
                 outputs, length = self(inputs.float(), mask, i)
-
-                triplet_loss, c_loss = self._loss(outputs, length)
-                
                 optimizer.zero_grad()
-                
                 loss = None
+
+                triplet_loss, c_loss, a_loss = self._loss(outputs, length)
+            
                 if triplet_loss_w == 1:
                     loss = triplet_loss  
+        
+                    if self.loss_type != 'triplet_loss':
+                        loss = a_loss
+                    
                     loss.backward()
 
                 else:
