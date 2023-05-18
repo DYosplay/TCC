@@ -24,7 +24,7 @@ import DTW.dtw_cuda as dtw
 import utils.metrics as metrics
 
 CHEAT = False
-CHANGE_TRAIN_MODE=25
+CHANGE_TRAIN_MODE=80
 
 import warnings
 warnings.filterwarnings("ignore")
