@@ -169,7 +169,8 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
     parser.add_argument("-val", "--validate", help="eval stylus 4vs1 scenario", action='store_true')
     parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, cosface, arcface, sphereface)", type=str, default='triplet_loss')
-    
+    parser.add_argument("-a", "--alpha", help="set learning alpha value for variance of positives signatures", default=0.0, type=float)
+    parser.add_argument("-n", "--beta", help="set learning beta value for variance of negative signatures", default=0.0, type=float)
     # Read arguments from command line
     args = parser.parse_args()
     
@@ -185,7 +186,7 @@ if __name__ == '__main__':
 
     if not args.evaluate and not args.validate:
         """Iniciar treino"""
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))

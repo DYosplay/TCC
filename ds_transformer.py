@@ -30,7 +30,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss'):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -53,6 +53,8 @@ class DsTransformer(nn.Module):
         self.scores = []
         self.labels = []
         self.th = 3.5
+        self.alpha = alpha
+        self.beta = beta
         # self.loss_value = math.inf
 
 
@@ -219,8 +221,8 @@ class DsTransformer(nn.Module):
                 dists[i*(step-1) + self.ng + j] = dist_n[j]
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            var_g = torch.var(dist_g)
-            var_n = torch.var(dist_n)
+            var_g = torch.var(dist_g) * self.alpha
+            var_n = torch.var(dist_n) * self.beta
 
             lk = 0
             non_zeros = 1
