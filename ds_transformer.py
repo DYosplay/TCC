@@ -219,7 +219,9 @@ class DsTransformer(nn.Module):
                 dists[i*(step-1) + self.ng + j] = dist_n[j]
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            
+            var_g = torch.var(dist_g)
+            var_n = torch.var(dist_n)
+
             lk = 0
             non_zeros = 1
             alpha = 0.2
@@ -234,7 +236,7 @@ class DsTransformer(nn.Module):
             # lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
             # lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
 
-            user_loss = lv + only_pos
+            user_loss = lv + only_pos + var_g + var_n
 
             total_loss += user_loss
     
@@ -246,7 +248,9 @@ class DsTransformer(nn.Module):
         
         c_loss = self.center_loss(feat, labels)
 
-        a_loss = self.angular_loss(feat, labels)
+        a_loss = None
+        if self.angular_loss is not None:
+            a_loss = self.angular_loss(feat, labels)
 
         return triplet_loss, c_loss, a_loss
 
