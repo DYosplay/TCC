@@ -30,7 +30,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -55,6 +55,10 @@ class DsTransformer(nn.Module):
         self.th = 3.5
         self.alpha = alpha
         self.beta = beta
+
+        self.p = p
+        self.q = q
+        self.r = r
         # self.loss_value = math.inf
 
 
@@ -179,6 +183,78 @@ class DsTransformer(nn.Module):
             c.insert(0, columns)
         
         return np.array(r), np.array(c)
+    
+    def _icnn_loss(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+
+        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)):
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                # dists[i*(step-1) + j] = dist_g[j]
+                # dists[i*(5) + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                # dists[i*(step-1) + self.ng + j] = dist_n[j]
+
+            # 1. Obter o máximo e mínimo das distâncias
+            max_v = torch.max(torch.max(dist_g), torch.max(dist_n))
+            min_v = torch.min(torch.min(dist_g), torch.min(dist_n))
+
+            # 2. Normalizar as distâncias das amostras positivas e negativas
+            dist_g = (dist_g - min_v) / (max_v - min_v)
+            dist_n = (dist_n - min_v) / (max_v - min_v)
+
+            # 3. Calcular lambda_g e lambda_n
+            lambda_g = torch.sum(dist_g)
+            lambda_n = torch.sum(dist_n)
+        
+            # 4. Calcular lambda_total
+            lambda_total = lambda_g/self.ng + lambda_n/self.nf
+
+            # 5. Calcular omega
+            omega = self.alpha - (torch.var(dist_g) + torch.var(dist_n))
+            if omega < 0:
+                print(omega)
+                raise ValueError("omega negativo")
+
+            # 6. Calcular gamma
+            gamma = torch.tensor(self.ng / (self.ng + self.nf)
+)
+            icnn_score = torch.pow(lambda_total, 1/self.p) + torch.pow(omega, 1/self.q) + torch.pow(gamma, 1/self.r)
+            icnn_score /= (self.ng + self.nf)
+
+            total_loss += icnn_score
+
+        return - torch.log2(total_loss)
+            
 
     def _loss(self, data, lens):
         """ Loss de um batch
@@ -416,8 +492,10 @@ class DsTransformer(nn.Module):
         optimizer = None
         lr_scheduler = None
 
-
-        if triplet_loss_w == 1:
+        if self.loss_type == 'icnn_loss':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
         else:
@@ -465,23 +543,27 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                triplet_loss, c_loss, a_loss = self._loss(outputs, length)
-            
-                if triplet_loss_w == 1:
-                    loss = triplet_loss  
-        
-                    if self.loss_type != 'triplet_loss':
-                        loss = a_loss
-                    
+                if self.loss_type == 'icnn_loss':
+                    loss = self._icnn_loss(outputs, length)
                     loss.backward()
-
                 else:
-                    loss = (triplet_loss_w*triplet_loss) + ((1-triplet_loss_w) * c_loss)
+                    triplet_loss, c_loss, a_loss = self._loss(outputs, length)
+            
+                    if triplet_loss_w == 1:
+                        loss = triplet_loss  
+            
+                        if self.loss_type != 'triplet_loss':
+                            loss = a_loss
+                        
+                        loss.backward()
 
-                    loss.backward()
-                    for param in self.center_loss.parameters():
-                        # lr_cent is learning rate for center loss, e.g. lr_cent = 0.5
-                        param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
+                    else:
+                        loss = (triplet_loss_w*triplet_loss) + ((1-triplet_loss_w) * c_loss)
+
+                        loss.backward()
+                        for param in self.center_loss.parameters():
+                            # lr_cent is learning rate for center loss, e.g. lr_cent = 0.5
+                            param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
                 
                 optimizer.step()
 
