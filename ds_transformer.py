@@ -233,7 +233,7 @@ class DsTransformer(nn.Module):
             dist_n = (dist_n - min_v) / (max_v - min_v)
 
             # 3. Calcular lambda_g e lambda_n
-            lambda_g = torch.sum(dist_g)
+            lambda_g = torch.sum(1 - dist_g)
             lambda_n = torch.sum(dist_n)
         
             # 4. Calcular lambda_total
