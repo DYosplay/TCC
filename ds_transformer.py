@@ -308,11 +308,14 @@ class DsTransformer(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) + F.relu(g - dist_fa[random.randint(0, len(dist_fa)-1)] + self.quadruplet_margin)
+                    temp = F.relu(g + self.margin - n) #+ F.relu(g - dist_fa[random.randint(0, len(dist_fa)-1)] + self.quadruplet_margin)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
             lv = lk / non_zeros
+
+            quad = torch.sum(F.relu(dist_g - dist_fa + self.quadruplet_margin))
+            lv = (lk + quad) / non_zeros
 
             user_loss = lv + only_pos + var_g + var_n
 
