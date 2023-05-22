@@ -275,48 +275,50 @@ class DsTransformer(nn.Module):
         # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
-            positives = data[i * step : i * step + 1 + self.ng] 
-            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+            for k in range(0, self.ng+1):
+                anchor    = data[i * step + k]
+                positives = data[i * step: i * step + 1 + self.ng] 
+                negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-            len_p = lens[i * step: i * step + 1 + self.ng] 
-            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+                len_a = lens[i * step + k]
+                len_p = lens[i * step: i * step + 1 + self.ng] 
+                len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-            dist_g = torch.zeros(sum(range(1,len(positives))), dtype=data.dtype, device=data.device)
-            dist_n = torch.zeros((len(negatives)*len(positives)), dtype=data.dtype, device=data.device)
+                dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+                dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
 
-            '''Average_Pooling_2,4,6'''
-            for k in range(len(positives)): 
-                anchor = positives[k]
-                len_a = len_p[k]
-                for j in range(k+1, len(positives)-1):
-                    dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                    # dists[i*(step-1) + j] = dist_g[j]
+                '''Average_Pooling_2,4,6'''
+                for j in range(len(positives)): 
+                    if j != k:
+                        dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                        # dists[i*(step-1) + j] = dist_g[j]
+                    # dists[i*(5) + j] = dist_g[j]
 
-            for k in range(len(positives)):
                 for j in range(len(negatives)):
-                    dist_n[j] = self.sdtw(positives[k:k+1, :int(len_p[k])], negatives[j:j+1, :int(len_n[j])])[0] / (len_p[k] + len_n[j])
-                    # dists[i*(step-1) + self.ng + j] = dist_n[j]
-                
-            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            var_g = torch.var(dist_g) * self.alpha
-            var_n = torch.var(dist_n) * self.beta
+                    if j != k:
+                        dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                        # dists[i*(step-1) + self.ng + j] = dist_n[j]
+                    
+                only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+                var_g = torch.var(dist_g) * self.alpha
+                var_n = torch.var(dist_n) * self.beta
 
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n:
-                    temp = F.relu(g + self.margin - n) #* (-alpha) * ((n - g)/2)
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-            lv = lk / non_zeros
+                lk = 0
+                non_zeros = 1
+                for g in dist_g:
+                    for n in dist_n:
+                        temp = F.relu(g + self.margin - n) #* (-alpha) * ((n - g)/2)
+                        if temp > 0:
+                            lk += temp
+                            non_zeros+=1
+                lv = lk / non_zeros
 
-            # lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
-            # lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
+                # lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
+                # lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
 
-            user_loss = lv + only_pos + var_g + var_n
+                user_loss = lv + only_pos + var_g + var_n
 
-            total_loss += user_loss
+                total_loss += user_loss
     
         total_loss /= self.nw
         triplet_loss = total_loss
@@ -329,6 +331,7 @@ class DsTransformer(nn.Module):
         # a_loss = None
         # if self.angular_loss is not None:
         #     a_loss = self.angular_loss(feat, labels)
+
         return triplet_loss, None, None
         # return triplet_loss, c_loss, a_loss
 
