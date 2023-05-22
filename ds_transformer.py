@@ -564,7 +564,7 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
-        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'nlpb':
+        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'nplb':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
         else:
