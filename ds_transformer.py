@@ -255,6 +255,72 @@ class DsTransformer(nn.Module):
 
         return - torch.log2(total_loss)
             
+    def _no_pair_left_behind(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+
+        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1: i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1: i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                
+
+            dist_gn = torch.zeros((len(positives)*len(negatives)), dtype=data.dtype, device=data.device)
+
+            for j in range(len(positives)):
+                for k in range(len(negatives)):
+                    dist_gn[j*len(negatives) + k] = self.sdtw(positives[j:j+1, :int(len_p[j])], negatives[k:k+1, :int(len_n[k])])[0] / (len_p[j] + len_n[k])
+
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+            var_g = torch.var(dist_g) * self.alpha
+            var_n = torch.var(dist_n) * self.beta
+
+            lk = 0
+            non_zeros = 1
+            for g in range(len(dist_g)):
+                for n in range(len(dist_n)):
+                    temp = F.relu(dist_g[g] + self.margin - dist_n[n]) + torch.pow(dist_gn[len(dist_n)*g + n] - dist_n[n], 2)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
+
+            user_loss = lv + only_pos + var_g + var_n
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+        triplet_loss = total_loss
+
+        return triplet_loss
 
     def _loss(self, data, lens):
         """ Loss de um batch
@@ -498,7 +564,7 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
-        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss':
+        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'nlpb':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
         else:
@@ -546,7 +612,11 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'icnn_loss':
+                if self.loss_type == 'nplb':
+                    loss = self._no_pair_left_behind(outputs, length)
+                    loss.backward()
+
+                elif self.loss_type == 'icnn_loss':
                     loss = self._icnn_loss(outputs, length)
                     loss.backward()
                 else:
@@ -569,22 +639,6 @@ class DsTransformer(nn.Module):
                             param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
                 
                 optimizer.step()
-
-                # loss = self._loss(outputs, length)
-
-                # loss = None
-                # if i <= CHANGE_TRAIN_MODE:
-                #     loss = triplet_loss
-                # else:
-                #     loss = (triplet_loss_w * sep_loss_p) + ( (1-triplet_loss_w)*sep_loss_n )
-                
-                # loss = self._loss(outputs, length, i)
-                
-                # dists = self.get_distances(outputs, length)
-                # triplet_loss = self._triplet_loss(dists)
-                # sep_loss = self._sep_loss(dists)
-                # loss = (triplet_loss*0.7 + sep_loss*0.3)
-                
 
                 running_loss += loss.item()
             
