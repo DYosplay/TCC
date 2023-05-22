@@ -168,13 +168,13 @@ if __name__ == '__main__':
     parser.add_argument("-m", "--mask", help="set triplet loss weight", action='store_true')
     parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
     parser.add_argument("-val", "--validate", help="eval stylus 4vs1 scenario", action='store_true')
-    parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, cosface, arcface, sphereface, icnn_loss, nplb)", type=str, default='triplet_loss')
+    parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, cosface, arcface, sphereface, icnn_loss, quadruplet_loss)", type=str, default='triplet_loss')
     parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=0.0, type=float)
     parser.add_argument("-b", "--beta", help="set beta value for variance of negative signatures", default=0.0, type=float)
     parser.add_argument("-p", "--p", help="set p value for icnn_loss", default=1.0, type=float)
     parser.add_argument("-q", "--q", help="set q value for icnn_loss", default=1.0, type=float)
     parser.add_argument("-r", "--r", help="set r value for icnn_loss", default=1.0, type=float)
-
+    parser.add_argument("-qm", "--quadruplet_margin", help="set margin value for quadruplet margin", default=0.5, type=float)
     # Read arguments from command line
     args = parser.parse_args()
     
@@ -190,7 +190,7 @@ if __name__ == '__main__':
 
     if not args.evaluate and not args.validate:
         """Iniciar treino"""
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))

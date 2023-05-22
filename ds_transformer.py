@@ -23,6 +23,8 @@ import DTW.soft_dtw_cuda as soft_dtw
 import DTW.dtw_cuda as dtw
 import utils.metrics as metrics
 
+import random
+
 CHEAT = False
 CHANGE_TRAIN_MODE=80
 
@@ -30,7 +32,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -38,6 +40,7 @@ class DsTransformer(nn.Module):
         self.ng = 5
         self.nf = 10
         self.margin = 1
+        self.quadruplet_margin = qm
         self.model_lambda = 0.01
         self.lr = lr
         self.n_out = 64
@@ -246,16 +249,15 @@ class DsTransformer(nn.Module):
                 raise ValueError("omega negativo")
 
             # 6. Calcular gamma
-            gamma = torch.tensor(self.ng / (self.ng + self.nf)
-)
+            gamma = torch.tensor(self.ng / (self.ng + self.nf))
             icnn_score = torch.pow(lambda_total, 1/self.p) + torch.pow(omega, 1/self.q) + torch.pow(gamma, 1/self.r)
             icnn_score /= (self.ng + self.nf)
 
             total_loss += icnn_score
 
         return - torch.log2(total_loss)
-            
-    def _no_pair_left_behind(self, data, lens):
+    
+    def _quadruplet_loss(self, data, lens):
         """ Loss de um batch
 
         Args:
@@ -270,16 +272,15 @@ class DsTransformer(nn.Module):
         step = (self.ng + self.nf + 1)
         total_loss = 0
 
-        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
         # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
-            positives = data[i * step + 1: i * step + 1 + self.ng] 
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
             negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
             len_a = lens[i * step]
-            len_p = lens[i * step + 1: i * step + 1 + self.ng] 
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
             len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
             dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
@@ -291,13 +292,13 @@ class DsTransformer(nn.Module):
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                
 
-            dist_gn = torch.zeros((len(positives)*len(negatives)), dtype=data.dtype, device=data.device)
 
-            for j in range(len(positives)):
-                for k in range(len(negatives)):
-                    dist_gn[j*len(negatives) + k] = self.sdtw(positives[j:j+1, :int(len_p[j])], negatives[k:k+1, :int(len_n[k])])[0] / (len_p[j] + len_n[k])
+            false_anchor = negatives[len(negatives)//2]
+            len_fa = len_n[len(negatives)//2]
+            dist_fa = torch.zeros((len(negatives)//2), dtype=data.dtype, device=data.device)
+            for j in range(len(negatives)//2 + 1, len(negatives)):
+                dist_fa[j - len(negatives)//2] = self.sdtw(false_anchor[None, :int(len_fa)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             var_g = torch.var(dist_g) * self.alpha
@@ -305,9 +306,9 @@ class DsTransformer(nn.Module):
 
             lk = 0
             non_zeros = 1
-            for g in range(len(dist_g)):
-                for n in range(len(dist_n)):
-                    temp = F.relu(dist_g[g] + self.margin - dist_n[n]) + torch.pow(dist_gn[len(dist_n)*g + n] - dist_n[n], 2)
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n) + F.relu(g - dist_fa[random.randint(0, len(dist_fa)-1)] + self.quadruplet_margin)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -321,6 +322,7 @@ class DsTransformer(nn.Module):
         triplet_loss = total_loss
 
         return triplet_loss
+            
 
     def _loss(self, data, lens):
         """ Loss de um batch
@@ -337,69 +339,66 @@ class DsTransformer(nn.Module):
         step = (self.ng + self.nf + 1)
         total_loss = 0
 
-        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
         # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
-            for k in range(0, self.ng+1):
-                anchor    = data[i * step + k]
-                positives = data[i * step: i * step + 1 + self.ng] 
-                negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-                len_a = lens[i * step + k]
-                len_p = lens[i * step: i * step + 1 + self.ng] 
-                len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-                dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
-                dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
 
-                '''Average_Pooling_2,4,6'''
-                for j in range(len(positives)): 
-                    if j != k:
-                        dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                        # dists[i*(step-1) + j] = dist_g[j]
-                    # dists[i*(5) + j] = dist_g[j]
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists[i*(step-1) + j] = dist_g[j]
+                # dists[i*(5) + j] = dist_g[j]
 
-                for j in range(len(negatives)):
-                    if j != k:
-                        dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                        # dists[i*(step-1) + self.ng + j] = dist_n[j]
-                    
-                only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-                var_g = torch.var(dist_g) * self.alpha
-                var_n = torch.var(dist_n) * self.beta
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists[i*(step-1) + self.ng + j] = dist_n[j]
+                
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+            var_g = torch.var(dist_g) * self.alpha
+            var_n = torch.var(dist_n) * self.beta
 
-                lk = 0
-                non_zeros = 1
-                for g in dist_g:
-                    for n in dist_n:
-                        temp = F.relu(g + self.margin - n) #* (-alpha) * ((n - g)/2)
-                        if temp > 0:
-                            lk += temp
-                            non_zeros+=1
-                lv = lk / non_zeros
+            lk = 0
+            non_zeros = 1
+            alpha = 0.2
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n) #* (-alpha) * ((n - g)/2)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
 
-                # lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
-                # lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
+            # lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
+            # lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
 
-                user_loss = lv + only_pos + var_g + var_n
+            user_loss = lv + only_pos + var_g + var_n
 
-                total_loss += user_loss
+            total_loss += user_loss
     
         total_loss /= self.nw
         triplet_loss = total_loss
 
-        # labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
-        # feat = torch.unsqueeze(dists, 0).transpose(0,1)
+        labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
+        feat = torch.unsqueeze(dists, 0).transpose(0,1)
         
-        # c_loss = self.center_loss(feat, labels)
+        c_loss = self.center_loss(feat, labels)
 
-        # a_loss = None
-        # if self.angular_loss is not None:
-        #     a_loss = self.angular_loss(feat, labels)
+        a_loss = None
+        if self.angular_loss is not None:
+            a_loss = self.angular_loss(feat, labels)
 
-        return triplet_loss, None, None
-        # return triplet_loss, c_loss, a_loss
+        return triplet_loss, c_loss, a_loss
 
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
@@ -564,7 +563,7 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
-        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'nplb':
+        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
         else:
@@ -612,8 +611,8 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'nplb':
-                    loss = self._no_pair_left_behind(outputs, length)
+                if self.loss_type == 'quadruplet_loss':
+                    loss = self._quadruplet_loss(outputs, length)
                     loss.backward()
 
                 elif self.loss_type == 'icnn_loss':
@@ -639,6 +638,22 @@ class DsTransformer(nn.Module):
                             param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
                 
                 optimizer.step()
+
+                # loss = self._loss(outputs, length)
+
+                # loss = None
+                # if i <= CHANGE_TRAIN_MODE:
+                #     loss = triplet_loss
+                # else:
+                #     loss = (triplet_loss_w * sep_loss_p) + ( (1-triplet_loss_w)*sep_loss_n )
+                
+                # loss = self._loss(outputs, length, i)
+                
+                # dists = self.get_distances(outputs, length)
+                # triplet_loss = self._triplet_loss(dists)
+                # sep_loss = self._sep_loss(dists)
+                # loss = (triplet_loss*0.7 + sep_loss*0.3)
+                
 
                 running_loss += loss.item()
             
