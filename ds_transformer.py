@@ -293,13 +293,6 @@ class DsTransformer(nn.Module):
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
 
-
-            false_anchor = negatives[len(negatives)//2]
-            len_fa = len_n[len(negatives)//2]
-            dist_fa = torch.zeros((len(negatives)//2), dtype=data.dtype, device=data.device)
-            for j in range(len(negatives)//2 + 1, len(negatives)):
-                dist_fa[j - len(negatives)//2] = self.sdtw(false_anchor[None, :int(len_fa)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             var_g = torch.var(dist_g) * self.alpha
             var_n = torch.var(dist_n) * self.beta
@@ -308,14 +301,12 @@ class DsTransformer(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) #+ F.relu(g - dist_fa[random.randint(0, len(dist_fa)-1)] + self.quadruplet_margin)
+                    aux = g + self.margin - n
+                    temp = F.relu(aux) + torch.pow(aux, -self.quadruplet_margin)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
             lv = lk / non_zeros
-
-            quad = torch.sum(F.relu(dist_g - dist_fa + self.quadruplet_margin))
-            lv = (lk + quad) / non_zeros
 
             user_loss = lv + only_pos + var_g + var_n
 
