@@ -312,7 +312,7 @@ class DsTransformer(nn.Module):
     
         total_loss /= self.nw
        
-        mmd = self.mmd_loss(data[0:step], data[step:step*2])
+        mmd = F.relu(self.mmd_loss(data[0:step], data[step:step*2]))
 
         triplet_loss = total_loss + mmd
 
