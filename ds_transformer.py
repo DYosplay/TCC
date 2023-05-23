@@ -272,7 +272,7 @@ class DsTransformer(nn.Module):
         step = (self.ng + self.nf + 1)
         total_loss = 0
 
-        # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -289,31 +289,33 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)): 
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i * self.ng + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             var_g = torch.var(dist_g) * self.alpha
-            var_n = torch.var(dist_n) * self.beta
+            # var_n = torch.var(dist_n) * self.beta
 
             lk = 0
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
                     aux = g + self.margin - n
-                    temp = F.relu(aux) + torch.pow(aux, -self.quadruplet_margin)
+                    temp = F.relu(aux) + torch.pow(aux, -self.quadruplet_margin) * self.beta
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
             lv = lk / non_zeros
 
-            user_loss = lv + only_pos + var_g + var_n
+            user_loss = lv + only_pos
 
             total_loss += user_loss
     
         total_loss /= self.nw
-        triplet_loss = total_loss
+        var_g = torch.var(dists_gs) * self.alpha
+        triplet_loss = total_loss + var_g
 
         return triplet_loss
             
