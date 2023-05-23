@@ -312,8 +312,11 @@ class DsTransformer(nn.Module):
     
         total_loss /= self.nw
        
-        mmd = F.relu(self.mmd_loss(data[0:step], data[step:step*2]))
-
+        # mmd = self.mmd_loss(d1, d2)
+        # mmd = F.relu(self.mmd_loss(data[0:self.ng+1+self.nf//2], data[step:step + self.ng+1 + self.nf//2]))
+        # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
+        # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
+        mmd = self.mmd_loss(data[0:step], data[step: step*2])
         triplet_loss = total_loss + mmd
 
         return triplet_loss
