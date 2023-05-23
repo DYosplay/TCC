@@ -315,7 +315,7 @@ class DsTransformer(nn.Module):
             total_loss += user_loss
     
         total_loss /= self.nw
-        var_g = torch.var(dists_gs) ** self.p
+        var_g = torch.var(dists_gs) * self.p
         # var_n = torch.var(dists_ns) ** self.q
         triplet_loss = total_loss + var_g
 
