@@ -303,8 +303,9 @@ class DsTransformer(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    aux = g + self.margin - n
-                    temp = F.relu(aux) + torch.abs(torch.pow(aux, -self.quadruplet_margin)) * self.beta
+                    # aux = g + self.margin - n
+                    temp = F.relu(g-n) + F.relu(n - g - self.margin)
+                    # temp = F.relu(aux) + torch.abs(torch.pow(aux, -self.quadruplet_margin)) * self.beta
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
