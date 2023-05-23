@@ -273,7 +273,7 @@ class DsTransformer(nn.Module):
         total_loss = 0
 
         dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
-
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
         for i in range(0, self.nw):
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng] 
@@ -293,6 +293,7 @@ class DsTransformer(nn.Module):
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i * self.nf + j] = dist_n[j]
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
             var_g = torch.var(dist_g) * self.alpha
@@ -314,8 +315,9 @@ class DsTransformer(nn.Module):
             total_loss += user_loss
     
         total_loss /= self.nw
-        var_g = torch.var(dists_gs) * self.alpha
-        triplet_loss = total_loss + var_g
+        var_g = torch.var(dists_gs) * self.p
+        var_n = torch.var(dists_ns) * self.q
+        triplet_loss = total_loss + var_g + var_n
 
         return triplet_loss
             
