@@ -1,4 +1,2 @@
-#!/bin/bash
-
 PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=35 -t=ds_test379 -lr 0.01 -bs 32 -lt=triplet_mmd
 PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=35 -t=ds_test380 -lr 0.0001 -bs 32 -lt=triplet_mmd
