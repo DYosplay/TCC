@@ -108,13 +108,13 @@ def generate_features(input_file : str, scenario : str, database : Literal):
 
     # if scenario=='finger' : p = np.ones(x.shape) #* 255
 
-    result = [x, y]
+    # result = [x, y]
 
     """ s """
-    # x1, y1 = normalize_x_and_y(x, y)
-    # result = [x1,y1]
+    x1, y1 = normalize_x_and_y(x, y)
+    result = [x1,y1]
     """ s """
-    
+
     dx = diff(x)
     dy = diff(y)
     v = np.sqrt(dx**2+dy**2)
@@ -130,10 +130,10 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     
 
     features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
-    result += features
+    # result += features
     """ s """
-    # for f in features:
-    #     result.append(zscore(f))
+    for f in features:
+        result.append(zscore(f))
     """ s """
 
     # if scenario=='finger': 
