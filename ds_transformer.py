@@ -383,9 +383,10 @@ class DsTransformer(nn.Module):
         # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
         # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
         cor = torch.tensor(0.0).cuda()
-        for i in range(0, step):
-            cor += coral.coral(data[i], data[step + i])
-        cor *= self.beta
+        if self.beta != 0:
+            for i in range(0, step):
+                cor += coral.coral(data[i], data[step + i])
+            cor *= self.beta
 
         mmd = self.mmd_loss(data[0:step], data[step: step*2]) * self.alpha
         var_g = torch.var(dists_gs) * self.p
