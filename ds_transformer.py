@@ -5,6 +5,7 @@ from utils import masked_batch_normalization as mbn
 from utils import center_loss as cl
 from utils import angular_losses as al
 from utils import mmd_loss as mmd
+from utils import coral as coral
 
 
 import torch.nn.utils as nutils
@@ -84,7 +85,7 @@ class DsTransformer(nn.Module):
         nn.ReLU(inplace=True),
         nn.Dropout(p=0.1)
         )
-        # self.bn = mbn.MaskedBatchNorm1d(self.n_hidden)
+        self.bn = mbn.MaskedBatchNorm1d(self.n_out)
 
         self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.1, batch_first=True, bidirectional=False)
 
@@ -251,7 +252,7 @@ class DsTransformer(nn.Module):
 
         return - torch.log2(total_loss)
     
-    def _triplet_mmd(self, data, lens):
+    def _triplet_coral(self, data, lens):
         """ Loss de um batch
 
         Args:
@@ -309,9 +310,88 @@ class DsTransformer(nn.Module):
         # mmd = F.relu(self.mmd_loss(data[0:self.ng+1+self.nf//2], data[step:step + self.ng+1 + self.nf//2]))
         # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
         # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
-        mmd = self.mmd_loss(data[0:step], data[step: step*2]) * self.alpha
+        cor = torch.tensor(0.0).cuda()
+        for i in range(0, step):
+            cor += coral.coral(data[i], data[step + i])
+
+        cor *= self.alpha
         var = torch.var(dists) * self.beta
-        triplet_loss = total_loss + mmd + var
+        triplet_loss = total_loss + cor + var
+
+        return triplet_loss
+    
+    def _triplet_mmd(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i*self.nf + j] = dist_n[j]
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+
+            lk = 0
+            non_zeros = 1
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
+
+            user_loss = lv + only_pos
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+       
+        # mmd = self.mmd_loss(d1, d2)
+        # mmd = F.relu(self.mmd_loss(data[0:self.ng+1+self.nf//2], data[step:step + self.ng+1 + self.nf//2]))
+        # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
+        # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
+        cor = torch.tensor(0.0).cuda()
+        for i in range(0, step):
+            cor += coral.coral(data[i], data[step + i])
+        cor *= self.beta
+
+        mmd = self.mmd_loss(data[0:step], data[step: step*2]) * self.alpha
+        var_g = torch.var(dists_gs) * self.p
+        var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
+        var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
+        triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
 
         return triplet_loss
 
@@ -620,7 +700,7 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
-        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'triplet_mmd':
+        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
         else:
@@ -668,7 +748,10 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'triplet_mmd':
+                if self.loss_type == 'triplet_coral':
+                    loss = self._triplet_coral(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_mmd':
                     loss = self._triplet_mmd(outputs, length)
                     loss.backward()
 
