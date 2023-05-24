@@ -388,7 +388,7 @@ class DsTransformer(nn.Module):
                 cor += coral.coral(data[i], data[step + i])
             cor *= self.beta
 
-        mmd = self.mmd_loss(data[0:step], data[step: step*2]) * self.alpha
+        mmd = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         var_g = torch.var(dists_gs) * self.p
         var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
         var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
