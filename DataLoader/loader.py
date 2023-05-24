@@ -108,9 +108,12 @@ def generate_features(input_file : str, scenario : str, database : Literal):
 
     # if scenario=='finger' : p = np.ones(x.shape) #* 255
 
-    x1, y1 = normalize_x_and_y(x, y)
+    result = [x, y]
 
-    result = [x1,y1]
+    """ s """
+    # x1, y1 = normalize_x_and_y(x, y)
+    # result = [x1,y1]
+    """ s """
     
     dx = diff(x)
     dy = diff(y)
@@ -127,8 +130,12 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     
 
     features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
-    for f in features:
-        result.append(zscore(f))
+    result += features
+    """ s """
+    # for f in features:
+    #     result.append(zscore(f))
+    """ s """
+
     # if scenario=='finger': 
     #     features = [v, theta, cos, sin] 
     #     features2 = [dv, dtheta, logCurRadius, c, totalAccel]
@@ -155,9 +162,9 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    p = bf(np.array(df['P']))[:8000]
-    x = bf(np.array(df['X']))[:8000]
-    y = bf(np.array(df['Y']))[:8000]
+    p = bf(np.array(df['P']))[:1000]
+    x = bf(np.array(df['X']))[:1000]
+    y = bf(np.array(df['Y']))[:1000]
 
     if scenario=='finger' : p = np.ones(x.shape) #* 255
 
