@@ -265,6 +265,7 @@ class DsTransformer(nn.Module):
         """
         step = (self.ng + self.nf + 1)
         total_loss = 0
+        dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -281,6 +282,7 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)): 
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists[i*(step-1) + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
@@ -308,7 +310,8 @@ class DsTransformer(nn.Module):
         # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
         # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
         mmd = self.mmd_loss(data[0:step], data[step: step*2]) * self.alpha
-        triplet_loss = total_loss + mmd
+        var = torch.var(dists) * self.beta
+        triplet_loss = total_loss + mmd + var
 
         return triplet_loss
 
