@@ -361,16 +361,16 @@ class DsTransformer(nn.Module):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
                 # dists_ns[i*self.nf + j] = dist_n[j]
 
-            norm_v = torch.min(dist_g)
-            dist_g -= norm_v
-            dist_n -= norm_v
+            new_dist_g = dist_g - torch.min(dist_g)
+            new_dist_n = dist_n - torch.min(dist_g)
+            
 
-            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+            only_pos = torch.sum(new_dist_g) * (self.model_lambda /self.ng)
 
             lk = 0
             non_zeros = 1
-            for g in dist_g:
-                for n in dist_n:
+            for g in new_dist_g:
+                for n in new_dist_n:
                     temp = F.relu(g + self.margin - n)
                     if temp > 0:
                         lk += temp
