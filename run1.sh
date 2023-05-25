@@ -1,2 +1,1 @@
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_test400 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -b 0 -p 0.2 -tm 1
-cat "usa divisao na triplet loss"
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_test403 -lr 0.001 -bs 32 -lt=norm_triplet_mmd -a 1.0 -tm 1
