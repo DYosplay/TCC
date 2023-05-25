@@ -437,25 +437,25 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n:
-                    temp = F.relu(g + self.margin - n)
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-            lv = lk / non_zeros
-
             # lk = 0
             # non_zeros = 1
             # for g in dist_g:
             #     for n in dist_n:
-            #         temp = F.relu(1 - (n/(g+self.margin)))
+            #         temp = F.relu(g + self.margin - n)
             #         if temp > 0:
             #             lk += temp
             #             non_zeros+=1
             # lv = lk / non_zeros
+
+            lk = 0
+            non_zeros = 1
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(1 - ((g+self.margin)/n))
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
 
             user_loss = lv + only_pos
 
@@ -637,68 +637,6 @@ class DsTransformer(nn.Module):
         """
         return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
 
-    # def _inference(self, files : str, scenario : str, n_epoch : int) -> Tuple[float, str, int]:
-    #     """
-    #     Args:
-    #         files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
-
-    #     Raises:
-    #         ValueError: "Arquivos de comparação com formato desconhecido"
-
-    #     Returns:
-    #         float, str, int: distância da assinatura, usuário, label 
-    #     """
-    #     tokens = files.split(" ")
-    #     user_key = tokens[0].split("_")[0]
-        
-    #     result = math.nan
-    #     refs = []
-    #     sign = ""
-
-    #     if len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
-    #     elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
-    #     else: raise ValueError("Arquivos de comparação com formato desconhecido")
-
-    #     test_batch, lens = batches_gen.files2array(refs + [sign], scenario=scenario, developtment=CHEAT)
-
-    #     mask = self.getOutputMask(lens)
-        
-    #     mask = Variable(torch.from_numpy(mask)).cuda()
-    #     inputs = Variable(torch.from_numpy(test_batch)).cuda()
-
-    #     embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-    #     refs = embeddings[:len(embeddings)-1]
-    #     sign = embeddings[-1]
-
-    #     len_refs = lengths[:len(embeddings)-1]
-    #     len_sign = lengths[-1]
-
-    #     dk = math.nan
-    #     count = 0
-    #     if len(refs) == 1 : dk = 1
-    #     else:
-    #         dk = 0
-    #         for i in range(0, len(refs)):
-    #             for j in range(1, len(refs)):
-    #                 if i < j:
-    #                     dk += self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
-    #                     count += 1
-
-    #         dk = dk/(count)
-    
-    #     dk_sqrt = math.sqrt(dk)
-        
-    #     dists = []
-    #     for i in range(0, len(refs)):
-    #         dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
-
-    #     dists = np.array(dists) / dk_sqrt
-
-    #     s_avg = np.mean(dists)
-    #     s_min = min(dists)
-
-    #     return s_avg + s_min, user_key, result
-
     def _inference(self, files : str, scenario : str, n_epoch : int) -> Tuple[float, str, int]:
         """
         Args:
@@ -737,31 +675,34 @@ class DsTransformer(nn.Module):
 
         dk = math.nan
         count = 0
-        min_orig = torch.tensor(100000)
         if len(refs) == 1 : dk = 1
         else:
             dk = 0
             for i in range(0, len(refs)):
                 for j in range(1, len(refs)):
                     if i < j:
-                        aux = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
-                        min_orig = torch.min(min_orig, aux)
-                        dk += aux
+                        dk += self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
                         count += 1
-            dk = dk - count*min_orig
+
             dk = dk/(count)
     
         dk_sqrt = math.sqrt(dk)
         
         dists = []
         for i in range(0, len(refs)):
-            dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0] - min_orig.item())
+            dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
 
         dists = np.array(dists) / dk_sqrt
 
         s_avg = np.mean(dists)
         s_min = min(dists)
 
+        if (s_avg+s_min) >= 0.50366 and result == 0:
+            a = 0
+        
+        if (s_avg+s_min) < 0.50366 and result == 1:
+            a = 0
+            
         return s_avg + s_min, user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
