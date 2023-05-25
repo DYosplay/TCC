@@ -714,7 +714,7 @@ class DsTransformer(nn.Module):
         if (s_avg+s_min) < 0.50366 and result == 1:
             a = 0
             
-        return score_b, user_key, result
+        return s_avg + s_min, user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
