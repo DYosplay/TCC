@@ -34,14 +34,14 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
         self.nw = batch_size//16
         self.ng = 5
         self.nf = 10
-        self.margin = 1
+        self.margin = margin
         self.quadruplet_margin = qm
         self.model_lambda = 0.01
         self.lr = lr
