@@ -673,6 +673,7 @@ class DsTransformer(nn.Module):
         len_refs = lengths[:len(embeddings)-1]
         len_sign = lengths[-1]
 
+        dk_list = []
         dk = math.nan
         count = 0
         if len(refs) == 1 : dk = 1
@@ -681,7 +682,9 @@ class DsTransformer(nn.Module):
             for i in range(0, len(refs)):
                 for j in range(1, len(refs)):
                     if i < j:
-                        dk += self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
+                        aux = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
+                        dk += aux
+                        dk_list.append(aux.item())
                         count += 1
 
             dk = dk/(count)
@@ -692,10 +695,16 @@ class DsTransformer(nn.Module):
         for i in range(0, len(refs)):
             dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
 
-        dists = np.array(dists) / dk_sqrt
+        dk_list = np.array(dk_list)
+        dists_b = np.array(dists) - np.mean(dk_list)
+        score_b = np.mean(dists_b) + min(dists_b)
 
+        dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
         s_min = min(dists)
+
+        if user_key == 'u0004':
+            a = 0
 
         if (s_avg+s_min) >= 0.50366 and result == 0:
             a = 0
@@ -703,7 +712,7 @@ class DsTransformer(nn.Module):
         if (s_avg+s_min) < 0.50366 and result == 1:
             a = 0
             
-        return s_avg + s_min, user_key, result
+        return score_b, user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
