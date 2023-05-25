@@ -437,25 +437,25 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            # lk = 0
-            # non_zeros = 1
-            # for g in dist_g:
-            #     for n in dist_n:
-            #         temp = F.relu(g + self.margin - n)
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
-            # lv = lk / non_zeros
-
             lk = 0
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(1 - ((g+self.margin)/n))
+                    temp = F.relu(g + self.margin - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
             lv = lk / non_zeros
+
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n:
+            #         temp = F.relu(1 - ((g+self.margin)/n))
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
 
             user_loss = lv + only_pos
 
@@ -696,7 +696,7 @@ class DsTransformer(nn.Module):
             dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
 
         dk_list = np.array(dk_list)
-        dists_b = np.array(dists) - np.mean(dk_list)
+        dists_b = (np.array(dists) - np.mean(dk_list)) /dk_sqrt
         score_b = np.mean(dists_b) + min(dists_b)
 
         dists = np.array(dists) / dk_sqrt
@@ -704,6 +704,8 @@ class DsTransformer(nn.Module):
         s_min = min(dists)
 
         if user_key == 'u0004':
+            a = 0
+        if user_key == 'u0026':
             a = 0
 
         if (s_avg+s_min) >= 0.50366 and result == 0:
