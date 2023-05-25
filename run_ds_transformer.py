@@ -187,6 +187,8 @@ if __name__ == '__main__':
     cudnn.enabled = True
     cudnn.benchmark = False
     cudnn.deterministic = True
+    torch.autograd.set_detect_anomaly(True)
+
     res_folder = "Resultados" + os.sep + args.test_name
 
     if not args.evaluate and not args.validate:
@@ -200,11 +202,11 @@ if __name__ == '__main__':
         model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
     elif args.evaluate:
         """Avaliar modelo"""
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
-        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch23.pt"))
         model.cuda()
         model.train(mode=False)
         model.eval()

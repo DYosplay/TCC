@@ -85,7 +85,7 @@ class DsTransformer(nn.Module):
         nn.ReLU(inplace=True),
         nn.Dropout(p=0.1)
         )
-        self.bn = mbn.MaskedBatchNorm1d(self.n_out)
+        # self.bn = mbn.MaskedBatchNorm1d(self.n_out)
 
         self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.1, batch_first=True, bidirectional=False)
 
