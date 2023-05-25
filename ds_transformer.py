@@ -362,11 +362,21 @@ class DsTransformer(nn.Module):
                 dists_ns[i*self.nf + j] = dist_n[j]
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n:
+            #         temp = F.relu(g + self.margin - n)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+
             lk = 0
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n)
+                    temp = F.relu(1 - (n/(g+self.margin)))
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -383,10 +393,10 @@ class DsTransformer(nn.Module):
         # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
         # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
         cor = torch.tensor(0.0).cuda()
-        if self.beta != 0:
-            for i in range(0, step):
-                cor += coral.coral(data[i], data[step + i])
-            cor *= self.beta
+        # if self.beta != 0:
+        #     for i in range(0, step):
+        #         cor += coral.coral(data[i], data[step + i])
+        #     cor *= self.beta
 
         mmd = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         var_g = torch.var(dists_gs) * self.p
