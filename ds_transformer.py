@@ -147,7 +147,7 @@ class DsTransformer(nn.Module):
         mask = torch.index_select(mask, 0, indices)
         
         h = self.linear(h)
-        # h = torch.nn.functional.normalize(h, self.q)
+        # h = torch.nn.functional.normalize(h, 2)
 
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
@@ -441,8 +441,14 @@ class DsTransformer(nn.Module):
             lk = 0
             non_zeros = 1
             for g in dist_g:
-                for n in dist_n:
-                    temp = F.relu(g + self.margin - n)
+                for n in dist_n[:5]:
+                    temp = F.relu(g + self.margin - n) * self.p
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+
+                for n in dist_n[5:]:
+                    temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -455,14 +461,14 @@ class DsTransformer(nn.Module):
         total_loss /= self.nw
        
         mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
-        var_g = torch.var(dists_gs) * self.p
+        var_g = torch.var(dists_gs) * self.q
         # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
         # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
         # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
 
-        ampli = torch.abs(torch.max(dists_gs) - torch.min(dists_gs)) * self.q
+        # ampli = torch.abs(torch.max(dists_gs) - torch.min(dists_gs)) * self.q
  
-        return total_loss + mmd1 + ampli + var_g
+        return total_loss + mmd1 + var_g
 
     def _quadruplet_loss(self, data, lens):
         """ Loss de um batch
