@@ -337,7 +337,7 @@ class DsTransformer(nn.Module):
 
         step = (self.ng + self.nf + 1)
         total_loss = 0
-        # dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
         # dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
@@ -355,7 +355,7 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)): 
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                # dists_gs[i*self.ng + j] = dist_g[j]
+                dists_gs[i*self.ng + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
@@ -385,9 +385,9 @@ class DsTransformer(nn.Module):
        
         mmd = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         
-        triplet_loss = total_loss + mmd
+        var_g = torch.var(dists_gs) * self.p
+        triplet_loss = total_loss + mmd + var_g
 
-        # var_g = torch.var(dists_gs) * self.p
         # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
         # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
         # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
@@ -441,7 +441,7 @@ class DsTransformer(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n)
+                    temp = F.sigmoid(g + self.margin - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -467,19 +467,19 @@ class DsTransformer(nn.Module):
         # mmd = F.relu(self.mmd_loss(data[0:self.ng+1+self.nf//2], data[step:step + self.ng+1 + self.nf//2]))
         # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
         # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
-        cor = torch.tensor(0.0).cuda()
+        # cor = torch.tensor(0.0).cuda()
         # if self.beta != 0:
         #     for i in range(0, step):
         #         cor += coral.coral(data[i], data[step + i])
         #     cor *= self.beta
 
         mmd = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
-        var_g = torch.var(dists_gs) * self.p
-        var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
-        var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
-        triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
+        # var_g = torch.var(dists_gs) * self.p
+        # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
+        # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
+        # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
 
-        return triplet_loss
+        return total_loss + mmd
 
     def _quadruplet_loss(self, data, lens):
         """ Loss de um batch
