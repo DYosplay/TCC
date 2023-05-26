@@ -34,7 +34,7 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -53,6 +53,7 @@ class DsTransformer(nn.Module):
         self.n_layers = 2
         self.use_mask = use_mask
         self.loss_type = loss_type
+        self.decay = decay
 
         # variáveis para a loss
         self.scores = []
@@ -791,14 +792,14 @@ class DsTransformer(nn.Module):
 
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         else:
             params = list(self.parameters()) + list(self.center_loss.parameters())
             optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay)
 
         losses = [math.inf]*10
 
