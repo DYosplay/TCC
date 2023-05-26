@@ -1,2 +1,2 @@
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_test413 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1.0 -p 0.01
-# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_test411 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1.3 -p 0.1
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_test415 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 0.7 -p 0.01 -q 0.5
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_test417 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 0.7 -p 0.01 -q 0.75
