@@ -441,21 +441,11 @@ class DsTransformer(nn.Module):
             non_zeros = 1
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.sigmoid(g + self.margin - n)
+                    temp = F.relu(g + self.margin - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
             lv = lk / non_zeros
-
-            # lk = 0
-            # non_zeros = 1
-            # for g in dist_g:
-            #     for n in dist_n:
-            #         temp = F.relu(1 - ((g+self.margin)/n))
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
-            # lv = lk / non_zeros
 
             user_loss = lv + only_pos
 
@@ -463,23 +453,15 @@ class DsTransformer(nn.Module):
     
         total_loss /= self.nw
        
-        # mmd = self.mmd_loss(d1, d2)
-        # mmd = F.relu(self.mmd_loss(data[0:self.ng+1+self.nf//2], data[step:step + self.ng+1 + self.nf//2]))
-        # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
-        # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
-        # cor = torch.tensor(0.0).cuda()
-        # if self.beta != 0:
-        #     for i in range(0, step):
-        #         cor += coral.coral(data[i], data[step + i])
-        #     cor *= self.beta
-
         mmd = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         # var_g = torch.var(dists_gs) * self.p
         # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
         # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
         # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
 
-        return total_loss + mmd
+        ampli = torch.abs(torch.max(dists_gs) - torch.min(dists_gs)) * self.p
+
+        return total_loss + mmd + ampli
 
     def _quadruplet_loss(self, data, lens):
         """ Loss de um batch
