@@ -800,10 +800,7 @@ class DsTransformer(nn.Module):
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-            if self.op == 'SGD':
-                lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
-            else: 
-                lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [5], self.decay)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
         else:
             params = list(self.parameters()) + list(self.center_loss.parameters())
             optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
@@ -821,6 +818,10 @@ class DsTransformer(nn.Module):
         bckp_path = result_folder + os.sep + "Backup"
 
         for i in range(1, n_epochs+1):
+            if i == 6:
+                for g in optimizer.param_groups:
+                    g['lr'] = 0.0001
+
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
