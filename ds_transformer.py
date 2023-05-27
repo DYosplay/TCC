@@ -84,11 +84,11 @@ class DsTransformer(nn.Module):
         nn.ReLU(inplace=True),
         nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=3, stride=1, padding=1, bias=True),
         nn.ReLU(inplace=True),
-        nn.Dropout(p=0.1)
+        nn.Dropout(p=0.2)
         )
         # self.bn = mbn.MaskedBatchNorm1d(self.n_out)
 
-        self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.1, batch_first=True, bidirectional=False)
+        self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.2, batch_first=True, bidirectional=False)
 
         self.h0 = Variable(torch.zeros(self.n_layers, batch_size, self.n_hidden).cuda(), requires_grad=False)
         self.h1 = Variable(torch.zeros(self.n_layers, 5, self.n_hidden).cuda(), requires_grad=False)
@@ -439,21 +439,25 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n[:5]:
-                    temp = F.relu(g + self.margin - n) * self.p
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
 
-                for n in dist_n[5:]:
-                    temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-            lv = lk / non_zeros
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+
+            lk_s = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))) * self.p
+            lk_r = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))) * (1-self.p)
+            lv = (lk_s + lk_r) / (lk_r.data.nonzero(as_tuple=False).size(0) + lk_s.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
 
