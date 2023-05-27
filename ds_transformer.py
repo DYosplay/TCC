@@ -820,7 +820,7 @@ class DsTransformer(nn.Module):
 
         for i in range(1, n_epochs+1):
             
-            if self.best_eer < 2.5:
+            if self.best_eer < 0.025:
                 for g in optimizer.param_groups:
                     if self.nlr < g['lr']:
                         g['lr'] = self.nlr
