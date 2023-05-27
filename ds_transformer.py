@@ -34,7 +34,7 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, op : str = 'SGD'):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -54,7 +54,7 @@ class DsTransformer(nn.Module):
         self.use_mask = use_mask
         self.loss_type = loss_type
         self.decay = decay
-        self.op = op
+        self.nlr = nlr
 
         # variáveis para a loss
         self.scores = []
@@ -780,6 +780,7 @@ class DsTransformer(nn.Module):
         if n_epoch != 0:
             if eer_global < self.best_eer:
                 torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
+                self.best_eer = eer_global
         
         self.train(mode=True)
 
@@ -818,9 +819,13 @@ class DsTransformer(nn.Module):
         bckp_path = result_folder + os.sep + "Backup"
 
         for i in range(1, n_epochs+1):
-            if i == 6:
+            
+            if self.best_eer < 2.5:
                 for g in optimizer.param_groups:
-                    g['lr'] = 0.0001
+                    if self.nlr < g['lr']:
+                        g['lr'] = self.nlr
+                        
+                print("\nLearning rate atualizada\n")
 
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
