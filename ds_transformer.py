@@ -34,7 +34,7 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, op : str = 'SGD'):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -54,6 +54,7 @@ class DsTransformer(nn.Module):
         self.use_mask = use_mask
         self.loss_type = loss_type
         self.decay = decay
+        self.op = op
 
         # variáveis para a loss
         self.scores = []
@@ -439,25 +440,25 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            # lk = 0
-            # non_zeros = 1
-            # for g in dist_g:
-            #     for n in dist_n[:5]:
-            #         temp = F.relu(g + self.margin - n) * self.p
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
+            lk = 0
+            non_zeros = 1
+            for g in dist_g:
+                for n in dist_n[:5]:
+                    temp = F.relu(g + self.margin - n) * self.p
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
 
-            #     for n in dist_n[5:]:
-            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
-            # lv = lk / non_zeros
+                for n in dist_n[5:]:
+                    temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
 
-            lk_s = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))) * self.p
-            lk_r = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))) * (1-self.p)
-            lv = (lk_s + lk_r) / (lk_r.data.nonzero(as_tuple=False).size(0) + lk_s.data.nonzero(as_tuple=False).size(0) + 1)
+            # lk_s = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p) 
+            # lk_r = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)) 
+            # lv = (lk_s + lk_r) / (lk_r.data.nonzero(as_tuple=False).size(0) + lk_s.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
 
@@ -799,7 +800,10 @@ class DsTransformer(nn.Module):
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+            if self.op == 'SGD':
+                lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+            else: 
+                lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, [5], self.decay)
         else:
             params = list(self.parameters()) + list(self.center_loss.parameters())
             optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
