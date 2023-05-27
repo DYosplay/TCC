@@ -439,21 +439,25 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n[:5]:
-                    temp = F.relu(g + self.margin - n) * self.p
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
 
-                for n in dist_n[5:]:
-                    temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-            lv = lk / non_zeros
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+
+            lk_s = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))) * self.p
+            lk_r = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))) * (1-self.p)
+            lv = (lk_s + lk_r) / (lk_r.data.nonzero(as_tuple=False).size(0) + lk_s.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
 
