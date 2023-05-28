@@ -5,6 +5,9 @@ import inspect
 import torch
 import torch.backends.cudnn as cudnn
 import argparse
+import random
+import numpy as np
+
 
 FILE = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
 FILE8 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "1vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_1vs1.txt"
@@ -174,6 +177,7 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--p", help="set p value for icnn_loss", default=0.0, type=float)
     parser.add_argument("-q", "--q", help="set q value for icnn_loss", default=0.0, type=float)
     parser.add_argument("-r", "--r", help="set r value for icnn_loss", default=0.0, type=float)
+    parser.add_argument("-seed", "--seed", help="set seed value", default=111, type=int)
     parser.add_argument("-qm", "--quadruplet_margin", help="set margin value for quadruplet margin", default=0.5, type=float)
     parser.add_argument("-tm", "--margin", help="set margin value for triplet loss margin", default=1.0, type=float)
     parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
@@ -189,7 +193,10 @@ if __name__ == '__main__':
     cudnn.enabled = True
     cudnn.benchmark = False
     cudnn.deterministic = True
-    torch.autograd.set_detect_anomaly(True)
+    
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
 
     res_folder = "Resultados" + os.sep + args.test_name
 

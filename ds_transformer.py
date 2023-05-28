@@ -441,21 +441,24 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n[:5]:
-                    temp = F.relu(g + self.margin - n) * self.p
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
 
-                for n in dist_n[5:]:
-                    temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-            lv = lk / non_zeros
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+            lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+            lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
 
@@ -779,7 +782,8 @@ class DsTransformer(nn.Module):
             if eer_global < self.best_eer:
                 torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
                 self.best_eer = eer_global
-        
+                print("EER atualizado: " + str(self.best_eer))
+
         self.train(mode=True)
 
     def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5):
