@@ -456,10 +456,6 @@ class DsTransformer(nn.Module):
                         non_zeros+=1
             lv = lk / non_zeros
 
-            # lk_s = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p) 
-            # lk_r = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)) 
-            # lv = (lk_s + lk_r) / (lk_r.data.nonzero(as_tuple=False).size(0) + lk_s.data.nonzero(as_tuple=False).size(0) + 1)
-
             user_loss = lv + only_pos
 
             total_loss += user_loss
@@ -475,6 +471,7 @@ class DsTransformer(nn.Module):
         # ampli = torch.abs(torch.max(dists_gs) - torch.min(dists_gs)) * self.q
  
         return total_loss + mmd1 + var_g
+
 
     def _quadruplet_loss(self, data, lens):
         """ Loss de um batch
