@@ -111,7 +111,8 @@ class DsTransformer(nn.Module):
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
-        self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
+        self.center_loss = None
+        # self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
         self.mmd_loss = mmd.MMDLoss()
         
     def getOutputMask(self, lens):    
@@ -852,20 +853,18 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'norm_triplet_mmd':
+                if self.loss_type == 'triplet_mmd':
+                    loss = self._triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'norm_triplet_mmd':
                     loss = self._norm_triplet_mmd(outputs, length)
                     loss.backward()
                 elif self.loss_type == 'triplet_coral':
                     loss = self._triplet_coral(outputs, length)
                     loss.backward()
-                elif self.loss_type == 'triplet_mmd':
-                    loss = self._triplet_mmd(outputs, length)
-                    loss.backward()
-
                 elif self.loss_type == 'quadruplet_loss':
                     loss = self._quadruplet_loss(outputs, length)
                     loss.backward()
-
                 elif self.loss_type == 'icnn_loss':
                     loss = self._icnn_loss(outputs, length)
                     loss.backward()
