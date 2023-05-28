@@ -194,9 +194,9 @@ if __name__ == '__main__':
     cudnn.benchmark = False
     cudnn.deterministic = True
     
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
+    # random.seed(args.seed)
+    # np.random.seed(args.seed)
+    # torch.manual_seed(args.seed)
 
     res_folder = "Resultados" + os.sep + args.test_name
 
