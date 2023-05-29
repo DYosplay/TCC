@@ -66,14 +66,18 @@ def validation(model : DsTransformer):
 def validate(model : DsTransformer, res_folder : str):
     stylus_path = PATH + os.sep + "stylus"
 
-    path = stylus_path + os.sep + "4vs1" + os.sep + "skilled" + os.sep
-    files = os.listdir(path)
 
-    for file in files:
-        model.new_evaluate(path + file, n_epoch=777, result_folder=res_folder)
+    # paths = [stylus_path + os.sep + "4vs1" + os.sep + "skilled" + os.sep, stylus_path + os.sep + "1vs1" + os.sep + "skilled" + os.sep]
+    paths = [stylus_path + os.sep + "1vs1" + os.sep + "skilled" + os.sep]
 
-    with open(res_folder + os.sep + "log.csv", "w") as fw:
-        fw.write(model.buffer)
+    for path in paths:
+        files = os.listdir(path)
+
+        for file in files:
+            model.new_evaluate(path + file, n_epoch=777, result_folder=res_folder)
+
+        with open(res_folder + os.sep + "log.csv", "w") as fw:
+            fw.write(model.buffer)
 
 def eval_all_weights(model):
     if not os.path.exists(PARENT_FOLDER + os.sep + "all_weights"):

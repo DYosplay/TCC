@@ -778,7 +778,7 @@ class DsTransformer(nn.Module):
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
 
-        if n_epoch != 0:
+        if n_epoch != 0 and n_epoch != 777:
             if eer_global < self.best_eer:
                 torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
                 self.best_eer = eer_global
