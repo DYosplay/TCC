@@ -211,22 +211,22 @@ if __name__ == '__main__':
         model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
     elif args.evaluate:
         """Avaliar modelo"""
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
-        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch23.pt"))
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
         model.cuda()
         model.train(mode=False)
         model.eval()
         model.new_evaluate(FILE, 0, result_folder=res_folder)
     
     elif args.validate:
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
-        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch25.pt"))
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
         model.cuda()
         model.train(mode=False)
         model.eval()
