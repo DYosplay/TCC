@@ -1,8 +1,3 @@
-#!/bin/bash
-
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=25 -t=ds_test359 -lr 0.01 -bs 16 -lt=icnn_loss -a 0.5 -p 2 -q 4 -r 1
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=25 -t=ds_test360 -lr 0.01 -bs 16 -lt=icnn_loss -a 0.5 -p 4 -q 2 -r 1
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=25 -t=ds_test361 -lr 0.01 -bs 16 -lt=icnn_loss -a 0.5 -p 6 -q 4 -r 1
-
-
-
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=10 -t=ds_test482 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.8 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.000009 -c
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=10 -t=ds_test483 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.8 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.000009 -c
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=10 -t=ds_test484 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.7 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.000009 -c
