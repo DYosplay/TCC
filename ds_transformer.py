@@ -108,7 +108,7 @@ class DsTransformer(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         nn.init.zeros_(self.cran[3].bias)
 
-        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        # self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
 
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
@@ -137,7 +137,7 @@ class DsTransformer(nn.Module):
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
 
-        h = self.enc1(src=h, src_key_padding_mask=(~mask.bool()))
+        # h = self.enc1(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
         if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
@@ -461,7 +461,7 @@ class DsTransformer(nn.Module):
             #             non_zeros+=1
             # lv = lk / non_zeros
             lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
-            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * self.r
             lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
@@ -833,8 +833,8 @@ class DsTransformer(nn.Module):
                         
                 print("\nLearning rate atualizada\n")
 
-            epoch = batches_gen.generate_epoch()
-            epoch_size = len(epoch)
+            epoch, epoch_size = batches_gen.generate_epoch()
+            epoch_size = epoch_size//(batch_size//16)
             self.loss_value = running_loss/epoch_size
             losses.append(self.loss_value)
             losses = losses[1:]
@@ -843,12 +843,12 @@ class DsTransformer(nn.Module):
                 print("\n\nEarly stop!")
                 break
 
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
+            pbar = tqdm(total=epoch_size, position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
 
             running_loss = 0
             self.mean_eer = 0
             #PAL = Previous Accumulated Loss
-            while epoch != []:
+            for j in range(1, epoch_size):
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
                 
                 mask = self.getOutputMask(lens)
