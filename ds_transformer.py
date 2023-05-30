@@ -461,7 +461,7 @@ class DsTransformer(nn.Module):
             #             non_zeros+=1
             # lv = lk / non_zeros
             lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
-            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * self.r
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
             lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
@@ -833,8 +833,8 @@ class DsTransformer(nn.Module):
                         
                 print("\nLearning rate atualizada\n")
 
-            epoch, epoch_size = batches_gen.generate_epoch()
-            epoch_size = epoch_size//(batch_size//16)
+            epoch = batches_gen.generate_epoch()
+            epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
             losses.append(self.loss_value)
             losses = losses[1:]
@@ -843,12 +843,12 @@ class DsTransformer(nn.Module):
                 print("\n\nEarly stop!")
                 break
 
-            pbar = tqdm(total=epoch_size, position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
+            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
 
             running_loss = 0
             self.mean_eer = 0
             #PAL = Previous Accumulated Loss
-            for j in range(0, epoch_size):
+            while epoch != []:
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
                 
                 mask = self.getOutputMask(lens)
