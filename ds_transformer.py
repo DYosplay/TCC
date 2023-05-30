@@ -108,6 +108,8 @@ class DsTransformer(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         nn.init.zeros_(self.cran[3].bias)
 
+        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
@@ -134,6 +136,8 @@ class DsTransformer(nn.Module):
         # h = self.bn(h, length.int())
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
+
+        h = self.enc1(src=h, src_key_padding_mask=(~mask.bool()))
 
         h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
         if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
