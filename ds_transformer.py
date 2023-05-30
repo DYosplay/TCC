@@ -848,7 +848,7 @@ class DsTransformer(nn.Module):
             running_loss = 0
             self.mean_eer = 0
             #PAL = Previous Accumulated Loss
-            for j in range(1, epoch_size):
+            for j in range(0, epoch_size):
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
                 
                 mask = self.getOutputMask(lens)
