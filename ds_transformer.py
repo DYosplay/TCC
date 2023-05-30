@@ -919,9 +919,9 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
-                for cf in comparison_files:
-                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+            # if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            for cf in comparison_files:
+                self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
             # if i >= CHANGE_TRAIN_MODE:
             #     self.cran.requires_grad_(False)
