@@ -1,8 +1,2 @@
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test509 -lr 0.004 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test510 -lr 0.003 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test511 -lr 0.002 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test512 -lr 0.001 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test513 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test514 -lr 0.008 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test515 -lr 0.007 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=20 -t=ds_test516 -lr 0.006 -bs 32 -lt=triplet_mmd -a 1.5 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=15 -t=ds_test522 -lr 0.01 -bs 32 -lt=triplet_mmd -a 0.8 -tm 1 -p 1.5 -r 0.5 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -ep=15 -t=ds_test523 -lr 0.01 -bs 32 -lt=triplet_mmd -a 0.8 -tm 1 -p 1.5 -r 0.5 -q 0.1 -qm 1.5 -dc 0.6 -nlr 0.0000009
