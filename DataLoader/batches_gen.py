@@ -48,9 +48,18 @@ def get_batch_from_epoch(epoch, batch_size : int):
     assert batch_size % 16 == 0
     step = batch_size // 16
 
+    idxs = [0,1,2,3] 
+    random.shuffle(idxs)
+    idxs *= 2
+
     batch = []
-    for i in range(0, step):
-        batch += epoch.pop()
+    count = 0
+    for i in idxs:
+        if len(epoch[i]) > 0:
+            batch += epoch[i].pop()
+            count += 1
+        if count == step:
+            break
 
     data, lens = files2array(batch, scenario='stylus', developtment=True)
 
@@ -67,7 +76,11 @@ def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus
     else:
         train_users = users
 
-    epoch = []
+    # epoch = []
+    mcyt = []
+    ebio = []
+    bioid = []
+    bios2 = []
     number_of_mini_baches = 0
 
     database = None
@@ -107,7 +120,23 @@ def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus
 
             mini_batch = a + p + n
 
-            epoch.append(mini_batch)
-    
-    random.shuffle(epoch)
-    return epoch
+            if database == loader.EBIOSIGN1_DS1 or database == loader.EBIOSIGN1_DS2:
+                ebio.append(mini_batch)
+            elif database == loader.MCYT:
+                mcyt.append(mini_batch)
+            elif database == loader.BIOSECURE_DS2:
+                bios2.append(mini_batch)
+            elif database == loader.BIOSECUR_ID:
+                bioid.append(mini_batch)
+            else:
+                raise ValueError("Dataset desconhecido!")
+            
+    random.shuffle(ebio)
+    random.shuffle(mcyt)
+    random.shuffle(bios2)
+    random.shuffle(bioid)
+
+    siz = len(ebio) + len(mcyt) + len(bios2) + len(bioid)
+
+    epoch = [ebio, mcyt, bios2, bioid]
+    return epoch, siz
