@@ -108,7 +108,7 @@ class DsTransformer(nn.Module):
         
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens + 1) // 2
+        lens = (lens + 4) // 4
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
