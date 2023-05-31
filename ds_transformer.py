@@ -88,7 +88,7 @@ class DsTransformer(nn.Module):
         ))
 
         self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
-        self.encoders = torch.nn.TransformerEncoder(self.enc1, self.encs)
+        # self.encoders = torch.nn.TransformerEncoder(self.enc1, self.encs)
         
         self.linear = nn.Linear(self.n_hidden, self.n_out, bias=False)
 
@@ -141,8 +141,8 @@ class DsTransformer(nn.Module):
                         output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
 
                         src_masks[j] = output_mask
-            h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             
@@ -159,8 +159,8 @@ class DsTransformer(nn.Module):
 
                     src_masks[i] = output_mask
 
-            h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            # h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
 
