@@ -34,7 +34,7 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, encs : int = 1):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -55,6 +55,7 @@ class DsTransformer(nn.Module):
         self.loss_type = loss_type
         self.decay = decay
         self.nlr = nlr
+        self.encs = encs
 
         # variáveis para a loss
         self.scores = []
@@ -87,6 +88,8 @@ class DsTransformer(nn.Module):
         ))
 
         self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
+        self.encoders = torch.nn.TransformerEncoder(self.enc1, self.encs)
+        
         self.linear = nn.Linear(self.n_hidden, self.n_out, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1)
@@ -138,8 +141,8 @@ class DsTransformer(nn.Module):
                         output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
 
                         src_masks[j] = output_mask
-
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
         else:
             src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
             
@@ -156,7 +159,8 @@ class DsTransformer(nn.Module):
 
                     src_masks[i] = output_mask
 
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
+            # h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
 
         h = self.linear(h)
 
