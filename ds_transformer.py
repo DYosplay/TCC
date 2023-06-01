@@ -841,7 +841,7 @@ class DsTransformer(nn.Module):
                         
                 print("\nLearning rate atualizada\n")
 
-            epoch = batches_gen.generate_epoch(train_offset=[(1,230)])
+            epoch = batches_gen.generate_epoch(train_offset=[(231,498)])
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
             losses.append(self.loss_value)

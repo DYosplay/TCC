@@ -172,6 +172,7 @@ if __name__ == '__main__':
     # parser.add_argument("-cf", "--comparison_file", help="set the comparison file used in the evaluation during training", default='FILE', type=str)
     parser.add_argument("-t", "--test_name", help="set name of current test", type=str, required=True)
     parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
+    parser.add_argument("-ft", "--fine_tuning", help="fine tuning model", action='store_true')
     parser.add_argument("-tl", "--triplet_loss_w", help="set triplet loss weight", default=1.0, type=float)
     parser.add_argument("-m", "--mask", help="set triplet loss weight", action='store_true')
     parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
@@ -206,7 +207,17 @@ if __name__ == '__main__':
 
     res_folder = "Resultados" + os.sep + args.test_name
 
-    if not args.evaluate and not args.validate:
+    if args.fine_tuning: 
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, encs = args.encoders)
+        if args.compile:
+            model = torch.compile(model)
+        print(count_parameters(model))
+        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+        model.cuda()
+        model.train(mode=True)
+        model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE11], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
+
+    elif not args.evaluate and not args.validate:
         """Iniciar treino"""
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, encs = args.encoders)
         if args.compile:
