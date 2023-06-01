@@ -26,6 +26,7 @@ FILE5 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Fi
 FILE6 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W5_skilled_stylus_4vs1.txt"
 FILE7 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "jprotocol.txt"
 
+FILE11 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_MCYT_skilled_stylus_4vs1.txt"
 
 
 PATH = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal"
@@ -213,10 +214,10 @@ if __name__ == '__main__':
         print(count_parameters(model))
         model.cuda()
         model.train(mode=True)
-        model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
+        model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE11], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
     elif args.evaluate:
         """Avaliar modelo"""
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, encs = args.encoders)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
@@ -224,8 +225,8 @@ if __name__ == '__main__':
         model.cuda()
         model.train(mode=False)
         model.eval()
-        model.new_evaluate(FILE9, 777, result_folder=res_folder)
-        model.new_evaluate(FILE10, 777, result_folder=res_folder)
+        model.new_evaluate(FILE, 777, result_folder=res_folder)
+        # model.new_evaluate(FILE10, 777, result_folder=res_folder)
     
     elif args.validate:
         model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate)
