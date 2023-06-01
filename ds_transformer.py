@@ -847,7 +847,7 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if self.loss_value > min(losses) and i > 50:
+            if self.loss_value > min(losses) and i > 80:
                 print("\n\nEarly stop!")
                 break
 
