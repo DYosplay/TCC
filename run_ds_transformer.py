@@ -26,7 +26,6 @@ FILE5 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Fi
 FILE6 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W5_skilled_stylus_4vs1.txt"
 FILE7 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "jprotocol.txt"
 
-FILE11 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_MCYT_skilled_stylus_4vs1.txt"
 
 
 PATH = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal"
@@ -67,18 +66,14 @@ def validation(model : DsTransformer):
 def validate(model : DsTransformer, res_folder : str):
     stylus_path = PATH + os.sep + "stylus"
 
+    path = stylus_path + os.sep + "4vs1" + os.sep + "skilled" + os.sep
+    files = os.listdir(path)
 
-    paths = [stylus_path + os.sep + "4vs1" + os.sep + "skilled" + os.sep, stylus_path + os.sep + "1vs1" + os.sep + "skilled" + os.sep]
-    paths += [stylus_path + os.sep + "4vs1" + os.sep + "random" + os.sep, stylus_path + os.sep + "1vs1" + os.sep + "random" + os.sep]
+    for file in files:
+        model.new_evaluate(path + file, n_epoch=777, result_folder=res_folder)
 
-    for path in paths:
-        files = os.listdir(path)
-
-        for file in files:
-            model.new_evaluate(path + file, n_epoch=777, result_folder=res_folder)
-
-        with open(res_folder + os.sep + "log.csv", "w") as fw:
-            fw.write(model.buffer)
+    with open(res_folder + os.sep + "log.csv", "w") as fw:
+        fw.write(model.buffer)
 
 def eval_all_weights(model):
     if not os.path.exists(PARENT_FOLDER + os.sep + "all_weights"):
@@ -172,9 +167,9 @@ if __name__ == '__main__':
     # parser.add_argument("-cf", "--comparison_file", help="set the comparison file used in the evaluation during training", default='FILE', type=str)
     parser.add_argument("-t", "--test_name", help="set name of current test", type=str, required=True)
     parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
-    parser.add_argument("-ft", "--fine_tuning", help="fine tuning model", action='store_true')
     parser.add_argument("-tl", "--triplet_loss_w", help="set triplet loss weight", default=1.0, type=float)
     parser.add_argument("-m", "--mask", help="set triplet loss weight", action='store_true')
+    parser.add_argument("-fdtw", "--use_fdtw", help="use fast dtw on evaluation", action='store_true')
     parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
     parser.add_argument("-val", "--validate", help="eval stylus 4vs1 scenario", action='store_true')
     parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, cosface, arcface, sphereface, icnn_loss, quadruplet_loss, triplet_mmd, triplet_coral, norm_triplet_mmd)", type=str, default='triplet_loss')
@@ -188,7 +183,6 @@ if __name__ == '__main__':
     parser.add_argument("-tm", "--margin", help="set margin value for triplet loss margin", default=1.0, type=float)
     parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
     parser.add_argument("-nlr", "--new_learning_rate", help="choose new_learning_rate value", type=float, default=0.001)
-    parser.add_argument("-encs", "--encoders", help="set number of transformer encoder layers", default=1, type=int)
     # Read arguments from command line
     args = parser.parse_args()
     
@@ -207,19 +201,9 @@ if __name__ == '__main__':
 
     res_folder = "Resultados" + os.sep + args.test_name
 
-    if args.fine_tuning: 
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, encs = args.encoders)
-        if args.compile:
-            model = torch.compile(model)
-        print(count_parameters(model))
-        model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
-        model.cuda()
-        model.train(mode=True)
-        model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE11], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
-
-    elif not args.evaluate and not args.validate:
+    if not args.evaluate and not args.validate:
         """Iniciar treino"""
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, encs = args.encoders)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
@@ -228,7 +212,7 @@ if __name__ == '__main__':
         model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
     elif args.evaluate:
         """Avaliar modelo"""
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, encs = args.encoders)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
@@ -236,11 +220,13 @@ if __name__ == '__main__':
         model.cuda()
         model.train(mode=False)
         model.eval()
-        model.new_evaluate(FILE, 777, result_folder=res_folder)
-        # model.new_evaluate(FILE10, 777, result_folder=res_folder)
+        model.new_evaluate(FILE, 888, result_folder=res_folder)
+        model.new_evaluate(FILE8, 888, result_folder=res_folder)
+        model.new_evaluate(FILE9, 888, result_folder=res_folder)
+        model.new_evaluate(FILE10, 888, result_folder=res_folder)
     
     elif args.validate:
-        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate)
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw)
         if args.compile:
             model = torch.compile(model)
         print(count_parameters(model))
@@ -256,5 +242,3 @@ if __name__ == '__main__':
     # model.cuda()
     # model.train(mode=True)
     # model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
-
-    
