@@ -75,14 +75,11 @@ def validate(model : DsTransformer, res_folder : str):
     with open(res_folder + os.sep + "log.csv", "w") as fw:
         fw.write(model.buffer)
 
-def eval_all_weights(model):
-    if not os.path.exists(PARENT_FOLDER + os.sep + "all_weights"):
-        os.mkdir(PARENT_FOLDER + os.sep + "all_weights")
-
-    for i in range(16, N_EPOCHS+1):
-        file = PARENT_FOLDER + os.sep + 'Backup' + os.sep + "epoch" + str(i) + ".pt" 
-        model.load_state_dict(torch.load(file))
-        model.new_evaluate(FILE, 1000+i, result_folder=PARENT_FOLDER)
+def eval_all_weights(model : DsTransformer, res_folder : str, file : str, iter : int, n_epochs : int = 25):
+    for i in range(1, n_epochs+1):
+        f = res_folder + os.sep + 'Backup' + os.sep + "epoch" + str(i) + ".pt" 
+        model.load_state_dict(torch.load(f))
+        model.new_evaluate(file, iter+i, result_folder=res_folder)
 
 def free_memory(to_delete: list):
     calling_namespace = inspect.currentframe().f_back
@@ -170,6 +167,7 @@ if __name__ == '__main__':
     parser.add_argument("-tl", "--triplet_loss_w", help="set triplet loss weight", default=1.0, type=float)
     parser.add_argument("-m", "--mask", help="set triplet loss weight", action='store_true')
     parser.add_argument("-fdtw", "--use_fdtw", help="use fast dtw on evaluation", action='store_true')
+    parser.add_argument("-aw", "--all_weights", help="eval all weights", action='store_true')
     parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
     parser.add_argument("-val", "--validate", help="eval stylus 4vs1 scenario", action='store_true')
     parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, cosface, arcface, sphereface, icnn_loss, quadruplet_loss, triplet_mmd, triplet_coral, norm_triplet_mmd)", type=str, default='triplet_loss')
@@ -200,6 +198,18 @@ if __name__ == '__main__':
     # torch.manual_seed(args.seed)
 
     res_folder = "Resultados" + os.sep + args.test_name
+
+    if args.all_weights:
+        model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw)
+        if args.compile:
+            model = torch.compile(model)
+        print(count_parameters(model))
+        model.cuda()
+        model.train(mode=False)
+        model.eval()
+        eval_all_weights(model, res_folder, FILE8, 1000, n_epochs=20)
+        eval_all_weights(model, res_folder, FILE9, 2000, n_epochs=20)
+        eval_all_weights(model, res_folder, FILE10, 3000, n_epochs=20)
 
     if not args.evaluate and not args.validate:
         """Iniciar treino"""
