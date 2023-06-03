@@ -210,7 +210,7 @@ if __name__ == '__main__':
 		if args.compile:
 			model = torch.compile(model)
 		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch10.pt"))
-		res_folder = res_folder + '_transfered'
+		res_folder = res_folder + '_transfered' + str(args.r)
 		print(count_parameters(model))
 		model.cuda()
 
