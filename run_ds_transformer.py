@@ -208,13 +208,13 @@ if __name__ == '__main__':
 		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch10.pt"))
 		res_folder = res_folder + '_tuned'
 		print(count_parameters(model))
-
+		model.cuda()
+		
 		model.train(mode=False)
 		model.eval()
 		model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
 		model.new_evaluate(FILE_FINGER2, 0, result_folder=res_folder)
 
-		model.cuda()
 		model.train(mode=True)
 		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER1, FILE_FINGER2], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
 
