@@ -480,6 +480,66 @@ class DsTransformer(nn.Module):
  
         return total_loss + mmd1 + var_g
 
+    def _hard_triplet_mmd(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i*self.nf + j] = dist_n[j]
+
+            lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))
+            lv = torch.max(lk1) * self.p + torch.max(lk2) * (1-self.p)
+
+            user_loss = lv
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+       
+        mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+        var_g = torch.var(dists_gs) * self.q
+        # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
+        # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
+        # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
+
+        # ampli = torch.abs(torch.max(dists_gs) - torch.min(dists_gs)) * self.q
+ 
+        return total_loss + mmd1 + var_g
+
+
 
     def _quadruplet_loss(self, data, lens):
         """ Loss de um batch
@@ -796,7 +856,7 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
-        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
         else:
@@ -863,7 +923,10 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'triplet_mmd':
+                if self.loss_type == 'hard_triplet_mmd':
+                    loss = self._hard_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_mmd':
                     loss = self._triplet_mmd(outputs, length)
                     loss.backward()
                 elif self.loss_type == 'norm_triplet_mmd':
