@@ -36,7 +36,7 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False, early_stop : int = 10):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -65,6 +65,7 @@ class DsTransformer(nn.Module):
         self.th = 3.5
         self.alpha = alpha
         self.beta = beta
+        self.early_stop = early_stop
 
         self.p = p
         self.q = q
@@ -901,7 +902,7 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= 10) or (self.loss_value > min(losses) and i > 50)):
+            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
                 print("\n\nEarly stop!")
                 break
 
