@@ -841,7 +841,7 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if (self.best_eer > 0.025 and i >= 10) or (self.loss_value > min(losses) and i > 50):
+            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= 10) or (self.loss_value > min(losses) and i > 50)):
                 print("\n\nEarly stop!")
                 break
 
