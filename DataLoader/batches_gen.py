@@ -44,7 +44,7 @@ def files2array(batch, scenario : str, developtment : bool):
     return np.array(generated_batch), lens
 
 """DeepSign"""
-def get_batch_from_epoch(epoch, batch_size : int):
+def get_batch_from_epoch(epoch, batch_size : int, scenario : str):
     assert batch_size % 16 == 0
     step = batch_size // 16
 
@@ -52,11 +52,11 @@ def get_batch_from_epoch(epoch, batch_size : int):
     for i in range(0, step):
         batch += epoch.pop()
 
-    data, lens = files2array(batch, scenario='stylus', developtment=True)
+    data, lens = files2array(batch, scenario=scenario, developtment=True)
 
     return data, lens, epoch
 
-def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus", train_offset = [(1, 498), (1009, 1084)], users=None, development = True):
+def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus", train_offset = [(1, 498), (1009, 1084)], users=None, development = True, scenario : str = 'stylus'):
     files = get_files(dataset_folder=dataset_folder)
     files_backup = files.copy()
 
@@ -75,7 +75,7 @@ def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus
 
     for user_id in tqdm(train_users):
         
-        database = loader.get_database(user_id=user_id, scenario='stylus', development=development)
+        database = loader.get_database(user_id=user_id, scenario=scenario, development=development)
 
         if database == loader.EBIOSIGN1_DS1 or database == loader.EBIOSIGN1_DS2:
             number_of_mini_baches = 1

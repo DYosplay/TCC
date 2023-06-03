@@ -106,7 +106,7 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     x = bf(np.array(df['X']))[:8000]
     y = bf(np.array(df['Y']))[:8000]
 
-    # if scenario=='finger' : p = np.ones(x.shape) #* 255
+    if scenario=='finger' : p = np.ones(x.shape) #* 255
 
     # result = [x, y]
 
@@ -131,25 +131,21 @@ def generate_features(input_file : str, scenario : str, database : Literal):
 
     features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
     # result += features
-    """ s """
-    for f in features:
-        result.append(zscore(f))
-    """ s """
-
-    # if scenario=='finger': 
-    #     features = [v, theta, cos, sin] 
-    #     features2 = [dv, dtheta, logCurRadius, c, totalAccel]
-
-    #     for f in features:
-    #         result.append(zscore(f))
-    #     result.append(p)
-    #     for f in features2:
-    #         result.append(zscore(f))
     
-    # else:
-    #     features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
-    #     for f in features:
-    #         result.append(zscore(f))
+    
+    """ s """
+    if scenario == 'stylus':
+        for f in features:
+            result.append(zscore(f))
+    elif scenario=='finger': 
+        features = [v, theta, cos, sin] 
+        features2 = [dv, dtheta, logCurRadius, c, totalAccel]
+
+        for f in features:
+            result.append(zscore(f))
+        result.append(p)
+        for f in features2:
+            result.append(zscore(f))
 
     return np.array(result)
 
