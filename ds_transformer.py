@@ -79,6 +79,7 @@ class DsTransformer(nn.Module):
         self.buffer = "ComparisonFile, mean_local_eer, global_eer, th_global\n"
         self.eer = []
         self.best_eer = math.inf
+        self.last_eer = math.inf
         self.loss_variation = []
 
         # Definição da rede
@@ -768,6 +769,8 @@ class DsTransformer(nn.Module):
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
 
+        self.last_eer = eer_global
+
         if n_epoch != 0 and n_epoch != 777 and n_epoch != 888:
             if eer_global < self.best_eer:
                 torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
@@ -813,11 +816,15 @@ class DsTransformer(nn.Module):
         for i in range(1, n_epochs+1):
             
             if self.best_eer < 0.025:
-                for g in optimizer.param_groups:
-                    if self.nlr < g['lr']:
-                        g['lr'] = self.nlr
+                self.p = 0.1
+            else:
+                self.p = 0.9
+                flag = True
+                # for g in optimizer.param_groups:
+                #     if self.nlr < g['lr']:
+                #         g['lr'] = self.nlr
                         
-                print("\nLearning rate atualizada\n")
+                # print("\nLearning rate atualizada\n")
 
             epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
@@ -825,7 +832,7 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if self.loss_value > min(losses) and i > 50:
+            if (self.best_eer > 0.025 and i >= 9) or (self.loss_value > min(losses) and i > 50):
                 print("\n\nEarly stop!")
                 break
 
@@ -905,7 +912,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if flag or i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
