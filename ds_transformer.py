@@ -881,7 +881,7 @@ class DsTransformer(nn.Module):
             
             if self.best_eer < 0.025:
                 self.p = 0.1
-                flag = True
+                # flag = True
             else:
                 self.p = 0.9
                 # for g in optimizer.param_groups:
