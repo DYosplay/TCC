@@ -790,6 +790,7 @@ class DsTransformer(nn.Module):
         """
         optimizer = None
         lr_scheduler = None
+        flag = False
 
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
