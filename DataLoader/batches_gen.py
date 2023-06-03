@@ -43,6 +43,49 @@ def files2array(batch, scenario : str, developtment : bool):
 
     return np.array(generated_batch), lens
 
+"""DeepSignMod"""
+def transfer_domain_files2array(stylus_batch, finger_batch):
+    data = []; lens = []
+
+    for file in stylus_batch:   
+        feat = loader.get_features(file, scenario='stylus', development=True)
+        data.append(feat)
+        lens.append(len(feat[0]))
+
+    for file in finger_batch:   
+        feat = loader.get_features(file, scenario='finger', development=True)
+        data.append(feat)
+        lens.append(len(feat[0]))
+
+    max_size = max(lens)
+
+    generated_batch = []
+    for i in range(0, len(data)):
+        resized = np.pad(data[i], [(0,0),(0,max_size-len(data[i][0]))]) 
+        generated_batch.append(resized)
+
+    return np.array(generated_batch), lens
+
+def generate_transfer_domain_epoch(dataset_folder : str = "../Data/DeepSignMod/Development/", train_offset = [(1009, 1084)]):
+    stylus_epoch = generate_epoch(dataset_folder=dataset_folder + 'stylus', train_offset=train_offset, scenario='stylus')
+    finger_epoch = generate_epoch(dataset_folder=dataset_folder + 'finger', train_offset=train_offset, scenario='finger')
+
+    return [stylus_epoch, finger_epoch]
+
+def get_batch_from_transfer_domain_epoch(epoch, batch_size : int):
+    stylus_epoch, finger_epoch = epoch
+    
+    assert batch_size % 16 == 0
+
+    stylus_batch = stylus_epoch.pop()
+    finger_batch = finger_epoch.pop()
+
+    data, lens = transfer_domain_files2array(stylus_batch, finger_batch)
+
+    epoch = [stylus_epoch, finger_epoch]
+
+    return data, lens, epoch
+
 """DeepSign"""
 def get_batch_from_epoch(epoch, batch_size : int, scenario : str):
     assert batch_size % 16 == 0
