@@ -181,8 +181,10 @@ if __name__ == '__main__':
 	parser.add_argument("-tm", "--margin", help="set margin value for triplet loss margin", default=1.0, type=float)
 	parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
 	parser.add_argument("-nlr", "--new_learning_rate", help="choose new_learning_rate value", type=float, default=0.001)
-	parser.add_argument("-ft", "--fine_tuning", help="tune the model using finger signatures", action='store_true')
 	parser.add_argument("-stop", "--early_stop", help="set number of epoch which enables early stop", default=10, type=int)
+
+	parser.add_argument("-ft", "--fine_tuning", help="tune the model using finger signatures", action='store_true')
+	parser.add_argument("-tdft", "--transfer_domain", help="tune the model using domain transferation", action='store_true')
 	
 	# Read arguments from command line
 	args = parser.parse_args()
@@ -202,7 +204,25 @@ if __name__ == '__main__':
 
 	res_folder = "Resultados" + os.sep + args.test_name
 
-	if args.fine_tuning:
+	if args.transfer_domain:
+		"""Iniciar treino"""
+		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop)
+		if args.compile:
+			model = torch.compile(model)
+		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch10.pt"))
+		res_folder = res_folder + '_transfered'
+		print(count_parameters(model))
+		model.cuda()
+
+		# model.train(mode=False)
+		# model.eval()
+		# model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
+		# model.new_evaluate(FILE_FINGER2, 0, result_folder=res_folder)
+
+		model.train(mode=True)
+		model.transfer_domain(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER1, FILE_FINGER2], result_folder=res_folder)
+
+	elif args.fine_tuning:
 		"""Iniciar treino"""
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop)
 		if args.compile:
@@ -221,7 +241,7 @@ if __name__ == '__main__':
 		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER1, FILE_FINGER2], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
 
 	elif args.all_weights:
-		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning)
+		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, transfer_domain=args.transfer_domain)
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))

@@ -59,6 +59,7 @@ class DsTransformer(nn.Module):
         self.nlr = nlr
         self.use_fdtw = use_fdtw
         self.fine_tuning = fine_tuning
+ 
         # variáveis para a loss
         self.scores = []
         self.labels = []
@@ -985,7 +986,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if flag or i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
+            if flag or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
@@ -997,6 +998,107 @@ class DsTransformer(nn.Module):
                 # _, self.th_loss = metrics.get_eer(self.labels, self.scores)
                 # self.labels = []
                 # self.scores = []
+            
+            self.loss_variation.append(running_loss/epoch_size)
+            
+            lr_scheduler.step()
+
+            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+
+        # Loss graph
+        plt.xlabel("#Epoch")
+        plt.ylabel("Loss")
+        plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
+        plt.savefig(result_folder + os.sep + "loss.png")
+        plt.cla()
+        plt.clf()
+
+    def transfer_domain(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str):
+        """ Loop de treinamento
+
+        Args:
+            n_epochs (int): Número de épocas que o treinamento deve ocorrer
+            batch_size (int): Tamanho do batch de treinamento
+            comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
+            result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
+        """
+        optimizer = None
+        lr_scheduler = None
+        flag = False
+        if self.fine_tuning: flag = True
+
+        if self.loss_type == 'icnn_loss':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        elif self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+        
+        losses = [math.inf]*10
+
+        running_loss = 0
+
+        if not os.path.exists(result_folder):
+            os.mkdir(result_folder)
+
+        if not os.path.exists(result_folder + os.sep + "Backup"):
+            os.mkdir(result_folder + os.sep + "Backup")
+        bckp_path = result_folder + os.sep + "Backup"
+
+        for i in range(1, n_epochs+1):
+            epoch = batches_gen.generate_transfer_domain_epoch()
+            epoch_size = min(len(epoch[0]), len(epoch[1]))
+            self.loss_value = running_loss/epoch_size
+            losses.append(self.loss_value)
+            losses = losses[1:]
+
+            pbar = tqdm(total=epoch_size, position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
+
+            running_loss = 0
+            self.mean_eer = 0
+            #PAL = Previous Accumulated Loss
+            while epoch[0] != [] and epoch[1] != []:
+                batch, lens, epoch = batches_gen.get_batch_from_transfer_domain_epoch(epoch, self.batch_size)
+                
+                mask = self.getOutputMask(lens)
+
+                mask = Variable(torch.from_numpy(mask)).cuda()
+                inputs = Variable(torch.from_numpy(batch)).cuda()
+                
+                outputs, length = self(inputs.float(), mask, i)
+                optimizer.zero_grad()
+                loss = None
+
+                if self.loss_type == 'hard_triplet_mmd':
+                    loss = self._hard_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_mmd':
+                    loss = self._triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'norm_triplet_mmd':
+                    loss = self._norm_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_coral':
+                    loss = self._triplet_coral(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'quadruplet_loss':
+                    loss = self._quadruplet_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'icnn_loss':
+                    loss = self._icnn_loss(outputs, length)
+                    loss.backward()
+                
+                optimizer.step()
+
+                running_loss += loss.item()
+            
+                pbar.update(1)
+
+            pbar.close()
+
+            if i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
+                for cf in comparison_files:
+                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
             self.loss_variation.append(running_loss/epoch_size)
             
