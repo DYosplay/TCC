@@ -36,7 +36,7 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -58,7 +58,7 @@ class DsTransformer(nn.Module):
         self.decay = decay
         self.nlr = nlr
         self.use_fdtw = use_fdtw
-
+        self.fine_tuning = fine_tuning
         # variáveis para a loss
         self.scores = []
         self.labels = []
@@ -718,8 +718,8 @@ class DsTransformer(nn.Module):
             lines = fr.readlines()
 
         scenario = 'stylus'
-        # if 'finger' in comparison_file:
-        #     scenario = 'finger'
+        if 'finger' in comparison_file:
+            scenario = 'finger'
 
         if not os.path.exists(result_folder): os.mkdir(result_folder)
 
@@ -791,6 +791,7 @@ class DsTransformer(nn.Module):
         optimizer = None
         lr_scheduler = None
         flag = False
+        if self.fine_tuning: flag = True
 
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
@@ -826,14 +827,21 @@ class DsTransformer(nn.Module):
                 #         g['lr'] = self.nlr
                         
                 # print("\nLearning rate atualizada\n")
+            epoch = None
+            scenario = None
+            if not self.fine_tuning:
+                epoch = batches_gen.generate_epoch()
+                scenario = 'stylus'
+            else:
+                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
+                scenario = 'finger'
 
-            epoch = batches_gen.generate_epoch()
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if (self.best_eer > 0.025 and i >= 9) or (self.loss_value > min(losses) and i > 50):
+            if (self.best_eer > 0.025 and i >= 10) or (self.loss_value > min(losses) and i > 50):
                 print("\n\nEarly stop!")
                 break
 
@@ -843,7 +851,7 @@ class DsTransformer(nn.Module):
             self.mean_eer = 0
             #PAL = Previous Accumulated Loss
             while epoch != []:
-                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
+                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size, scenario=scenario)
                 
                 mask = self.getOutputMask(lens)
 
