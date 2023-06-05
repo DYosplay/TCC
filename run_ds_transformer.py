@@ -191,16 +191,13 @@ if __name__ == '__main__':
 	
 	print(args.test_name)
 
-
-	# eval_all_scenarios()
-
+	random.seed(args.seed)
+	np.random.seed(args.seed)
+	torch.manual_seed(args.seed)
+	torch.cuda.manual_seed(args.seed)
 	cudnn.enabled = True
 	cudnn.benchmark = False
 	cudnn.deterministic = True
-	
-	# random.seed(args.seed)
-	# np.random.seed(args.seed)
-	# torch.manual_seed(args.seed)
 
 	res_folder = "Resultados" + os.sep + args.test_name
 

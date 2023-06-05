@@ -879,10 +879,10 @@ class DsTransformer(nn.Module):
 
         for i in range(1, n_epochs+1):
             
-            if (self.best_eer < 0.025 or i == 11) and not flag:
-                self.p = self.nlr
-                flag = True
-                self.loss_type = 'hard_triplet_mmd'
+            # if (self.best_eer < 0.025 or i == 11) and not flag:
+            #     self.p = self.nlr
+            #     flag = True
+            #     self.loss_type = 'hard_triplet_mmd'
             # else:
             #     self.p = 0.9
                 # for g in optimizer.param_groups:
