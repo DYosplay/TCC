@@ -674,17 +674,8 @@ class DsTransformer(nn.Module):
         total_loss /= self.nw
         triplet_loss = total_loss
 
-        labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
-        feat = torch.unsqueeze(dists, 0).transpose(0,1)
-        
-        c_loss = self.center_loss(feat, labels)
-
-        a_loss = None
-        if self.angular_loss is not None:
-            a_loss = self.angular_loss(feat, labels)
-
-        return triplet_loss, c_loss, a_loss
-
+        return triplet_loss
+    
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
 
@@ -858,14 +849,10 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
-        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+        elif self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
-        else:
-            params = list(self.parameters()) + list(self.center_loss.parameters())
-            optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay)
-
+        
         losses = [math.inf]*10
 
         running_loss = 0
@@ -945,24 +932,9 @@ class DsTransformer(nn.Module):
                     loss = self._icnn_loss(outputs, length)
                     loss.backward()
                 else:
-                    triplet_loss, c_loss, a_loss = self._loss(outputs, length)
-            
-                    if triplet_loss_w == 1:
-                        loss = triplet_loss  
-            
-                        if self.loss_type != 'triplet_loss':
-                            loss = a_loss
-                        
-                        loss.backward()
+                    loss = self._loss(outputs, length)
+                    loss.backward()
 
-                    else:
-                        loss = (triplet_loss_w*triplet_loss) + ((1-triplet_loss_w) * c_loss)
-
-                        loss.backward()
-                        for param in self.center_loss.parameters():
-                            # lr_cent is learning rate for center loss, e.g. lr_cent = 0.5
-                            param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
-                
                 optimizer.step()
 
                 # loss = self._loss(outputs, length)
