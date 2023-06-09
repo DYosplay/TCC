@@ -176,7 +176,7 @@ if __name__ == '__main__':
 	parser.add_argument("-p", "--p", help="set p value for icnn_loss", default=0.0, type=float)
 	parser.add_argument("-q", "--q", help="set q value for icnn_loss", default=0.0, type=float)
 	parser.add_argument("-r", "--r", help="set r value for icnn_loss", default=0.0, type=float)
-	parser.add_argument("-seed", "--seed", help="set seed value", default=111, type=int)
+	parser.add_argument("-seed", "--seed", help="set seed value", type=int)
 	parser.add_argument("-qm", "--quadruplet_margin", help="set margin value for quadruplet margin", default=0.5, type=float)
 	parser.add_argument("-tm", "--margin", help="set margin value for triplet loss margin", default=1.0, type=float)
 	parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
@@ -191,15 +191,16 @@ if __name__ == '__main__':
 	
 	print(args.test_name)
 
-	random.seed(args.seed)
-	np.random.seed(args.seed)
-	torch.manual_seed(args.seed)
-	torch.cuda.manual_seed(args.seed)
+	if args.seed is not None:
+		random.seed(args.seed)
+		np.random.seed(args.seed)
+		torch.manual_seed(args.seed)
+		torch.cuda.manual_seed(args.seed)
 	cudnn.enabled = True
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "Seeds" + os.sep + args.test_name
+	res_folder = "Resultados" + os.sep + args.test_name
 
 	if args.transfer_domain:
 		"""Iniciar treino"""

@@ -1,20 +1,23 @@
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed041 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 000
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed042 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 111
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed043 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 222
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed044 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 333
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed045 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 444
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed046 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 555
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed047 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 666
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed048 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 777
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed049 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 888
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed050 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 999
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed051 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 1111
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed052 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 2222
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed053 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 3333
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed054 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 4444
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed055 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 5555
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed056 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 6666
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed057 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 6666
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed058 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 7777
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed059 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 8888
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed060 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 9999
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_test586 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed587 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 9999
+
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed041 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 000
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed042 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 111
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed043 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 222
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed044 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 333
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed045 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 444
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed046 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 555
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed047 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 666
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed048 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 777
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed049 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 888
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed050 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 999
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed051 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 1111
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed052 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 2222
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed053 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 3333
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed054 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 4444
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed055 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 5555
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed056 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 6666
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed057 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 6666
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed058 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 7777
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed059 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 8888
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ds_seed060 -lr 0.01 -bs 32 -lt=triplet_loss -dc 0.6 -stop 26 -seed 9999
