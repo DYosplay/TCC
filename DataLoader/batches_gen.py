@@ -17,7 +17,7 @@ def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
 
     return users
 
-def files2array(batch, scenario : str, developtment : bool):
+def files2array(batch, scenario : str, z : bool, developtment : bool):
     data = []; lens = []
 
     # if developtment:
@@ -29,7 +29,7 @@ def files2array(batch, scenario : str, developtment : bool):
         # Se quiser testar usando o conjunto de treino
         # if developtment == True: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + "stylus" + os.sep + file
         
-        feat = loader.get_features(file, scenario=scenario, development=developtment)
+        feat = loader.get_features(file, scenario=scenario, z=z, development=developtment)
         data.append(feat)
         lens.append(len(feat[0]))
 
@@ -87,7 +87,7 @@ def get_batch_from_transfer_domain_epoch(epoch, batch_size : int):
     return data, lens, epoch
 
 """DeepSign"""
-def get_batch_from_epoch(epoch, batch_size : int, scenario : str):
+def get_batch_from_epoch(epoch, batch_size : int, z : bool, scenario : str):
     assert batch_size % 16 == 0
     step = batch_size // 16
 
@@ -95,7 +95,7 @@ def get_batch_from_epoch(epoch, batch_size : int, scenario : str):
     for i in range(0, step):
         batch += epoch.pop()
 
-    data, lens = files2array(batch, scenario=scenario, developtment=True)
+    data, lens = files2array(batch, scenario=scenario, z=z, developtment=True)
 
     return data, lens, epoch
 

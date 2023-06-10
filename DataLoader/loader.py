@@ -93,11 +93,7 @@ def normalize_x_and_y(x : npt.ArrayLike, y : npt.ArrayLike):
 
     return x_hat, y_hat
 
-def normalize(x : npt.ArrayLike):
-    xg = np.sum(x)/x.shape[0]
-    return (x - xg) / (np.max(x) - np.min(x))
-
-def generate_features(input_file : str, scenario : str, database : Literal):
+def generate_features(input_file : str, scenario : str, z : bool, database : Literal):
     df = None
     if database == MCYT:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
@@ -106,24 +102,24 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    # p = (np.array(df['P']))[:8000]
-    p = bf(np.array(df['P']))[:8000]
+    # p = bf(np.array(df['P']))[:8000]
+    p = (np.array(df['P']))[:8000]
     x = bf(np.array(df['X']))[:8000]
     y = bf(np.array(df['Y']))[:8000]
 
     if scenario=='finger' : p = np.ones(x.shape) #* 255
 
-    # result = [x, y]
-
     """ s """
-    x1, y1 = normalize_x_and_y(x, y)
-    # result = [x1,y1]
+    x1, y1 = None, None
+    if z: x1, y1 = zscore(x), zscore(y)
+    else: x1, y1 = normalize_x_and_y(x, y)
+    
+    result = [x1,y1]
     """ s """
 
     dx = diff(x)
     dy = diff(y)
     v = np.sqrt(dx**2+dy**2)
-    result = [x1,y1, normalize(v)]
     theta = np.arctan2(dy, dx)
     cos = np.cos(theta)
     sin = np.sin(theta)
@@ -135,8 +131,7 @@ def generate_features(input_file : str, scenario : str, database : Literal):
     c = v * dtheta
     
 
-    # features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
-    features = [theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
     # result += features
     
     
@@ -256,10 +251,10 @@ def get_database(user_id : int, scenario : str, development : bool) -> Literal:
 
     return database
 
-def get_features(file_name : str, scenario : str, development : bool = True):
+def get_features(file_name : str, scenario : str, z : bool, development : bool = True):
     user_id = int(((file_name.split(os.sep)[-1]).split("_")[0]).split("u")[-1])
     database = get_database(user_id = user_id, scenario=scenario, development=development)
-    return generate_features(file_name, scenario, database)
+    return generate_features(file_name, scenario, z=z, database=database)
 
 # if __name__ == '__main__':
     # augmentation()
