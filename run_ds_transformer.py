@@ -148,7 +148,7 @@ def jprotocol():
 	model.new_evaluate(FILE7, 10000, result_folder=PARENT_FOLDER)
 
 if __name__ == '__main__':
-	if not os.path.exists("Seeds"): os.mkdir("Seeds")
+	if not os.path.exists("Monografia"): os.mkdir("Monografia")
 
 
 	# Initialize parser
@@ -176,7 +176,7 @@ if __name__ == '__main__':
 	parser.add_argument("-p", "--p", help="set p value for icnn_loss", default=0.0, type=float)
 	parser.add_argument("-q", "--q", help="set q value for icnn_loss", default=0.0, type=float)
 	parser.add_argument("-r", "--r", help="set r value for icnn_loss", default=0.0, type=float)
-	parser.add_argument("-seed", "--seed", help="set seed value", type=int)
+	parser.add_argument("-seed", "--seed", help="set seed value", default=111, type=int)
 	parser.add_argument("-qm", "--quadruplet_margin", help="set margin value for quadruplet margin", default=0.5, type=float)
 	parser.add_argument("-tm", "--margin", help="set margin value for triplet loss margin", default=1.0, type=float)
 	parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
@@ -185,22 +185,22 @@ if __name__ == '__main__':
 
 	parser.add_argument("-ft", "--fine_tuning", help="tune the model using finger signatures", action='store_true')
 	parser.add_argument("-tdft", "--transfer_domain", help="tune the model using domain transferation", action='store_true')
-	
+	parser.add_argument("-z", "--zscore", help="normalize x and y coordinates using zscore", action='store_true')
+
 	# Read arguments from command line
 	args = parser.parse_args()
 	
 	print(args.test_name)
 
-	if args.seed is not None:
-		random.seed(args.seed)
-		np.random.seed(args.seed)
-		torch.manual_seed(args.seed)
-		torch.cuda.manual_seed(args.seed)
+	random.seed(args.seed)
+	np.random.seed(args.seed)
+	torch.manual_seed(args.seed)
+	torch.cuda.manual_seed(args.seed)
 	cudnn.enabled = True
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "Resultados" + os.sep + args.test_name
+	res_folder = "Monografia" + os.sep + args.test_name
 
 	if args.transfer_domain:
 		"""Iniciar treino"""
@@ -252,7 +252,7 @@ if __name__ == '__main__':
 
 	elif not args.evaluate and not args.validate:
 		"""Iniciar treino"""
-		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop)
+		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))
