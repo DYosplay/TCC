@@ -93,7 +93,10 @@ def normalize_x_and_y(x : npt.ArrayLike, y : npt.ArrayLike):
 
     return x_hat, y_hat
 
-def generate_features(input_file : str, scenario : str, z : bool, database : Literal):
+def normalize(x):
+    return (x - np.mean(x))/(np.max(x)-np.min(x))
+
+def generate_features(input_file : str, scenario : str, z : bool = False, database : Literal = UNDEFINED):
     df = None
     if database == MCYT:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
@@ -135,26 +138,27 @@ def generate_features(input_file : str, scenario : str, z : bool, database : Lit
     features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
     # result += features
 
-    result += features
+    # result += features
     
     
     """ s """
-    # if scenario == 'stylus':
-    #     for f in features:
-    #         result.append(zscore(f))
-    # elif scenario=='finger': 
-    #     features = [v, theta, cos, sin] 
-    #     features2 = [dv, dtheta, logCurRadius, c, totalAccel]
+    if scenario == 'stylus':
+        for f in features:
+            # result.append(zscore(f))
+            result.append(normalize(f))
+    elif scenario=='finger': 
+        features = [v, theta, cos, sin] 
+        features2 = [dv, dtheta, logCurRadius, c, totalAccel]
 
-    #     for f in features:
-    #         result.append(zscore(f))
-    #     result.append(p)
-    #     for f in features2:
-    #         result.append(zscore(f))
+        for f in features:
+            result.append(zscore(f))
+        result.append(p)
+        for f in features2:
+            result.append(zscore(f))
 
     return np.array(result)
 
-def pre_process(input_file : str, output_file : str, scenario : str, database : Literal):
+def pre_process(input_file : str, output_file : str, scenario : str, z : bool = False, database : Literal = UNDEFINED):
     df = None
     if database == MCYT:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
@@ -163,16 +167,22 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    p = bf(np.array(df['P']))[:1000]
-    x = bf(np.array(df['X']))[:1000]
-    y = bf(np.array(df['Y']))[:1000]
+    p = bf(np.array(df['P']))[:8000]
+    # p = (np.array(df['P']))[:8000]
+    x = bf(np.array(df['X']))[:8000]
+    y = bf(np.array(df['Y']))[:8000]
 
     if scenario=='finger' : p = np.ones(x.shape) #* 255
 
-    x1, y1 = normalize_x_and_y(x, y)
-
-    result = [x1,y1]
+    """ s """
+    x1, y1 = None, None
+    if z: x1, y1 = zscore(x), zscore(y)
+    else: x1, y1 = normalize_x_and_y(x, y)
     
+    # result = []
+    result = [x1,y1]
+    """ s """
+
     dx = diff(x)
     dy = diff(y)
     v = np.sqrt(dx**2+dy**2)
@@ -186,7 +196,18 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
     totalAccel = np.sqrt(dv**2 + dv2**2)
     c = v * dtheta
     
-    if scenario=='finger': 
+
+    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    # result += features
+
+    # result += features
+    
+    
+    """ s """
+    if scenario == 'stylus':
+        for f in features:
+            result.append(zscore(f))
+    elif scenario=='finger': 
         features = [v, theta, cos, sin] 
         features2 = [dv, dtheta, logCurRadius, c, totalAccel]
 
@@ -194,14 +215,6 @@ def pre_process(input_file : str, output_file : str, scenario : str, database : 
             result.append(zscore(f))
         result.append(p)
         for f in features2:
-            result.append(zscore(f))
-    
-    else: 
-
-        features= np.array([v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel])
-        # features = ((features.transpose() - np.mean(features, axis=1)) / np.std(features, axis=1)).transpose()
-        for f in features:
-            # result.append(f)
             result.append(zscore(f))
 
     buffer = str(len(result[0])) + "\n"
@@ -260,36 +273,35 @@ def get_features(file_name : str, scenario : str, z : bool, development : bool =
     return generate_features(file_name, scenario, z=z, database=database)
 
 # if __name__ == '__main__':
-    # augmentation()
-    # FOLDER = ["Data/Data Investigation/datasetnp78"]
+#     FOLDER = ["../Data/Data Investigation/dataset127/"]
 
-    # DEVELOPMENT = ["DeepSignDB/Development/finger", "DeepSignDB/Development/stylus"]
-    # EVALUATION  = ["DeepSignDB/Evaluation/finger", "DeepSignDB/Evaluation/stylus"]
-    # # DEVELOPMENT = ["DeepSignDB/Development/stylus"]
+#     # DEVELOPMENT = ["DeepSignDB/Development/finger", "DeepSignDB/Development/stylus"]
+#     # EVALUATION  = ["DeepSignDB/Evaluation/finger", "DeepSignDB/Evaluation/stylus"]
+#     # DEVELOPMENT = ["DeepSignDB/Development/stylus"]
     
-    # for folder in FOLDER:
-    #     print("\n\tWorking on: " + folder)
-    #     if not os.path.exists("Data/Data Investigation/PreProcessed" + os.sep + folder):
-    #         os.makedirs("Data/Data Investigation/PreProcessed" + os.sep + folder)
+#     for folder in FOLDER:
+#         print("\n\tWorking on: " + folder)
+#         if not os.path.exists("../Data/Data Investigation/PreProcessed/" + folder):
+#             os.makedirs("../Data/Data Investigation/PreProcessed/" + folder)
         
-    #     files = os.listdir(folder)
+#         files = os.listdir(folder)
 
-    #     for file in tqdm(files):
-    #         input_file  = folder + os.sep + file
-    #         output_file = "Data/Data Investigation/PreProcessed" + os.sep + input_file + '.csv'
-    #         user_id = int((file.split("_")[0]).split("u")[-1])
+#         for file in tqdm(files):
+#             input_file  = folder + file
+#             output_file = "../Data/Data Investigation/PreProcessed/" + input_file.split(os.sep)[-1] + '.csv'
+#             user_id = int((file.split("_")[0]).split("u")[-1])
 
-    #         database = UNDEFINED
-    #         if user_id >= 1009 and user_id <= 1038:
-    #             database = EBIOSIGN1_DS1
-    #         elif user_id >= 1039 and user_id <= 1084:
-    #             database = EBIOSIGN1_DS2
-    #         elif user_id >= 1 and user_id <= 230:
-    #             database = MCYT
-    #         elif user_id >= 231 and user_id <= 498:
-    #             database = BIOSECUR_ID
+#             database = UNDEFINED
+#             if user_id >= 1009 and user_id <= 1038:
+#                 database = EBIOSIGN1_DS1
+#             elif user_id >= 1039 and user_id <= 1084:
+#                 database = EBIOSIGN1_DS2
+#             elif user_id >= 1 and user_id <= 230:
+#                 database = MCYT
+#             elif user_id >= 231 and user_id <= 498:
+#                 database = BIOSECUR_ID
 
-    #         pre_process(input_file, output_file, 'stylus', database)
+#             pre_process(input_file, output_file, 'stylus', database = database)
 
 
     # for folder in EVALUATION:
