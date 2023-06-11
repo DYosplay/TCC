@@ -148,7 +148,7 @@ def jprotocol():
 	model.new_evaluate(FILE7, 10000, result_folder=PARENT_FOLDER)
 
 if __name__ == '__main__':
-	if not os.path.exists("Monografia"): os.mkdir("Monografia")
+	if not os.path.exists("Resultados"): os.mkdir("Resultados")
 
 
 	# Initialize parser
@@ -200,7 +200,7 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "Monografia" + os.sep + args.test_name
+	res_folder = "Resultados" + os.sep + args.test_name
 
 	if args.transfer_domain:
 		"""Iniciar treino"""
