@@ -113,9 +113,9 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     if scenario=='finger' : p = np.ones(x.shape) #* 255
 
     """ s """
-    # x1, y1 = None, None
-    # if z: x1, y1 = zscore(x), zscore(y)
-    # else: x1, y1 = normalize_x_and_y(x, y)
+    x1, y1 = None, None
+    if z: x1, y1 = zscore(x), zscore(y)
+    else: x1, y1 = normalize_x_and_y(x, y)
     
     # result = []
     """ s """
@@ -123,12 +123,8 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     dx = diff(x)
     dy = diff(y)
 
-    x1, y1 = None, None
-    if z: x1, y1 = zscore(dx), zscore(dy)
-    else: x1, y1 = normalize_x_and_y(dx, dy)
-
-    # result = [x1, y1]
-    result = []
+    result = [x1, y1]
+    # result = []
 
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
