@@ -102,8 +102,8 @@ def generate_features(input_file : str, scenario : str, z : bool, database : Lit
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    # p = bf(np.array(df['P']))[:8000]
-    p = (np.array(df['P']))[:8000]
+    p = bf(np.array(df['P']))[:8000]
+    # p = (np.array(df['P']))[:8000]
     x = bf(np.array(df['X']))[:8000]
     y = bf(np.array(df['Y']))[:8000]
 
@@ -114,11 +114,12 @@ def generate_features(input_file : str, scenario : str, z : bool, database : Lit
     if z: x1, y1 = zscore(x), zscore(y)
     else: x1, y1 = normalize_x_and_y(x, y)
     
+    # result = []
     result = [x1,y1]
     """ s """
 
-    dx = diff(x)
-    dy = diff(y)
+    dx = diff(x1)
+    dy = diff(y1)
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
     cos = np.cos(theta)
@@ -133,21 +134,23 @@ def generate_features(input_file : str, scenario : str, z : bool, database : Lit
 
     features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
     # result += features
+
+    result += features
     
     
     """ s """
-    if scenario == 'stylus':
-        for f in features:
-            result.append(zscore(f))
-    elif scenario=='finger': 
-        features = [v, theta, cos, sin] 
-        features2 = [dv, dtheta, logCurRadius, c, totalAccel]
+    # if scenario == 'stylus':
+    #     for f in features:
+    #         result.append(zscore(f))
+    # elif scenario=='finger': 
+    #     features = [v, theta, cos, sin] 
+    #     features2 = [dv, dtheta, logCurRadius, c, totalAccel]
 
-        for f in features:
-            result.append(zscore(f))
-        result.append(p)
-        for f in features2:
-            result.append(zscore(f))
+    #     for f in features:
+    #         result.append(zscore(f))
+    #     result.append(p)
+    #     for f in features2:
+    #         result.append(zscore(f))
 
     return np.array(result)
 
