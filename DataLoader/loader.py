@@ -150,8 +150,8 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     """ s """
     if scenario == 'stylus':
         for f in features:
-            # result.append(zscore(f))
-            result.append(normalize(f))
+            result.append(zscore(f))
+            # result.append(normalize(f))
     elif scenario=='finger': 
         features = [v, theta, cos, sin] 
         features2 = [dv, dtheta, logCurRadius, c, totalAccel]
