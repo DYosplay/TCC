@@ -99,6 +99,18 @@ def get_batch_from_epoch(epoch, batch_size : int, z : bool, scenario : str):
 
     return data, lens, epoch
 
+def get_random_ids(user_id, database, samples = 5):
+    if database == loader.EBIOSIGN1_DS1:
+        return list(set(random.sample(list(range(1009,1039)), samples+1)) - set([user_id]))[:5]
+    elif database == loader.EBIOSIGN1_DS2:
+        return list(set(random.sample(list(range(1039,1085)), samples+1)) - set([user_id]))[:5]
+    elif database == loader.MCYT:
+        return list(set(random.sample(list(range(1,231)), samples+1)) - set([user_id]))[:5]
+    elif database == loader.BIOSECUR_ID:
+        return list(set(random.sample(list(range(231,499)), samples+1)) - set([user_id]))[:5]
+    
+    raise ValueError("Dataset desconhecido")
+
 def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus", train_offset = [(1, 498), (1009, 1084)], users=None, development = True, scenario : str = 'stylus'):
     files = get_files(dataset_folder=dataset_folder)
     files_backup = files.copy()
@@ -139,7 +151,11 @@ def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus
             s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], 5)
             files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
 
-            random_forgeries_ids = list(set(random.sample(train_users, 6)) - set([user_id]))[:5]
+            # ids aleatórios podem ser de qualquer mini dataset
+            # random_forgeries_ids = list(set(random.sample(train_users, 6)) - set([user_id]))[:5]
+            # ids aleatórios apenas do mesmo dataset
+            random_forgeries_ids = get_random_ids(user_id=user_id, database=database, samples=5)
+
             random_forgeries = []
             for id in random_forgeries_ids:
                 random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0])
