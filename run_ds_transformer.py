@@ -269,12 +269,12 @@ if __name__ == '__main__':
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))
-		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch10.pt"))
+		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		model.new_evaluate(FILE, 888, result_folder=res_folder)
-		model.new_evaluate(FILE8, 888, result_folder=res_folder)
+		# model.new_evaluate(FILE, 888, result_folder=res_folder)
+		# model.new_evaluate(FILE8, 888, result_folder=res_folder)
 		model.new_evaluate(FILE9, 888, result_folder=res_folder)
 		model.new_evaluate(FILE10, 888, result_folder=res_folder)
 	
