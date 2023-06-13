@@ -243,7 +243,7 @@ if __name__ == '__main__':
 		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER1, FILE_FINGER2], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
 
 	elif args.all_weights:
-		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, transfer_domain=args.transfer_domain)
+		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))
