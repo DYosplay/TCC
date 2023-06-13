@@ -32,7 +32,6 @@ PATH = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Fil
 
 def validation(model : DsTransformer, res_folder : str, scenario : str, mode : str = 'stylus'):
 	path = PATH + os.sep + mode
-
 	opts = [scenario + os.sep + "random", scenario + os.sep + "skilled"]
 
 	if not os.path.exists(res_folder): os.mkdir(res_folder)
@@ -42,11 +41,11 @@ def validation(model : DsTransformer, res_folder : str, scenario : str, mode : s
 	print("Evaluating " + mode + " scenario")
 	
 	for opt in opts:
-		path = path + os.sep + opt + os.sep
-		files = os.listdir(path + os.sep + opt)
-
+		p = path + os.sep + opt
+		files = os.listdir(p)
+		
 		for file in files:
-			model.new_evaluate(path + file, n_epoch=0, result_folder=res_folder + os.sep + mode)
+			model.new_evaluate(p + os.sep + file, n_epoch=0, result_folder=res_folder + os.sep + mode)
 
 	with open(res_folder + os.sep + "log_" + scenario + "_" + mode + ".csv" , "w") as fw:
 		fw.write(model.buffer)
