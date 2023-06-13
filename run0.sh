@@ -1,1 +1,2 @@
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -t=ds_triplet_mmd_333 -aw
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -t=ds_triplet_mmd_333 -val -w='epoch8.pt' -mode=stylus -scene=4vs1
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_transformer.py -t=ds_triplet_mmd_333 -val -w='epoch10.pt' -mode=stylus -scene=1vs1

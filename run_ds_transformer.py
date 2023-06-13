@@ -30,37 +30,25 @@ FILE7 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Fi
 
 PATH = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal"
 
-def validation(model : DsTransformer, res_folder : str):
-	# finger_path = PATH + os.sep + "finger"
-	stylus_path = PATH + os.sep + "stylus"
+def validation(model : DsTransformer, res_folder : str, scenario : str, mode : str = 'stylus'):
+	path = PATH + os.sep + mode
 
-	opts = ["1vs1" + os.sep + "random", "4vs1" + os.sep + "random", "1vs1" + os.sep + "skilled", "4vs1" + os.sep + "skilled"]
+	opts = [scenario + os.sep + "random", scenario + os.sep + "skilled"]
 
 	if not os.path.exists(res_folder): os.mkdir(res_folder)
 
-	if not os.path.exists(res_folder + os.sep + "stylus"): os.mkdir(res_folder + os.sep + "stylus")
+	if not os.path.exists(res_folder + os.sep + mode): os.mkdir(res_folder + os.sep + mode)
 
-	# if not os.path.exists(res_folder + os.sep + "finger"): os.mkdir(res_folder + os.sep + "finger")
-
-	# print("\nEvaluating finger scenario")
-	
-	# for opt in opts:
-	# 	path = finger_path + os.sep + opt + os.sep
-	# 	files = os.listdir(finger_path + os.sep + opt)
-
-	# 	for file in files:
-	# 		model.new_evaluate(path + file, n_epoch=777, result_folder=res_folder)
-
-	print("Evaluating stylus scenario")
+	print("Evaluating " + mode + " scenario")
 	
 	for opt in opts:
-		path = stylus_path + os.sep + opt + os.sep
-		files = os.listdir(stylus_path + os.sep + opt)
+		path = path + os.sep + opt + os.sep
+		files = os.listdir(path + os.sep + opt)
 
 		for file in files:
-			model.new_evaluate(path + file, n_epoch=777, result_folder=res_folder + os.sep + "stylus")
+			model.new_evaluate(path + file, n_epoch=0, result_folder=res_folder + os.sep + mode)
 
-	with open(res_folder + os.sep + "log.csv", "w") as fw:
+	with open(res_folder + os.sep + "log_" + scenario + "_" + mode + ".csv" , "w") as fw:
 		fw.write(model.buffer)
 
 def validate(model : DsTransformer, res_folder : str):
@@ -141,7 +129,7 @@ def count_parameters(model):
 
 def jprotocol():
 	model = DsTransformer(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-	model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + "best.pt"))
+	model.load_state_dict(torch.load(PARENT_FOLDER + os.sep + "Backup" + os.sep + args.weight))
 	model.cuda()
 	model.train(mode=False)
 	model.eval()
@@ -169,7 +157,7 @@ if __name__ == '__main__':
 	parser.add_argument("-fdtw", "--use_fdtw", help="use fast dtw on evaluation", action='store_true')
 	parser.add_argument("-aw", "--all_weights", help="eval all weights", action='store_true')
 	parser.add_argument("-c", "--compile", help="user model compile (only with torch>=2.0)", action='store_true')
-	parser.add_argument("-val", "--validate", help="eval stylus 4vs1 scenario", action='store_true')
+	parser.add_argument("-val", "--validate", help="evaluate all mini datasets in -scene + -mode", action='store_true')
 	parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, cosface, arcface, sphereface, icnn_loss, quadruplet_loss, triplet_mmd, triplet_coral, norm_triplet_mmd)", type=str, default='triplet_loss')
 	parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=0.0, type=float)
 	parser.add_argument("-b", "--beta", help="set beta value for variance of negative signatures", default=0.0, type=float)
@@ -182,6 +170,10 @@ if __name__ == '__main__':
 	parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
 	parser.add_argument("-nlr", "--new_learning_rate", help="choose new_learning_rate value", type=float, default=0.001)
 	parser.add_argument("-stop", "--early_stop", help="set number of epoch which enables early stop", default=10, type=int)
+
+	parser.add_argument("-w", "--weight", help="name of weight to be used in evaluation", type=str, default="best.pt")
+	parser.add_argument("-mode", "--mode", help="stylus or finger", type=str, default="stylus")
+	parser.add_argument("-scene", "--scenario", help="4vs1 or 1vs1", type=str, default="4vs1")
 
 	parser.add_argument("-ft", "--fine_tuning", help="tune the model using finger signatures", action='store_true')
 	parser.add_argument("-tdft", "--transfer_domain", help="tune the model using domain transferation", action='store_true')
@@ -207,7 +199,7 @@ if __name__ == '__main__':
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop)
 		if args.compile:
 			model = torch.compile(model)
-		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch10.pt"))
+		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + args.weight))
 		res_folder = res_folder + '_transfered' + str(args.r)
 		print(count_parameters(model))
 		model.cuda()
@@ -225,7 +217,7 @@ if __name__ == '__main__':
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop)
 		if args.compile:
 			model = torch.compile(model)
-		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + args.weight))
 		res_folder = res_folder + '_tuned' + str(args.r)
 		print(count_parameters(model))
 		model.cuda()
@@ -234,13 +226,13 @@ if __name__ == '__main__':
 		model.eval()
 
 		if args.r <= 1.0:
-			model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
+			# model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
 			model.new_evaluate(FILE_FINGER2, 0, result_folder=res_folder)
-			model.new_evaluate(FILE_FINGER3, 0, result_folder=res_folder)
+			# model.new_evaluate(FILE_FINGER3, 0, result_folder=res_folder)
 			model.new_evaluate(FILE_FINGER4, 0, result_folder=res_folder)
 
 		model.train(mode=True)
-		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER1, FILE_FINGER2], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
+		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER2], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w, fine_tuning=args.fine_tuning)
 
 	elif args.all_weights:
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
@@ -270,7 +262,7 @@ if __name__ == '__main__':
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))
-		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + args.weight))
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
@@ -284,16 +276,9 @@ if __name__ == '__main__':
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))
-		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "best.pt"))
+		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + args.weight))
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		# validate(model, res_folder)
-		validation(model, res_folder)
-
-	"""Continuar treino""" 
-	# model = DsTransformer(batch_size=BATCH_SIZE, in_channels=len(FEATURES), dataset_folder=DATASET_FOLDER, gamma=5)
-	# model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + "epoch50.pt"))
-	# model.cuda()
-	# model.train(mode=True)
-	# model.start_train(n_epochs=N_EPOCHS, batch_size=BATCH_SIZE, comparison_files=[FILE], result_folder=res_folder+'_'+str(ITERATION))
+	
+		validation(model, res_folder, scenario=args.scenario, mode=args.mode)

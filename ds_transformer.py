@@ -775,7 +775,7 @@ class DsTransformer(nn.Module):
 
         self.train(mode=True)
 
-    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5):
+    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False):
         """ Loop de treinamento
 
         Args:
@@ -808,18 +808,6 @@ class DsTransformer(nn.Module):
         bckp_path = result_folder + os.sep + "Backup"
 
         for i in range(1, n_epochs+1):
-            
-            # if (self.best_eer < 0.025 or i == 11) and not flag:
-            #     self.p = self.nlr
-            #     flag = True
-            #     self.loss_type = 'hard_triplet_mmd'
-            # else:
-            #     self.p = 0.9
-                # for g in optimizer.param_groups:
-                #     if self.nlr < g['lr']:
-                #         g['lr'] = self.nlr
-                        
-                # print("\nLearning rate atualizada\n")
             epoch = None
             scenario = None
             if not self.fine_tuning:
@@ -886,7 +874,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if len(comparison_files) > 1 or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
