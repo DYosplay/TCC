@@ -911,7 +911,7 @@ class DsTransformer(nn.Module):
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         elif self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         
         losses = [math.inf]*10
 
