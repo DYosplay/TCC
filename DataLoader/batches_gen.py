@@ -152,9 +152,9 @@ def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus
             files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
 
             # ids aleatórios podem ser de qualquer mini dataset
-            # random_forgeries_ids = list(set(random.sample(train_users, 6)) - set([user_id]))[:5]
+            random_forgeries_ids = list(set(random.sample(train_users, 6)) - set([user_id]))[:5]
             # ids aleatórios apenas do mesmo dataset
-            random_forgeries_ids = get_random_ids(user_id=user_id, database=database, samples=5)
+            # random_forgeries_ids = get_random_ids(user_id=user_id, database=database, samples=5)
 
             random_forgeries = []
             for id in random_forgeries_ids:
