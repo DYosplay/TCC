@@ -267,8 +267,8 @@ if __name__ == '__main__':
 		model.eval()
 		# model.new_evaluate(FILE, 888, result_folder=res_folder)
 		# model.new_evaluate(FILE8, 888, result_folder=res_folder)
-		model.new_evaluate(FILE9, 888, result_folder=res_folder)
-		model.new_evaluate(FILE10, 888, result_folder=res_folder)
+		model.new_evaluate(FILE9, 777, result_folder=res_folder)
+		# model.new_evaluate(FILE10, 777, result_folder=res_folder)
 	
 	elif args.validate:
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
