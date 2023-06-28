@@ -11,26 +11,8 @@ from tqdm import tqdm
 import pandas as pd
 from scipy.stats import zscore
 from scipy import signal
-from scipy import interpolate
 
 import random
-
-def interp(sequencia):
-    # Supondo que você tenha um array chamado "sequencia" com uma taxa de amostragem desconhecida
-
-    # Taxa de amostragem desejada (100 Hz no exemplo)
-    taxa_amostragem_desejada = 100
-
-    # Calcula a taxa de downsample com base na taxa de amostragem original e na taxa de amostragem desejada
-    taxa_amostragem_original = len(sequencia)  # Assumindo que o comprimento do array representa a taxa de amostragem
-    fator_downsample = 2
-
-    # Cria uma função de interpolação cúbica
-    interp_func = interpolate.interp1d(np.arange(len(sequencia)), sequencia, kind='cubic')
-
-    # Gera os novos pontos usando a função de interpolação cúbica
-    novo_comprimento = len(sequencia) // fator_downsample
-    return interp_func(np.linspace(0, len(sequencia) - 1, novo_comprimento))
 
 ###################################
 
@@ -123,21 +105,10 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    p = None
-    x = None
-    y = None
-
-    if database == EBIOSIGN1_DS1 or database == EBIOSIGN1_DS2:
-        p = bf(interp(np.array(df['P'])))[:8000]
-        # p = (interp(np.array(df['P'])))[:8000]
-        x = bf(interp(np.array(df['X'])))[:8000]
-        y = bf(interp(np.array(df['Y'])))[:8000]
-    else:
-
-        p = bf(np.array(df['P']))[:8000]
-        # p = (np.array(df['P']))[:8000]
-        x = bf(np.array(df['X']))[:8000]
-        y = bf(np.array(df['Y']))[:8000]
+    p = bf(np.array(df['P']))[:8000]
+    # p = (np.array(df['P']))[:8000]
+    x = bf(np.array(df['X']))[:8000]
+    y = bf(np.array(df['Y']))[:8000]
 
     dx = diff(x)
     dy = diff(y)
