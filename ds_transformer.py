@@ -773,6 +773,9 @@ class DsTransformer(nn.Module):
                 self.best_eer = eer_global
                 print("EER atualizado: " + str(self.best_eer))
 
+                self.margin += self.r
+                self.quadruplet_margin += self.r
+
         self.train(mode=True)
 
     def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False):
@@ -822,9 +825,9 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
-                print("\n\nEarly stop!")
-                break
+            # if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
+            #     print("\n\nEarly stop!")
+            #     break
 
             pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
 
@@ -874,7 +877,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
