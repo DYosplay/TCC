@@ -241,10 +241,10 @@ if __name__ == '__main__':
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		eval_all_weights(model, res_folder, FILE_FINGER1, 4000, n_epochs=15)
-		eval_all_weights(model, res_folder, FILE_FINGER2, 5000, n_epochs=15)
-		eval_all_weights(model, res_folder, FILE_FINGER3, 6000, n_epochs=15)
-		eval_all_weights(model, res_folder, FILE_FINGER4, 7000, n_epochs=15)
+		eval_all_weights(model, res_folder, FILE_FINGER1, 4000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE_FINGER2, 5000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE_FINGER3, 6000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE_FINGER4, 7000, n_epochs=25)
 
 	elif not args.evaluate and not args.validate:
 		"""Iniciar treino"""
