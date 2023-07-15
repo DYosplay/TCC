@@ -1,3 +1,4 @@
+
 from typing import List, Tuple
 from numpy import typing as npt
 
@@ -447,24 +448,24 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n[:5]:
-                    temp = F.relu(g + self.margin - n) * self.p
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
 
-                for n in dist_n[5:]:
-                    temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-            lv = lk / non_zeros
-            # lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
-            # lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
-            # lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+            lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+            lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
 
@@ -773,9 +774,6 @@ class DsTransformer(nn.Module):
                 self.best_eer = eer_global
                 print("EER atualizado: " + str(self.best_eer))
 
-                self.margin += self.r
-                self.quadruplet_margin += self.r
-
         self.train(mode=True)
 
     def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False):
@@ -825,9 +823,9 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            # if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
-            #     print("\n\nEarly stop!")
-            #     break
+            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
+                print("\n\nEarly stop!")
+                break
 
             pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
 
@@ -877,7 +875,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 4 == 0 or i > (n_epochs - 3) ):
+            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
