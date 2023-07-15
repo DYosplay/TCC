@@ -221,13 +221,13 @@ if __name__ == '__main__':
 		print(count_parameters(model))
 		model.cuda()
 
-		model.train(mode=False)
-		model.eval()
+		# model.train(mode=False)
+		# model.eval()
 
-		if args.r <= 1.0:
-			model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
-			# model.new_evaluate(FILE_FINGER2, 0, result_folder=res_folder)
-			model.new_evaluate(FILE_FINGER3, 0, result_folder=res_folder)
+		# if args.r <= 1.0:
+		# 	model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
+		# 	# model.new_evaluate(FILE_FINGER2, 0, result_folder=res_folder)
+		# 	model.new_evaluate(FILE_FINGER3, 0, result_folder=res_folder)
 			# model.new_evaluate(FILE_FINGER4, 0, result_folder=res_folder)
 
 		model.train(mode=True)
