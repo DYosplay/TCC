@@ -1,6 +1,6 @@
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=15 -t=ds_triplet_mmd_333 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.5 -q 0.1 -qm 1.5 -dc 0.9 -stop 26 -seed 333 -r 200.0 -ft -w='epoch10.pt'
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=15 -t=ds_triplet_mmd_333 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.5 -q 0.1 -qm 1.5 -dc 0.9 -stop 26 -seed 333 -r 201.0 -ft -w='epoch10.pt'
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=15 -t=ds_triplet_mmd_333 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.5 -q 0.1 -qm 1.5 -dc 0.9 -stop 26 -seed 333 -r 202.0 -ft -w='epoch10.pt'
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=15 -t=ds_triplet_mmd_333 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.7 -q 0.1 -qm 1.5 -dc 0.9 -stop 26 -seed 333 -r 201.0 -ft -w='epoch10.pt'
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=15 -t=ds_triplet_mmd_333 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.6 -q 0.1 -qm 1.5 -dc 0.9 -stop 26 -seed 333 -r 202.0 -ft -w='epoch10.pt'
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=15 -t=ds_triplet_mmd_333 -lr 0.01 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.4 -q 0.1 -qm 1.5 -dc 0.9 -stop 26 -seed 333 -r 203.0 -ft -w='epoch10.pt'
 
 # Fine tuning com finger no cenário 1vs1
 # PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=15 -t=ds_triplet_mmd_333 -lr 0.02 -bs 32 -lt=triplet_mmd -a 1.0 -tm 1 -p 0.9 -q 0.1 -qm 1.5 -dc 0.9 -stop 26 -seed 333 -r 5.0 -ft -w='epoch10.pt'
