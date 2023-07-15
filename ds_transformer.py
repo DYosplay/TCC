@@ -1,3 +1,4 @@
+
 from typing import List, Tuple
 from numpy import typing as npt
 
@@ -26,6 +27,8 @@ import DTW.soft_dtw_cuda as soft_dtw
 import DTW.dtw_cuda as dtw
 import utils.metrics as metrics
 
+from fastdtw import fastdtw
+
 import random
 
 CHEAT = False
@@ -34,7 +37,7 @@ CHANGE_TRAIN_MODE=80
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, encs : int = 1):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False, early_stop : int = 10, z : bool = False):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -55,14 +58,16 @@ class DsTransformer(nn.Module):
         self.loss_type = loss_type
         self.decay = decay
         self.nlr = nlr
-        self.encs = encs
-
+        self.use_fdtw = use_fdtw
+        self.fine_tuning = fine_tuning
+        self.z = z
         # variáveis para a loss
         self.scores = []
         self.labels = []
         self.th = 3.5
         self.alpha = alpha
         self.beta = beta
+        self.early_stop = early_stop
 
         self.p = p
         self.q = q
@@ -77,41 +82,49 @@ class DsTransformer(nn.Module):
         self.buffer = "ComparisonFile, mean_local_eer, global_eer, th_global\n"
         self.eer = []
         self.best_eer = math.inf
+        self.last_eer = math.inf
         self.loss_variation = []
 
         # Definição da rede
-        self.cran  = (nn.Sequential(
-        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_hidden, kernel_size=4, stride=1, padding=2, bias=True),
-        nn.AvgPool1d(4,4, ceil_mode=True),
+        self.cran  = nn.Sequential(
+        nn.Conv1d(in_channels=self.n_in, out_channels=self.n_out, kernel_size=7, stride=1, padding=3, bias=True),
+        nn.MaxPool1d(kernel_size=2, stride=2, ceil_mode=True), 
         nn.ReLU(inplace=True),
-        nn.Dropout(0.1)
-        ))
+        nn.Conv1d(in_channels=self.n_out, out_channels=self.n_hidden, kernel_size=3, stride=1, padding=1, bias=True),
+        nn.ReLU(inplace=True),
+        nn.Dropout(p=0.1)
+        )
+        # self.bn = mbn.MaskedBatchNorm1d(self.n_out)
 
-        self.enc1 = (torch.nn.TransformerEncoderLayer(self.n_hidden, nhead=1,batch_first=True, dim_feedforward=128, dropout=0.1))
-        # self.encoders = torch.nn.TransformerEncoder(self.enc1, self.encs)
-        
-        self.linear = nn.Linear(self.n_hidden, self.n_out, bias=False)
+        self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.1, batch_first=True, bidirectional=False)
 
-        nn.init.kaiming_normal_(self.linear.weight, a=1)
+        self.h0 = Variable(torch.zeros(self.n_layers, batch_size, self.n_hidden).cuda(), requires_grad=False)
+        self.h1 = Variable(torch.zeros(self.n_layers, 5, self.n_hidden).cuda(), requires_grad=False)
+        self.h2 = Variable(torch.zeros(self.n_layers, 2, self.n_hidden).cuda(), requires_grad=False)
+
+        # Fecha a update gate (pra virar uma GARU)
+        for i in range(self.n_layers):
+            eval("self.rnn.bias_hh_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
+            eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
+    
+        self.linear = nn.Linear(self.n_hidden, 64, bias=False)
+
+        nn.init.kaiming_normal_(self.linear.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
+        nn.init.kaiming_normal_(self.cran[3].weight, a=0)
         nn.init.zeros_(self.cran[0].bias)
+        nn.init.zeros_(self.cran[3].bias)
 
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
         self.center_loss = None
-        if self.loss_type == 'center_loss':
-            self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
-
-        self.angular_loss = None
-        if self.loss_type == 'cosface' or self.loss_type == 'sphereface' or self.loss_type == 'arcface':
-            self.angular_loss = al.AngularPenaltySMLoss(in_features=1, out_features=2, loss_type=self.loss_type)
-        
-        self.mmd_loss = mmd.MMDLoss().cuda()
+        # self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
+        self.mmd_loss = mmd.MMDLoss()
         
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
-        lens = (lens + 4) // 4
+        lens = (lens + 1) // 2
         N = len(lens); D = np.max(lens)
         mask = np.zeros((N, D), dtype=np.float32)
         for i in range(N):
@@ -120,49 +133,31 @@ class DsTransformer(nn.Module):
     
     def forward(self, x, mask, n_epoch):
         length = torch.sum(mask, dim=1)
-        
+        length, indices = torch.sort(length, descending=True)
+        x = torch.index_select(x, 0, indices)
+        mask = torch.index_select(mask, 0, indices)
+
         h = self.cran(x)
+        # h = self.bn(h, length.int())
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
+
+        h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
+        if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
+        elif len(x) > 2: h, _ = self.rnn(h, self.h1)
+        else: h, _ = self.rnn(h, self.h2)
         
-        if self.training:
-            src_masks = (torch.zeros([self.batch_size, h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device))
-            
-            if self.use_mask:
-                step = (self.ng + self.nf + 1)
-                for i in range(0, self.nw):
-                    anchor = h[i*step]
-                    for j in range(i*step, (i+1)*step):
-                        value, output = ((self.dtw)(anchor[None,], h[j:j+1,]))
-                        output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
+        h, length = nutils.rnn.pad_packed_sequence(h, batch_first=True) 
+        length = Variable(length).cuda()
 
-                        output = torch.from_numpy(output).cuda()
-
-                        output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-
-                        src_masks[j] = output_mask
-            # h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-        else:
-            src_masks = torch.zeros([h.shape[0], h.shape[1], h.shape[1]], dtype=h.dtype, device=h.device)
-            
-            if self.use_mask:
-                sign = h[-1]
-
-                for i in range(len(h)):
-                    value, output = self.dtw(sign[None, ], h[i:i+1, ])
-                    output = output[0][1:h.shape[1]+1, 1:h.shape[1]+1].detach().cpu().numpy()        
-
-                    output = torch.from_numpy(output).cuda()
-
-                    output_mask = (((output - torch.min(output)) / (torch.max(output) - torch.min(output))) + 1)
-
-                    src_masks[i] = output_mask
-
-            # h = self.encoders(src=h, mask=src_masks, src_key_padding_mask=(~mask.bool()))
-            h = self.enc1(src=h, src_mask=src_masks, src_key_padding_mask=(~mask.bool()))
-
+        '''Recover the original order'''
+        _, indices = torch.sort(indices, descending=False)
+        h = torch.index_select(h, 0, indices)
+        length = torch.index_select(length, 0, indices)
+        mask = torch.index_select(mask, 0, indices)
+        
         h = self.linear(h)
+        # h = torch.nn.functional.normalize(h, 2)
 
         if self.training:
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
@@ -488,8 +483,7 @@ class DsTransformer(nn.Module):
  
         return total_loss + mmd1 + var_g
 
-
-    def _quadruplet_loss(self, data, lens):
+    def _hard_triplet_mmd(self, data, lens):
         """ Loss de um batch
 
         Args:
@@ -501,11 +495,16 @@ class DsTransformer(nn.Module):
         Returns:
             torch.tensor (float): valor da loss
         """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
         step = (self.ng + self.nf + 1)
         total_loss = 0
-
         dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
         dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        mmd_loss = torch.tensor(0.0, device=data.device)
+
         for i in range(0, self.nw):
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng] 
@@ -521,39 +520,39 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)): 
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists_gs[i * self.ng + j] = dist_g[j]
+                dists_gs[i*self.ng + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists_ns[i * self.nf + j] = dist_n[j]
+                dists_ns[i*self.nf + j] = dist_n[j]
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            var_g = torch.var(dist_g) * self.alpha
-            # var_n = torch.var(dist_n) * self.beta
 
-            lk = 0
-            non_zeros = 1
-            for g in dist_g:
-                for n in dist_n:
-                    # aux = g + self.margin - n
-                    temp = F.relu(g-n) + F.relu(n - g - self.margin)
-                    # temp = F.relu(aux) + torch.abs(torch.pow(aux, -self.quadruplet_margin)) * self.beta
-                    if temp > 0:
-                        lk += temp
-                        non_zeros+=1
-            lv = lk / non_zeros
+            lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+            lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
 
             user_loss = lv + only_pos
 
             total_loss += user_loss
     
         total_loss /= self.nw
-        var_g = torch.var(dists_gs) * self.p
-        # var_n = torch.var(dists_ns) ** self.q
-        triplet_loss = total_loss + var_g
 
-        return triplet_loss
-            
+        comparisons = 0
+        for i in range(self.nw-1):
+            m = torch.max(lens[i*step:(i+1)*step - 5])
+            for j in range(i+1,self.nw):
+                n = torch.max(lens[j*step:(j+1)*step - 5])
+                trunc = int(torch.max(m,n))
+
+                mmd_loss += self.mmd_loss(data[i*step:(i+1)*step - 5, :trunc], data[j*step:(j+1)*step - 5, :trunc]) * self.alpha
+                comparisons +=1
+                
+        var_g = torch.var(dists_gs) * self.q
+        
+        
+ 
+        return total_loss + (mmd_loss/comparisons) + var_g         
 
     def _loss(self, data, lens):
         """ Loss de um batch
@@ -570,7 +569,7 @@ class DsTransformer(nn.Module):
         step = (self.ng + self.nf + 1)
         total_loss = 0
 
-        dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
         # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
 
         for i in range(0, self.nw):
@@ -588,23 +587,22 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)): 
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists[i*(step-1) + j] = dist_g[j]
+                # dists[i*(step-1) + j] = dist_g[j]
                 # dists[i*(5) + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists[i*(step-1) + self.ng + j] = dist_n[j]
+                # dists[i*(step-1) + self.ng + j] = dist_n[j]
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
-            var_g = torch.var(dist_g) * self.alpha
-            var_n = torch.var(dist_n) * self.beta
+            # var_g = torch.var(dist_g) * self.alpha
+            # var_n = torch.var(dist_n) * self.beta
 
             lk = 0
             non_zeros = 1
-            alpha = 0.2
             for g in dist_g:
                 for n in dist_n:
-                    temp = F.relu(g + self.margin - n) #* (-alpha) * ((n - g)/2)
+                    temp = F.relu(g + self.margin - n)
                     if temp > 0:
                         lk += temp
                         non_zeros+=1
@@ -613,24 +611,15 @@ class DsTransformer(nn.Module):
             # lk = torch.sum(F.relu(dist_g.unsqueeze(1) + self.margin - dist_n.unsqueeze(0)))
             # lv = lk / (lk.data.nonzero(as_tuple=False).size(0) + 1)
 
-            user_loss = lv + only_pos + var_g + var_n
+            user_loss = lv + only_pos #+ var_g + var_n
 
             total_loss += user_loss
     
         total_loss /= self.nw
         triplet_loss = total_loss
 
-        labels = torch.tensor(([0] * 5 + [1] * 10) * self.nw, device=data.device)
-        feat = torch.unsqueeze(dists, 0).transpose(0,1)
-        
-        c_loss = self.center_loss(feat, labels)
-
-        a_loss = None
-        if self.angular_loss is not None:
-            a_loss = self.angular_loss(feat, labels)
-
-        return triplet_loss, c_loss, a_loss
-
+        return triplet_loss
+    
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
 
@@ -643,7 +632,11 @@ class DsTransformer(nn.Module):
         Returns:
             float: DTW normalizado entre as assinaturas
         """
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+        if self.use_fdtw:
+            distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
+            return torch.tensor([distance /(64* (len_x + len_y))])
+        else:
+            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
 
     def _inference(self, files : str, scenario : str, n_epoch : int) -> Tuple[float, str, int]:
         """
@@ -667,7 +660,7 @@ class DsTransformer(nn.Module):
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
-        test_batch, lens = batches_gen.files2array(refs + [sign], scenario=scenario, developtment=CHEAT)
+        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, scenario=scenario, developtment=CHEAT)
 
         mask = self.getOutputMask(lens)
         
@@ -690,9 +683,7 @@ class DsTransformer(nn.Module):
             for i in range(0, len(refs)):
                 for j in range(1, len(refs)):
                     if i < j:
-                        aux = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
-                        dk += aux
-                        dk_list.append(aux.item())
+                        dk += (self._dte(refs[i], refs[j], len_refs[i], len_refs[j]))
                         count += 1
 
             dk = dk/(count)
@@ -703,25 +694,10 @@ class DsTransformer(nn.Module):
         for i in range(0, len(refs)):
             dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
 
-        dk_list = np.array(dk_list)
-        dists_b = (np.array(dists) - np.mean(dk_list)) /dk_sqrt
-        score_b = np.mean(dists_b) + min(dists_b)
-
         dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
         s_min = min(dists)
 
-        if user_key == 'u0004':
-            a = 0
-        if user_key == 'u0026':
-            a = 0
-
-        if (s_avg+s_min) >= 0.50366 and result == 0:
-            a = 0
-        
-        if (s_avg+s_min) < 0.50366 and result == 1:
-            a = 0
-            
         return s_avg + s_min, user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
@@ -739,8 +715,8 @@ class DsTransformer(nn.Module):
             lines = fr.readlines()
 
         scenario = 'stylus'
-        # if 'finger' in comparison_file:
-        #     scenario = 'finger'
+        if 'finger' in comparison_file:
+            scenario = 'finger'
 
         if not os.path.exists(result_folder): os.mkdir(result_folder)
 
@@ -790,7 +766,9 @@ class DsTransformer(nn.Module):
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
 
-        if n_epoch != 0 and n_epoch != 777:
+        self.last_eer = eer_global
+
+        if n_epoch != 0 and n_epoch != 777 and n_epoch != 888:
             if eer_global < self.best_eer:
                 torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
                 self.best_eer = eer_global
@@ -798,7 +776,7 @@ class DsTransformer(nn.Module):
 
         self.train(mode=True)
 
-    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5):
+    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False):
         """ Loop de treinamento
 
         Args:
@@ -809,18 +787,16 @@ class DsTransformer(nn.Module):
         """
         optimizer = None
         lr_scheduler = None
+        flag = False
+        if self.fine_tuning: flag = True
 
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
-        elif triplet_loss_w == 1 and self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+        elif self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9) 
-        else:
-            params = list(self.parameters()) + list(self.center_loss.parameters())
-            optimizer = torch.optim.SGD(params, lr=self.lr) # here lr is the overall learning rate
-            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay)
-
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        
         losses = [math.inf]*10
 
         running_loss = 0
@@ -833,21 +809,21 @@ class DsTransformer(nn.Module):
         bckp_path = result_folder + os.sep + "Backup"
 
         for i in range(1, n_epochs+1):
-            
-            if self.best_eer < 0.025:
-                for g in optimizer.param_groups:
-                    if self.nlr < g['lr']:
-                        g['lr'] = self.nlr
-                        
-                print("\nLearning rate atualizada\n")
+            epoch = None
+            scenario = None
+            if not self.fine_tuning:
+                epoch = batches_gen.generate_epoch()
+                scenario = 'stylus'
+            else:
+                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
+                scenario = 'finger'
 
-            epoch = batches_gen.generate_epoch(train_offset=[(231,498)])
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if self.loss_value > min(losses) and i > 50:
+            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
                 print("\n\nEarly stop!")
                 break
 
@@ -857,7 +833,7 @@ class DsTransformer(nn.Module):
             self.mean_eer = 0
             #PAL = Previous Accumulated Loss
             while epoch != []:
-                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size)
+                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size, z=self.z, scenario=scenario)
                 
                 mask = self.getOutputMask(lens)
 
@@ -869,7 +845,10 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'triplet_mmd':
+                if self.loss_type == 'hard_triplet_mmd':
+                    loss = self._hard_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_mmd':
                     loss = self._triplet_mmd(outputs, length)
                     loss.backward()
                 elif self.loss_type == 'norm_triplet_mmd':
@@ -885,41 +864,10 @@ class DsTransformer(nn.Module):
                     loss = self._icnn_loss(outputs, length)
                     loss.backward()
                 else:
-                    triplet_loss, c_loss, a_loss = self._loss(outputs, length)
-            
-                    if triplet_loss_w == 1:
-                        loss = triplet_loss  
-            
-                        if self.loss_type != 'triplet_loss':
-                            loss = a_loss
-                        
-                        loss.backward()
+                    loss = self._loss(outputs, length)
+                    loss.backward()
 
-                    else:
-                        loss = (triplet_loss_w*triplet_loss) + ((1-triplet_loss_w) * c_loss)
-
-                        loss.backward()
-                        for param in self.center_loss.parameters():
-                            # lr_cent is learning rate for center loss, e.g. lr_cent = 0.5
-                            param.grad.data *= (self.lr / ((1-triplet_loss_w) * self.lr))
-                
                 optimizer.step()
-
-                # loss = self._loss(outputs, length)
-
-                # loss = None
-                # if i <= CHANGE_TRAIN_MODE:
-                #     loss = triplet_loss
-                # else:
-                #     loss = (triplet_loss_w * sep_loss_p) + ( (1-triplet_loss_w)*sep_loss_n )
-                
-                # loss = self._loss(outputs, length, i)
-                
-                # dists = self.get_distances(outputs, length)
-                # triplet_loss = self._triplet_loss(dists)
-                # sep_loss = self._sep_loss(dists)
-                # loss = (triplet_loss*0.7 + sep_loss*0.3)
-                
 
                 running_loss += loss.item()
             
@@ -927,18 +875,110 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+            
+            self.loss_variation.append(running_loss/epoch_size)
+            
+            lr_scheduler.step()
 
-            # if i >= CHANGE_TRAIN_MODE:
-            #     self.cran.requires_grad_(False)
-            #     self.linear.requires_grad_(False)
-            #     self.enc1.requires_grad_(False)
+            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
 
-                # _, self.th_loss = metrics.get_eer(self.labels, self.scores)
-                # self.labels = []
-                # self.scores = []
+        # Loss graph
+        plt.xlabel("#Epoch")
+        plt.ylabel("Loss")
+        plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
+        plt.savefig(result_folder + os.sep + "loss.png")
+        plt.cla()
+        plt.clf()
+
+    def transfer_domain(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str):
+        """ Loop de treinamento
+
+        Args:
+            n_epochs (int): Número de épocas que o treinamento deve ocorrer
+            batch_size (int): Tamanho do batch de treinamento
+            comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
+            result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
+        """
+        optimizer = None
+        lr_scheduler = None
+        flag = False
+        if self.fine_tuning: flag = True
+
+        if self.loss_type == 'icnn_loss':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        elif self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        
+        losses = [math.inf]*10
+
+        running_loss = 0
+
+        if not os.path.exists(result_folder):
+            os.mkdir(result_folder)
+
+        if not os.path.exists(result_folder + os.sep + "Backup"):
+            os.mkdir(result_folder + os.sep + "Backup")
+        bckp_path = result_folder + os.sep + "Backup"
+
+        for i in range(1, n_epochs+1):
+            epoch = batches_gen.generate_transfer_domain_epoch()
+            epoch_size = min(len(epoch[0]), len(epoch[1]))
+            self.loss_value = running_loss/epoch_size
+            losses.append(self.loss_value)
+            losses = losses[1:]
+
+            pbar = tqdm(total=epoch_size, position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
+
+            running_loss = 0
+            self.mean_eer = 0
+            #PAL = Previous Accumulated Loss
+            while epoch[0] != [] and epoch[1] != []:
+                batch, lens, epoch = batches_gen.get_batch_from_transfer_domain_epoch(epoch, self.batch_size)
+                
+                mask = self.getOutputMask(lens)
+
+                mask = Variable(torch.from_numpy(mask)).cuda()
+                inputs = Variable(torch.from_numpy(batch)).cuda()
+                
+                outputs, length = self(inputs.float(), mask, i)
+                optimizer.zero_grad()
+                loss = None
+
+                if self.loss_type == 'hard_triplet_mmd':
+                    loss = self._hard_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_mmd':
+                    loss = self._triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'norm_triplet_mmd':
+                    loss = self._norm_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_coral':
+                    loss = self._triplet_coral(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'quadruplet_loss':
+                    loss = self._quadruplet_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'icnn_loss':
+                    loss = self._icnn_loss(outputs, length)
+                    loss.backward()
+                
+                optimizer.step()
+
+                running_loss += loss.item()
+            
+                pbar.update(1)
+
+            pbar.close()
+
+            if i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
+                for cf in comparison_files:
+                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
             self.loss_variation.append(running_loss/epoch_size)
             
