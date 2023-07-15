@@ -191,7 +191,7 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "Monografia" + os.sep + args.test_name
+	res_folder = "Refazendo" + os.sep + args.test_name
 
 	if args.transfer_domain:
 		"""Iniciar treino"""
