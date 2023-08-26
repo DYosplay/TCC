@@ -146,7 +146,7 @@ if __name__ == '__main__':
 	parser.add_argument("-df", "--dataset_folder", help="set dataset folder", default=".." + os.sep + "Data" + os.sep + "DeepSignDB", type=str)
 	parser.add_argument("-g", "--gamma", help="set gamma value for soft-dtw", default=5, type=int)
 	parser.add_argument("-bs", "--batch_size", help="set batch size (should be dividible by 16)", default=16, type=int)
-	parser.add_argument("-f", "--features", help="list of index of features used by the model", default=[0,1,2,3,4,5,6,7,8,9,10,11], type=list)
+	parser.add_argument("-f", "--features", help="list of index of features used by the model", default=[0,1,2,3,4,5,6,7,8,9,10,11,12,13], type=list)
 	parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=30, type=int)
 	# parser.add_argument("-cf", "--comparison_file", help="set the comparison file used in the evaluation during training", default='FILE', type=str)
 	parser.add_argument("-t", "--test_name", help="set name of current test", type=str, required=True)
@@ -191,7 +191,7 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "Monografia" + os.sep + args.test_name
+	res_folder = "Spikes" + os.sep + args.test_name
 
 	if args.transfer_domain:
 		"""Iniciar treino"""
