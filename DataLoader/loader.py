@@ -125,7 +125,7 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
 
     x1, y1 = normalize_x_and_y(x, y)
     dx, dy = diff(x), diff(y)
-    result = [x1, y1, dx, dy]
+    result = [x1, y1]
 
     v = np.sqrt(dx**2+dy**2)
     theta = np.arctan2(dy, dx)
@@ -139,7 +139,7 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     c = v * dtheta
     
 
-    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    features = [dx, dy, v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
     # result += features
 
     # result += features
