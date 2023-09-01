@@ -98,8 +98,8 @@ if not os.path.exists(result_folder + os.sep + "Backup_disc"):
     os.mkdir(result_folder + os.sep + "Backup_disc")
 bckp_path_disc = result_folder + os.sep + "Backup_disc"
 
-if not os.path.exists(result_folder + os.sep + "Backup_target"):
-    os.mkdir(result_folder + os.sep + "Backup_target")
+if not os.path.exists(result_folder + os.sep + "Backup"):
+    os.mkdir(result_folder + os.sep + "Backup")
 bckp_path_target = result_folder + os.sep + "Backup"
 
 running_loss_disc = 0
