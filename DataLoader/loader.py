@@ -110,21 +110,21 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     x = bf(np.array(df['X']))[:8000]
     y = bf(np.array(df['Y']))[:8000]
 
-    # dx = diff(x)
-    # dy = diff(y)
+    dx = diff(x)
+    dy = diff(y)
 
-    # if scenario=='finger' : p = np.ones(x.shape) #* 255
+    if scenario=='finger' : p = np.ones(x.shape) #* 255
 
-    # """ s """
-    # x1, y1 = None, None
-    # if z: x1, y1 = zscore(dx), zscore(dy)
-    # else: x1, y1 = normalize_x_and_y(x, y)
+    """ s """
+    x1, y1 = None, None
+    if z: x1, y1 = zscore(dx), zscore(dy)
+    else: x1, y1 = normalize_x_and_y(x, y)
     
-    # # result = []
-    # """ s """
+    # result = []
+    """ s """
 
-    x1, y1 = normalize_x_and_y(x, y)
-    dx, dy = diff(x), diff(y)
+    
+
     result = [x1, y1]
 
     v = np.sqrt(dx**2+dy**2)
@@ -139,7 +139,7 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     c = v * dtheta
     
 
-    features = [dx, dy, v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
     # result += features
 
     # result += features
