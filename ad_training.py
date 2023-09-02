@@ -78,6 +78,7 @@ source_encoder.cuda()
 
 # Treinar o modelo de target junto com o discriminator
 target_encoder = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, decay = args.decay, use_fdtw = args.use_fdtw)
+target_encoder.load_state_dict(torch.load(load_folder + os.sep + "Backup" + os.sep + args.weight))
 print(count_parameters(target_encoder))
 target_encoder.cuda()
 
@@ -88,8 +89,8 @@ loss_bce = nn.BCELoss()
 target_optimizer = optim.Adam(params=target_encoder.parameters(), lr=args.learning_rate)
 disc_optimizer = optim.Adam(params=discriminator.parameters(), lr=args.learning_rate)
 
-num_disc_steps_per_epoch = 1
-num_tar_steps_per_epoch = 1
+num_disc_steps_per_epoch = 2
+num_tar_steps_per_epoch = 2
 
 if not os.path.exists(result_folder):
     os.mkdir(result_folder)
