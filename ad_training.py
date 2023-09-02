@@ -9,6 +9,7 @@ from ds_transformer import DsTransformer
 from adda_discriminator import ADDA_Discriminator
 import torch.optim as optim
 from torch.autograd import Variable
+from utils import mmd_loss as mmd
 
 from tqdm import tqdm
 
@@ -55,13 +56,13 @@ args = parser.parse_args()
 
 print(args.test_name)
 
-random.seed(args.seed)
-np.random.seed(args.seed)
-torch.manual_seed(args.seed)
-torch.cuda.manual_seed(args.seed)
-cudnn.enabled = True
-cudnn.benchmark = False
-cudnn.deterministic = True
+# random.seed(args.seed)
+# np.random.seed(args.seed)
+# torch.manual_seed(args.seed)
+# torch.cuda.manual_seed(args.seed)
+# cudnn.enabled = True
+# cudnn.benchmark = False
+# cudnn.deterministic = True
 
 load_folder = "Resultados" + os.sep + args.load_folder
 result_folder = "Resultados" + os.sep + args.test_name
@@ -84,7 +85,8 @@ target_encoder.cuda()
 
 discriminator = ADDA_Discriminator()
 discriminator.cuda()
-loss_bce = nn.BCELoss()
+# loss_bce = nn.BCELoss()
+loss_bce = mmd.MMDLoss()
 
 target_optimizer = optim.Adam(params=target_encoder.parameters(), lr=args.learning_rate)
 disc_optimizer = optim.Adam(params=discriminator.parameters(), lr=args.learning_rate)
@@ -191,9 +193,10 @@ for i in range(1, args.epochs+1):
             target_optimizer.step()
 
             running_loss_trg += loss_trg.item()
-            pbar.update(1)
 
             torch.save(discriminator.state_dict(), bckp_path_target + os.sep + "epoch" + str(i) + ".pt")
+
+            pbar.update(1)
 
         pbar.close()
 
