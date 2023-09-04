@@ -1,4 +1,3 @@
-
 from typing import List, Tuple
 from numpy import typing as npt
 
@@ -422,66 +421,66 @@ class DsTransformer(nn.Module):
 
         step = (self.ng + self.nf + 1)
         total_loss = 0
-        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
-        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+        # dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        # dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
 
-        for i in range(0, self.nw):
-            anchor    = data[i * step]
-            positives = data[i * step + 1 : i * step + 1 + self.ng] 
-            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+        # for i in range(0, self.nw):
+        #     anchor    = data[i * step]
+        #     positives = data[i * step + 1 : i * step + 1 + self.ng] 
+        #     negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-            len_a = lens[i * step]
-            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
-            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+        #     len_a = lens[i * step]
+        #     len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+        #     len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
-            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+        #     dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+        #     dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
 
-            '''Average_Pooling_2,4,6'''
-            for j in range(len(positives)): 
-                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists_gs[i*self.ng + j] = dist_g[j]
+        #     '''Average_Pooling_2,4,6'''
+        #     for j in range(len(positives)): 
+        #         dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+        #         dists_gs[i*self.ng + j] = dist_g[j]
 
-            for j in range(len(negatives)):
-                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-                dists_ns[i*self.nf + j] = dist_n[j]
+        #     for j in range(len(negatives)):
+        #         dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+        #         dists_ns[i*self.nf + j] = dist_n[j]
 
-            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+        #     only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-            # lk = 0
-            # non_zeros = 1
-            # for g in dist_g:
-            #     for n in dist_n[:5]:
-            #         temp = F.relu(g + self.margin - n) * self.p
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
+        #     # lk = 0
+        #     # non_zeros = 1
+        #     # for g in dist_g:
+        #     #     for n in dist_n[:5]:
+        #     #         temp = F.relu(g + self.margin - n) * self.p
+        #     #         if temp > 0:
+        #     #             lk += temp
+        #     #             non_zeros+=1
 
-            #     for n in dist_n[5:]:
-            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
-            #         if temp > 0:
-            #             lk += temp
-            #             non_zeros+=1
-            # lv = lk / non_zeros
-            lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
-            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
-            lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
+        #     #     for n in dist_n[5:]:
+        #     #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+        #     #         if temp > 0:
+        #     #             lk += temp
+        #     #             non_zeros+=1
+        #     # lv = lk / non_zeros
+        #     lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
+        #     lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+        #     lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
 
-            user_loss = lv + only_pos
+        #     user_loss = lv + only_pos
 
-            total_loss += user_loss
+        #     total_loss += user_loss
     
-        total_loss /= self.nw
+        # total_loss /= self.nw * self.r
        
         mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
-        var_g = torch.var(dists_gs) * self.q
+        # var_g = torch.var(dists_gs) * self.q
         # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
         # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
         # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
 
         # ampli = torch.abs(torch.max(dists_gs) - torch.min(dists_gs)) * self.q
  
-        return total_loss + mmd1 + var_g
+        return  mmd1 
 
     def _hard_triplet_mmd(self, data, lens):
         """ Loss de um batch

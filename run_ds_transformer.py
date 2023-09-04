@@ -146,7 +146,7 @@ if __name__ == '__main__':
 	parser.add_argument("-df", "--dataset_folder", help="set dataset folder", default=".." + os.sep + "Data" + os.sep + "DeepSignDB", type=str)
 	parser.add_argument("-g", "--gamma", help="set gamma value for soft-dtw", default=5, type=int)
 	parser.add_argument("-bs", "--batch_size", help="set batch size (should be dividible by 16)", default=16, type=int)
-	parser.add_argument("-f", "--features", help="list of index of features used by the model", default=[0,1,2,3,4,5,6,7,8,9,10,11,12,13], type=list)
+	parser.add_argument("-f", "--features", help="list of index of features used by the model", default=[0,1,2,3,4,5,6,7,8,9,10,11], type=list)
 	parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=30, type=int)
 	# parser.add_argument("-cf", "--comparison_file", help="set the comparison file used in the evaluation during training", default='FILE', type=str)
 	parser.add_argument("-t", "--test_name", help="set name of current test", type=str, required=True)
@@ -191,7 +191,7 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "Spikes" + os.sep + args.test_name
+	res_folder = "Resultados" + os.sep + args.test_name
 
 	if args.transfer_domain:
 		"""Iniciar treino"""
@@ -221,17 +221,17 @@ if __name__ == '__main__':
 		print(count_parameters(model))
 		model.cuda()
 
-		# model.train(mode=False)
-		# model.eval()
+		model.train(mode=False)
+		model.eval()
 
-		# if args.r <= 1.0:
-		# 	model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
-		# 	# model.new_evaluate(FILE_FINGER2, 0, result_folder=res_folder)
-		# 	model.new_evaluate(FILE_FINGER3, 0, result_folder=res_folder)
+		if args.r <= 1.0:
+			model.new_evaluate(FILE_FINGER1, 0, result_folder=res_folder)
+			# model.new_evaluate(FILE_FINGER2, 0, result_folder=res_folder)
+			model.new_evaluate(FILE_FINGER3, 0, result_folder=res_folder)
 			# model.new_evaluate(FILE_FINGER4, 0, result_folder=res_folder)
 
 		model.train(mode=True)
-		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER2, FILE_FINGER4], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w, fine_tuning=args.fine_tuning)
+		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER1], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w, fine_tuning=args.fine_tuning)
 
 	elif args.all_weights:
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
@@ -241,16 +241,15 @@ if __name__ == '__main__':
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		eval_all_weights(model, res_folder, FILE_FINGER1, 10000, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE_FINGER2, 11000, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE_FINGER3, 12000, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE_FINGER4, 13000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE8, 1000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE, 1000, n_epochs=25)
+		# eval_all_weights(model, res_folder, FILE9, 2000, n_epochs=20)
+		# eval_all_weights(model, res_folder, FILE10, 3000, n_epochs=20)
 
 	elif not args.evaluate and not args.validate:
 		"""Iniciar treino"""
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
-		if args.compile:
-			model = torch.compile(model)
+		model.load_state_dict(torch.load("Resultados/ds_triplet_mmd_333" + os.sep + "Backup" + os.sep + args.weight))
 		print(count_parameters(model))
 		model.cuda()
 		model.train(mode=True)
