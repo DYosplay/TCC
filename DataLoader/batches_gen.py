@@ -164,6 +164,7 @@ def ad_generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/sty
 
     database = None
     print("Gererating new epoch")
+    genuines = random.sample(files['u' + f"0001" + 'g'], 8)
 
     for user_id in tqdm(train_users):
         
@@ -181,8 +182,7 @@ def ad_generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/sty
             raise ValueError("Dataset desconhecido!")
 
         for i in range(0, number_of_mini_baches):
-
-            genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], 8)
+            
             files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
 
             # ids aleatórios podem ser de qualquer mini dataset
