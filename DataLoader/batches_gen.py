@@ -19,15 +19,18 @@ def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
 
 def files2array(batch, scenario : str, z : bool, developtment : bool):
     data = []; lens = []
-
+    # scenario = None
     # if developtment:
     #     batch = batch[1:]
 
     for file in batch:
-        if developtment == False: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file
+        if developtment == False and "Evaluation" in file: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + file.strip()
+        elif developtment == False: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file.strip()
         
         # Se quiser testar usando o conjunto de treino
         # if developtment == True: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + "stylus" + os.sep + file
+
+        scenario = "stylus" if "stylus" in file else "finger"
         
         feat = loader.get_features(file, scenario=scenario, z=z, development=developtment)
         data.append(feat)
@@ -110,6 +113,19 @@ def get_random_ids(user_id, database, samples = 5):
         return list(set(random.sample(list(range(231,499)), samples+1)) - set([user_id]))[:5]
     
     raise ValueError("Dataset desconhecido")
+
+def generate_mixed_epoch(train_offset = [(1, 498), (1009, 1084)]):
+    dataset_stylus_folder = "../Data/DeepSignDB/Development/stylus"
+    dataset_finger_folder = "../Data/DeepSignDB/Development/finger"
+    train_stylus_offset = [(1, 498), (1009, 1084)]
+    train_finger_offset = [(1009, 1084)]
+
+    stylus_epoch = generate_epoch(dataset_folder=dataset_stylus_folder, train_offset=train_stylus_offset, scenario='stylus')
+    finger_epoch = generate_epoch(dataset_folder=dataset_finger_folder, train_offset=train_finger_offset, scenario='finger')
+
+    epoch = stylus_epoch + finger_epoch
+    random.shuffle(epoch)
+    return epoch
 
 def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus", train_offset = [(1, 498), (1009, 1084)], users=None, development = True, scenario : str = 'stylus'):
     files = get_files(dataset_folder=dataset_folder)
