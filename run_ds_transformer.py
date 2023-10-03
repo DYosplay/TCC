@@ -26,8 +26,10 @@ FILE5 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Fi
 FILE6 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W5_skilled_stylus_4vs1.txt"
 FILE7 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "jprotocol.txt"
 
-
-
+FILE_SVC1 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "SVC_OnGoing_Competition" + os.sep + "DeepSignDB_Task1_comparisons.txt"
+FILE_SVC2 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "SVC_OnGoing_Competition" + os.sep + "DeepSignDB_Task2_comparisons.txt"
+FILE_SVC3 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "SVC_OnGoing_Competition" + os.sep + "DeepSignDB_Task3_comparisons.txt"
+FILE_TESTE = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "SVC_OnGoing_Competition" + os.sep + "DeepSignDB_Task1.txt"
 PATH = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal"
 
 def validation(model : DsTransformer, res_folder : str, scenario : str, mode : str = 'stylus'):
@@ -177,16 +179,20 @@ if __name__ == '__main__':
 	parser.add_argument("-ft", "--fine_tuning", help="tune the model using finger signatures", action='store_true')
 	parser.add_argument("-tdft", "--transfer_domain", help="tune the model using domain transferation", action='store_true')
 	parser.add_argument("-z", "--zscore", help="normalize x and y coordinates using zscore", action='store_true')
+	parser.add_argument("-mix", "--mix_signatures", help="use both stylus and finger signatures during training", action='store_true')
+
+	parser.add_argument("-k", "--kernel", help="kernel mmd", default=5, type=int)
+	parser.add_argument("-mul", "--mul", help="mul mmd", default=2, type=int)
 
 	# Read arguments from command line
 	args = parser.parse_args()
 	
 	print(args.test_name)
 
-	random.seed(args.seed)
-	np.random.seed(args.seed)
-	torch.manual_seed(args.seed)
-	torch.cuda.manual_seed(args.seed)
+	# random.seed(args.seed)
+	# np.random.seed(args.seed)
+	# torch.manual_seed(args.seed)
+	# torch.cuda.manual_seed(args.seed)
 	cudnn.enabled = True
 	cudnn.benchmark = False
 	cudnn.deterministic = True
@@ -248,15 +254,15 @@ if __name__ == '__main__':
 
 	elif not args.evaluate and not args.validate:
 		"""Iniciar treino"""
-		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
-		model.load_state_dict(torch.load("Resultados/ds_triplet_mmd_333" + os.sep + "Backup" + os.sep + args.weight))
+		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore, kernel=args.kernel, mul=args.mul)
+		# model.load_state_dict(torch.load("Resultados/ds_triplet_mmd_333" + os.sep + "Backup" + os.sep + args.weight))
 		print(count_parameters(model))
 		model.cuda()
 		model.train(mode=True)
-		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w)
+		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w, mix_signatures=args.mix_signatures)
 	elif args.evaluate:
 		"""Avaliar modelo"""
-		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw)
+		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, z=args.zscore)
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))
@@ -264,10 +270,12 @@ if __name__ == '__main__':
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		# model.new_evaluate(FILE, 888, result_folder=res_folder)
-		# model.new_evaluate(FILE8, 888, result_folder=res_folder)
-		model.new_evaluate(FILE9, 777, result_folder=res_folder)
-		# model.new_evaluate(FILE10, 777, result_folder=res_folder)
+		# model.new_evaluate(FILE, 0, result_folder=res_folder)
+		# model.new_evaluate(FILE_TESTE, 66666, result_folder=res_folder)
+		model.new_evaluate(FILE_SVC1, 77777, result_folder=res_folder)
+		model.new_evaluate(FILE_SVC2, 88888, result_folder=res_folder)
+		model.new_evaluate(FILE_SVC3, 99999, result_folder=res_folder)
+
 	
 	elif args.validate:
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)

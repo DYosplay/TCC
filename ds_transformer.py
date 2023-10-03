@@ -30,13 +30,16 @@ from fastdtw import fastdtw
 
 import random
 
+# from gradient_reversal import revgrad
+from gradient_reversal import GradientReversal
+
 CHEAT = False
 CHANGE_TRAIN_MODE=80
 
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False, early_stop : int = 10, z : bool = False):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False, early_stop : int = 10, z : bool = False, kernel : int = 5, mul : int = 2):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -119,7 +122,9 @@ class DsTransformer(nn.Module):
 
         self.center_loss = None
         # self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
-        self.mmd_loss = mmd.MMDLoss()
+        self.mmd_loss = mmd.MMDLoss(kernel_num=kernel, kernel_mul=mul)
+
+        self.grl = GradientReversal(alpha=1.)
         
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
@@ -421,66 +426,84 @@ class DsTransformer(nn.Module):
 
         step = (self.ng + self.nf + 1)
         total_loss = 0
-        # dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
-        # dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
 
-        # for i in range(0, self.nw):
-        #     anchor    = data[i * step]
-        #     positives = data[i * step + 1 : i * step + 1 + self.ng] 
-        #     negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-        #     len_a = lens[i * step]
-        #     len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
-        #     len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
-        #     dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
-        #     dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
 
-        #     '''Average_Pooling_2,4,6'''
-        #     for j in range(len(positives)): 
-        #         dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-        #         dists_gs[i*self.ng + j] = dist_g[j]
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
 
-        #     for j in range(len(negatives)):
-        #         dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
-        #         dists_ns[i*self.nf + j] = dist_n[j]
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i*self.nf + j] = dist_n[j]
 
-        #     only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
-        #     # lk = 0
-        #     # non_zeros = 1
-        #     # for g in dist_g:
-        #     #     for n in dist_n[:5]:
-        #     #         temp = F.relu(g + self.margin - n) * self.p
-        #     #         if temp > 0:
-        #     #             lk += temp
-        #     #             non_zeros+=1
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
 
-        #     #     for n in dist_n[5:]:
-        #     #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
-        #     #         if temp > 0:
-        #     #             lk += temp
-        #     #             non_zeros+=1
-        #     # lv = lk / non_zeros
-        #     lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
-        #     lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
-        #     lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+            lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+            lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
 
-        #     user_loss = lv + only_pos
+            user_loss = lv + only_pos
 
-        #     total_loss += user_loss
+            total_loss += user_loss
     
-        # total_loss /= self.nw * self.r
+        total_loss /= self.nw
        
         mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
-        # var_g = torch.var(dists_gs) * self.q
-        # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
-        # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
-        # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
-
-        # ampli = torch.abs(torch.max(dists_gs) - torch.min(dists_gs)) * self.q
+        var_g = torch.var(dists_gs) * self.q
  
-        return  mmd1 
+        return total_loss + mmd1 + var_g
+    
+    def _mmd(self, data):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
+        self.grl(data)
+
+        step = (self.ng + self.nf + 1)
+       
+        mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+
+        return mmd1 
 
     def _hard_triplet_mmd(self, data, lens):
         """ Loss de um batch
@@ -637,7 +660,7 @@ class DsTransformer(nn.Module):
         else:
             return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
 
-    def _inference(self, files : str, scenario : str, n_epoch : int) -> Tuple[float, str, int]:
+    def _inference(self, files : str, n_epoch : int) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
@@ -648,6 +671,10 @@ class DsTransformer(nn.Module):
         Returns:
             float, str, int: distância da assinatura, usuário, label 
         """
+        scenario = "stylus"
+        if "finger" in files:
+            scenario = "finger"
+
         tokens = files.split(" ")
         user_key = tokens[0].split("_")[0]
         
@@ -655,7 +682,11 @@ class DsTransformer(nn.Module):
         refs = []
         sign = ""
 
-        if len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+        if len(tokens) == 2:
+            a = tokens[0].split('_')[0]
+            b = tokens[1].split('_')[0]
+            result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
+        elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
@@ -713,10 +744,6 @@ class DsTransformer(nn.Module):
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
 
-        scenario = 'stylus'
-        if 'finger' in comparison_file:
-            scenario = 'finger'
-
         if not os.path.exists(result_folder): os.mkdir(result_folder)
 
         file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
@@ -727,7 +754,7 @@ class DsTransformer(nn.Module):
         users = {}
 
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._inference(line, scenario=scenario, n_epoch=n_epoch)
+            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
@@ -748,9 +775,11 @@ class DsTransformer(nn.Module):
             global_true_label += users[user]["true_label"]
             global_distances  += users[user]["distances"]
 
-            eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
-            eers.append(eer)
-            local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + "\n"
+            # if "Task" not in comparison_file:
+            if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
+                eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
+                eers.append(eer)
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + "\n"
 
         print("Obtendo EER global...")
         
@@ -775,7 +804,7 @@ class DsTransformer(nn.Module):
 
         self.train(mode=True)
 
-    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False):
+    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False, mix_signatures : bool = False):
         """ Loop de treinamento
 
         Args:
@@ -792,7 +821,7 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
-        elif self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+        elif self.loss_type == 'grl' or self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         
@@ -810,12 +839,16 @@ class DsTransformer(nn.Module):
         for i in range(1, n_epochs+1):
             epoch = None
             scenario = None
-            if not self.fine_tuning:
-                epoch = batches_gen.generate_epoch()
-                scenario = 'stylus'
+
+            if mix_signatures:
+                epoch = batches_gen.generate_mixed_epoch()
             else:
-                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
-                scenario = 'finger'
+                if not self.fine_tuning:
+                    epoch = batches_gen.generate_epoch()
+                    scenario = 'stylus'
+                else:
+                    epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
+                    scenario = 'finger'
 
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
@@ -844,7 +877,16 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'hard_triplet_mmd':
+                if self.loss_type == 'grl':
+                    loss1 = self._loss(outputs, length)
+                    # data_rev = revgrad(outputs, torch.tensor([1.], device="cuda"))
+                    loss2 = self._mmd(outputs)
+                    loss1.backward(retain_graph=True)
+                    loss2.backward()
+                    loss = loss1 + loss2
+
+
+                elif self.loss_type == 'hard_triplet_mmd':
                     loss = self._hard_triplet_mmd(outputs, length)
                     loss.backward()
                 elif self.loss_type == 'triplet_mmd':
@@ -874,7 +916,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
