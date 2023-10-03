@@ -57,6 +57,7 @@ def get_eer(y_true = List[int], y_scores = List[float], result_folder : str = No
         eer2 = fnr[np.nanargmin(np.absolute((fnr - fpr)))]
 
         eer = (eer + eer2)/2
+        # eer = min(eer, eer2)
 
         if generate_graph:
             frr_list = np.array(frr)
