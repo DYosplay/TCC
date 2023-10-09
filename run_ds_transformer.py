@@ -19,7 +19,7 @@ FILE_FINGER2 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Compar
 FILE_FINGER3 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "finger" + os.sep + "4vs1" + os.sep + "random" + os.sep + "Comp_DeepSignDB_random_finger_4vs1.txt"
 FILE_FINGER4 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "finger" + os.sep + "1vs1" + os.sep + "random" + os.sep + "Comp_DeepSignDB_random_finger_1vs1.txt"
 
-FILE2 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W1_skilled_stylus_4vs1.txt"
+FILE2 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "1vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W1_skilled_stylus_1vs1.txt"
 FILE3 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W2_skilled_stylus_4vs1.txt"
 FILE4 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W3_skilled_stylus_4vs1.txt"
 FILE5 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W4_skilled_stylus_4vs1.txt"
@@ -165,7 +165,7 @@ if __name__ == '__main__':
 	parser.add_argument("-p", "--p", help="set p value for icnn_loss", default=0.0, type=float)
 	parser.add_argument("-q", "--q", help="set q value for icnn_loss", default=0.0, type=float)
 	parser.add_argument("-r", "--r", help="set r value for icnn_loss", default=0.0, type=float)
-	parser.add_argument("-seed", "--seed", help="set seed value", default=111, type=int)
+	parser.add_argument("-seed", "--seed", help="set seed value", default=None, type=int)
 	parser.add_argument("-qm", "--quadruplet_margin", help="set margin value for quadruplet margin", default=0.5, type=float)
 	parser.add_argument("-tm", "--margin", help="set margin value for triplet loss margin", default=1.0, type=float)
 	parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
@@ -189,10 +189,12 @@ if __name__ == '__main__':
 	
 	print(args.test_name)
 
-	# random.seed(args.seed)
-	# np.random.seed(args.seed)
-	# torch.manual_seed(args.seed)
-	# torch.cuda.manual_seed(args.seed)
+	if args.seed is not None:
+		random.seed(args.seed)
+		np.random.seed(args.seed)
+		torch.manual_seed(args.seed)
+		torch.cuda.manual_seed(args.seed)
+	
 	cudnn.enabled = True
 	cudnn.benchmark = False
 	cudnn.deterministic = True
@@ -270,11 +272,11 @@ if __name__ == '__main__':
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		# model.new_evaluate(FILE, 0, result_folder=res_folder)
+		model.new_evaluate(FILE2, 0, result_folder=res_folder)
 		# model.new_evaluate(FILE_TESTE, 66666, result_folder=res_folder)
-		model.new_evaluate(FILE_SVC1, 77777, result_folder=res_folder)
-		model.new_evaluate(FILE_SVC2, 88888, result_folder=res_folder)
-		model.new_evaluate(FILE_SVC3, 99999, result_folder=res_folder)
+		# model.new_evaluate(FILE_SVC1, 77777, result_folder=res_folder)
+		# model.new_evaluate(FILE_SVC2, 88888, result_folder=res_folder)
+		# model.new_evaluate(FILE_SVC3, 99999, result_folder=res_folder)
 
 	
 	elif args.validate:
