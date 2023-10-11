@@ -479,8 +479,9 @@ class DsTransformer(nn.Module):
        
         mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         var_g = torch.var(dists_gs) * self.q
+        var_n = torch.var(dists_ns) * self.r
  
-        return total_loss + mmd1 + var_g
+        return total_loss + mmd1 + var_g - var_n
     
     def _mmd(self, data):
         """ Loss de um batch
@@ -658,7 +659,8 @@ class DsTransformer(nn.Module):
             distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
             return torch.tensor([distance /(64* (len_x + len_y))])
         else:
-            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /( 64* (len_x + len_y))
+            # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
     def _inference(self, files : str, n_epoch : int) -> Tuple[float, str, int]:
         """
@@ -681,6 +683,8 @@ class DsTransformer(nn.Module):
         result = math.nan
         refs = []
         sign = ""
+        s_avg = 0
+        s_min = 0
 
         if len(tokens) == 2:
             a = tokens[0].split('_')[0]
@@ -689,6 +693,8 @@ class DsTransformer(nn.Module):
         elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+        # if 'u0148' in refs[0] or 'u0272' in refs[0]:
 
         test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, scenario=scenario, developtment=CHEAT)
 
@@ -721,14 +727,20 @@ class DsTransformer(nn.Module):
         dk_sqrt = math.sqrt(dk)
         
         dists = []
+        # dists2 = []
         for i in range(0, len(refs)):
             dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
+            # dists2.append(self._dte(refs[i], refs[i], len_refs[i], len_refs[i]).detach().cpu().numpy()[0])
 
         dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
         s_min = min(dists)
 
-        return s_avg + s_min, user_key, result
+            # dists2 = np.array(dists2) / dk_sqrt
+            # s_avg2 = np.mean(dists2)
+            # s_min2 = min(dists2)
+
+        return (s_avg + s_min), user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -804,7 +816,7 @@ class DsTransformer(nn.Module):
 
         self.train(mode=True)
 
-    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False, mix_signatures : bool = False):
+    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False, dataset_scenario : str = "stylus"):
         """ Loop de treinamento
 
         Args:
@@ -840,15 +852,14 @@ class DsTransformer(nn.Module):
             epoch = None
             scenario = None
 
-            if mix_signatures:
+            if dataset_scenario == "mix":
                 epoch = batches_gen.generate_mixed_epoch()
-            else:
-                if not self.fine_tuning:
+            elif dataset_scenario == "stylus":
                     epoch = batches_gen.generate_epoch()
                     scenario = 'stylus'
-                else:
-                    epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
-                    scenario = 'finger'
+            elif dataset_scenario == "finger":
+                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
+                scenario = 'finger'
 
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
