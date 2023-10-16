@@ -242,15 +242,16 @@ if __name__ == '__main__':
 		model.start_train(n_epochs=args.epochs, batch_size=args.batch_size, comparison_files=[FILE_FINGER1], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w, fine_tuning=args.fine_tuning)
 
 	elif args.all_weights:
-		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore)
+		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop, z=args.zscore, kernel=args.kernel, mul=args.mul)
 		if args.compile:
 			model = torch.compile(model)
 		print(count_parameters(model))
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		eval_all_weights(model, res_folder, FILE8, 1000, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE, 1000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE_SVC1, 777, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE_SVC2, 888, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE_SVC3, 999, n_epochs=25)
 		# eval_all_weights(model, res_folder, FILE9, 2000, n_epochs=20)
 		# eval_all_weights(model, res_folder, FILE10, 3000, n_epochs=20)
 
@@ -272,11 +273,11 @@ if __name__ == '__main__':
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		model.new_evaluate(FILE2, 0, result_folder=res_folder)
+		# model.new_evaluate(FILE2, 0, result_folder=res_folder)
 		# model.new_evaluate(FILE_TESTE, 66666, result_folder=res_folder)
-		# model.new_evaluate(FILE_SVC1, 77777, result_folder=res_folder)
-		# model.new_evaluate(FILE_SVC2, 88888, result_folder=res_folder)
-		# model.new_evaluate(FILE_SVC3, 99999, result_folder=res_folder)
+		model.new_evaluate(FILE_SVC1, 77777, result_folder=res_folder)
+		model.new_evaluate(FILE_SVC2, 88888, result_folder=res_folder)
+		model.new_evaluate(FILE_SVC3, 99999, result_folder=res_folder)
 
 	
 	elif args.validate:
