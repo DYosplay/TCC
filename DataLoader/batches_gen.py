@@ -25,6 +25,7 @@ def files2array(batch, scenario : str, z : bool, developtment : bool):
 
     for file in batch:
         file.replace('\\', os.sep)
+        file.replace('/', os.sep)
         if developtment == False and "Evaluation" in file: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + file.strip()
         elif developtment == False: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file.strip()
         
