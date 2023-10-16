@@ -479,9 +479,9 @@ class DsTransformer(nn.Module):
        
         mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         var_g = torch.var(dists_gs) * self.q
-        var_n = torch.var(dists_ns) * self.r
+
  
-        return total_loss + mmd1 + var_g - var_n
+        return total_loss + mmd1 + var_g 
     
     def _mmd(self, data):
         """ Loss de um batch
