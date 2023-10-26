@@ -657,9 +657,9 @@ class DsTransformer(nn.Module):
         """
         if self.use_fdtw:
             distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
-            return torch.tensor([distance /(64* (len_x + len_y))])
+            return torch.tensor([distance /((len_x + len_y))])
         else:
-            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /( 64* (len_x + len_y))
+            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
             # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
     def _inference(self, files : str, n_epoch : int) -> Tuple[float, str, int]:
