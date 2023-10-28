@@ -119,6 +119,11 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     x1, y1 = None, None
     if z: x1, y1 = zscore(dx), zscore(dy)
     else: x1, y1 = normalize_x_and_y(x, y)
+
+
+    # teste ##########################
+    return np.array([x1,y1,zscore(p)])
+    ##################################
     
     # result = []
     """ s """
