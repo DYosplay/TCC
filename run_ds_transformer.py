@@ -249,11 +249,14 @@ if __name__ == '__main__':
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		eval_all_weights(model, res_folder, FILE_SVC1, 777, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE_SVC2, 888, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE_SVC3, 999, n_epochs=25)
-		# eval_all_weights(model, res_folder, FILE9, 2000, n_epochs=20)
-		# eval_all_weights(model, res_folder, FILE10, 3000, n_epochs=20)
+		# eval_all_weights(model, res_folder, FILE_SVC1, 777, n_epochs=25)
+		# eval_all_weights(model, res_folder, FILE_SVC2, 888, n_epochs=25)
+		# eval_all_weights(model, res_folder, FILE_SVC3, 999, n_epochs=25)
+		
+		eval_all_weights(model, res_folder, FILE, 2000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE8, 3000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE9, 4000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE10, 5000, n_epochs=25)
 
 	elif not args.evaluate and not args.validate:
 		"""Iniciar treino"""
