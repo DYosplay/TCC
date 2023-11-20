@@ -199,7 +199,7 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "SVC" + os.sep + args.test_name
+	res_folder = "Resultados" + os.sep + args.test_name
 
 	if args.transfer_domain:
 		"""Iniciar treino"""
