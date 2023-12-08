@@ -122,7 +122,7 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
 
 
     # teste ##########################
-    return np.array([x1,y1,zscore(p)])
+    # return np.array([x1,y1,zscore(p)])
     ##################################
     
     # result = []
