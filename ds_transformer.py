@@ -577,6 +577,90 @@ class DsTransformer(nn.Module):
  
         return total_loss + (mmd_loss/comparisons) + var_g         
 
+    def _compact_triplet_loss(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i*self.nf + j] = dist_n[j]
+
+            # only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))
+            lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))
+            
+            ca = torch.mean(dist_g)
+            cb = torch.mean(dist_n[:5])
+            intra_loss = torch.sum(dist_g - ca)
+            inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
+
+            
+            #lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
+            t_loss = torch.sum(lk_skilled) + torch.sum(lk_random)
+
+            user_loss = t_loss * self.p + intra_loss * self.q + inter_loss * self.r
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+       
+        mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+        var_g = torch.var(dists_gs) * self.q
+
+ 
+        return total_loss + mmd1 + var_g 
+    
+        
+
     def _loss(self, data, lens):
         """ Loss de um batch
 
@@ -834,7 +918,7 @@ class DsTransformer(nn.Module):
         if self.loss_type == 'icnn_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
-        elif self.loss_type == 'grl' or self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+        elif self.loss_type == 'grl' or self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd' or self.loss_type == 'compact_triplet_loss':
             optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
             lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         
@@ -915,6 +999,9 @@ class DsTransformer(nn.Module):
                     loss.backward()
                 elif self.loss_type == 'icnn_loss':
                     loss = self._icnn_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'compact_triplet_loss':
+                    loss = self._compact_triplet_loss(outputs, length)
                     loss.backward()
                 else:
                     loss = self._loss(outputs, length)
@@ -1019,6 +1106,9 @@ class DsTransformer(nn.Module):
                     loss.backward()
                 elif self.loss_type == 'icnn_loss':
                     loss = self._icnn_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'compact_triplet_loss':
+                    loss = self._compact_triplet_loss(outputs, length)
                     loss.backward()
                 
                 optimizer.step()

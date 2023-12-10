@@ -137,7 +137,7 @@ def jprotocol():
 	model.new_evaluate(FILE7, 10000, result_folder=PARENT_FOLDER)
 
 if __name__ == '__main__':
-	if not os.path.exists("Monografia"): os.mkdir("Monografia")
+	if not os.path.exists("CTL"): os.mkdir("CTL")
 
 
 	# Initialize parser
