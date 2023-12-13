@@ -674,7 +674,7 @@ class DsTransformer(nn.Module):
                 
         # mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         # var_g = torch.var(dists_gs) * self.q
-        mmd1 = torch.max(ctr) * self.alpha
+        mmd1 = torch.max(mmds) * self.alpha
  
         return total_loss + mmd1 # + var_g 
 
