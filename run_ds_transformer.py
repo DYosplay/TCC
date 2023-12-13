@@ -276,11 +276,13 @@ if __name__ == '__main__':
 		model.cuda()
 		model.train(mode=False)
 		model.eval()
-		# model.new_evaluate(FILE2, 0, result_folder=res_folder)
+		model.new_evaluate(FILE9, 1000, result_folder=res_folder)
+		model.new_evaluate(FILE10, 2000, result_folder=res_folder)
+		model.new_evaluate(FILE8, 3000, result_folder=res_folder)
 		# model.new_evaluate(FILE_TESTE, 66666, result_folder=res_folder)
-		model.new_evaluate(FILE_SVC1, 77777, result_folder=res_folder)
-		model.new_evaluate(FILE_SVC2, 88888, result_folder=res_folder)
-		model.new_evaluate(FILE_SVC3, 99999, result_folder=res_folder)
+		# model.new_evaluate(FILE_SVC1, 77777, result_folder=res_folder)
+		# model.new_evaluate(FILE_SVC2, 88888, result_folder=res_folder)
+		# model.new_evaluate(FILE_SVC3, 99999, result_folder=res_folder)
 
 	
 	elif args.validate:

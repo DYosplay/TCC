@@ -653,10 +653,16 @@ class DsTransformer(nn.Module):
             total_loss += user_loss
     
         total_loss /= self.nw
-       
-        mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
-        # var_g = torch.var(dists_gs) * self.q
 
+        mmd1 = 0
+        for i in range(0, self.nw):
+            for j in range(1, self.nw):
+                if i != j:
+                    mmd1 += self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) * self.alpha
+       
+        # mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+        # var_g = torch.var(dists_gs) * self.q
+        mmd1 *= self.alpha
  
         return total_loss + mmd1 # + var_g 
 
