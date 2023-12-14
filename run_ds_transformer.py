@@ -136,10 +136,42 @@ def jprotocol():
 	model.eval()
 	model.new_evaluate(FILE7, 10000, result_folder=PARENT_FOLDER)
 
+def randrange_float(start, stop, step):
+    return random.randint(0, int((stop - start) / step)) * step + start
+
+def search_parameters():
+	"""Iniciar treino"""
+
+	alpha = np.round(np.random.uniform(0.7,1.2,40),2)
+	beta  = np.round(np.random.uniform(0.5,4,40),1)
+	p     = np.round(np.random.uniform(0.05,1,40),3)
+	r     = np.round(np.random.uniform(0.05,1,40),3)
+
+	random.seed(333)
+	np.random.seed(333)
+	torch.manual_seed(333)
+	torch.cuda.manual_seed(333)
+
+	parm_log = "Name, alpha, beta, p, r, EER\n"
+
+	for i in range(0, 40):
+		try:
+			res_folder = "CTL_G" + os.sep + "ctl_" + f'{i:03d}'
+			model = DsTransformer(batch_size=64, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=0.01, use_mask=args.mask, loss_type="compact_triplet_mmd", alpha=alpha[i], beta=beta[i], p=p[i], q=args.q, r=r[i], qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=6, z=args.zscore, kernel=args.kernel, mul=args.mul)
+
+			print(count_parameters(model))
+			model.cuda()
+			model.train(mode=True)
+			model.start_train(n_epochs=25, batch_size=64, comparison_files=[FILE], result_folder=res_folder, triplet_loss_w=args.triplet_loss_w, dataset_scenario=args.dataset_scenario)
+
+			parm_log += "ctl_" + f'{i:03d},' + str(alpha[i]) + "," + str(beta[i]) + "," + str(p[i]) + "," + str(r[i]) + "," + str(model.best_eer) + "\n" 
+		except:
+			continue
+	
+
+
+
 if __name__ == '__main__':
-	if not os.path.exists("CTL"): os.mkdir("CTL")
-
-
 	# Initialize parser
 	parser = argparse.ArgumentParser()
 	
@@ -183,7 +215,7 @@ if __name__ == '__main__':
 
 	parser.add_argument("-k", "--kernel", help="kernel mmd", default=5, type=int)
 	parser.add_argument("-mul", "--mul", help="mul mmd", default=2, type=int)
-
+	parser.add_argument("-sg", "--search_greed", help="search hyperparameters in a greed way", action='store_true')
 	# Read arguments from command line
 	args = parser.parse_args()
 	
@@ -199,9 +231,17 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = "Resultados" + os.sep + args.test_name
+	if args.search_greed:
+		if not os.path.exists("CTL_G"): os.mkdir("CTL_G")
+		res_folder = "CTL_G" + os.sep + args.test_name
+	else:
+		if not os.path.exists("Resultados"): os.mkdir("Resultados")
+		res_folder = "Resultados" + os.sep + args.test_name
 
-	if args.transfer_domain:
+	if args.search_greed:
+		search_parameters()
+
+	elif args.transfer_domain:
 		"""Iniciar treino"""
 		model = DsTransformer(batch_size=args.batch_size, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=args.learning_rate, use_mask=args.mask, loss_type=args.loss_type, alpha=args.alpha, beta=args.beta, p=args.p, q=args.q, r=args.r, qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=args.early_stop)
 		if args.compile:

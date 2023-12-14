@@ -7,6 +7,8 @@ from utils import angular_losses as al
 from utils import mmd_loss as mmd
 from utils import coral as coral
 
+import optuna
+from optuna.trial import TrialState
 
 import torch.nn.utils as nutils
 import torch.nn as nn
@@ -67,13 +69,13 @@ class DsTransformer(nn.Module):
         self.scores = []
         self.labels = []
         self.th = 3.5
-        self.alpha = alpha
-        self.beta = beta
+        self.alpha = (alpha)
+        self.beta = (beta)
         self.early_stop = early_stop
 
-        self.p = p
-        self.q = q
-        self.r = r
+        self.p = (p)
+        self.q = (q)
+        self.r = (r)
         # self.loss_value = math.inf
 
 
@@ -1052,7 +1054,7 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
+            if not self.fine_tuning and ((self.best_eer > 0.04 and i >= self.early_stop)):
                 print("\n\nEarly stop!")
                 break
 
