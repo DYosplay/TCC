@@ -139,7 +139,7 @@ def jprotocol():
 def randrange_float(start, stop, step):
     return random.randint(0, int((stop - start) / step)) * step + start
 
-def search_parameters():
+def search_parameters(name):
 	"""Iniciar treino"""
 
 	alpha = np.round(np.random.uniform(0.7,1.2,40),2)
@@ -153,10 +153,12 @@ def search_parameters():
 	torch.cuda.manual_seed(333)
 
 	parm_log = "Name, alpha, beta, p, r, EER\n"
+	
 
 	for i in range(0, 40):
 		try:
-			res_folder = "CTL_G" + os.sep + "ctl_" + f'{i:03d}'
+			res_folder = name + os.sep + "ctl_" + f'{i:03d}'
+			if not os.path.exists(args.test_name): os.mkdir(args.test_name)
 			model = DsTransformer(batch_size=64, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=0.01, use_mask=args.mask, loss_type="compact_triplet_mmd", alpha=alpha[i], beta=beta[i], p=p[i], q=args.q, r=r[i], qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=6, z=args.zscore, kernel=args.kernel, mul=args.mul)
 
 			print(count_parameters(model))
@@ -167,6 +169,9 @@ def search_parameters():
 			parm_log += "ctl_" + f'{i:03d},' + str(alpha[i]) + "," + str(beta[i]) + "," + str(p[i]) + "," + str(r[i]) + "," + str(model.best_eer) + "\n" 
 		except:
 			continue
+
+		with open(name + os.sep + "log.csv", "w") as fw:
+			fw.write(parm_log)
 	
 
 
@@ -232,14 +237,13 @@ if __name__ == '__main__':
 	cudnn.deterministic = True
 
 	if args.search_greed:
-		if not os.path.exists("CTL_G"): os.mkdir("CTL_G")
-		res_folder = "CTL_G" + os.sep + args.test_name
+		if not os.path.exists(args.test_name): os.mkdir(args.test_name)
 	else:
 		if not os.path.exists("Resultados"): os.mkdir("Resultados")
 		res_folder = "Resultados" + os.sep + args.test_name
 
 	if args.search_greed:
-		search_parameters()
+		search_parameters(name = args.test_name)
 
 	elif args.transfer_domain:
 		"""Iniciar treino"""
