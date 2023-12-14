@@ -157,6 +157,8 @@ def search_parameters(name):
 
 	for i in range(0, 40):
 		try:
+			print("Name, alpha, beta, p, r")
+			print("ctl_" + f'{i:03d},' + str(alpha[i]) + "," + str(beta[i]) + "," + str(p[i]) + "," + str(r[i]))
 			res_folder = name + os.sep + "ctl_" + f'{i:03d}'
 			if not os.path.exists(args.test_name): os.mkdir(args.test_name)
 			model = DsTransformer(batch_size=64, in_channels=len(args.features), dataset_folder=args.dataset_folder, gamma=args.gamma, lr=0.01, use_mask=args.mask, loss_type="compact_triplet_mmd", alpha=alpha[i], beta=beta[i], p=p[i], q=args.q, r=r[i], qm=args.quadruplet_margin, margin = args.margin, decay = args.decay, nlr = args.new_learning_rate, use_fdtw = args.use_fdtw, fine_tuning=args.fine_tuning, early_stop=6, z=args.zscore, kernel=args.kernel, mul=args.mul)
