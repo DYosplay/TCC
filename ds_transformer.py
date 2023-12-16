@@ -642,8 +642,9 @@ class DsTransformer(nn.Module):
             
             ca = torch.mean(dist_g)
             cb = torch.mean(dist_n[:5])
-            intra_loss = torch.sum(dist_g - ca)
-            inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
+            cc = torch.mean(dist_n[5:])
+            intra_loss = torch.sum(dist_g - ca) / ca
+            inter_loss = torch.sum(F.relu(self.beta - torch.abs(ca-cb))) + torch.sum(F.relu(self.beta - torch.abs(ca-cc)))
 
             # lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
             # lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
