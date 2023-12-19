@@ -7,6 +7,7 @@ import torch.backends.cudnn as cudnn
 import argparse
 import random
 import numpy as np
+import math
 
 
 FILE = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_DeepSignDB_skilled_stylus_4vs1.txt"
@@ -241,8 +242,11 @@ if __name__ == '__main__':
 	if args.search_greed:
 		if not os.path.exists(args.test_name): os.mkdir(args.test_name)
 	else:
-		if not os.path.exists("Resultados"): os.mkdir("Resultados")
-		res_folder = "Resultados" + os.sep + args.test_name
+		if len(args.test_name.split(os.sep)) < 2:
+			if not os.path.exists("CTL_S2"): os.mkdir("CTL_S2")
+			res_folder = "CTL_S2" + os.sep + args.test_name
+		else:  
+			res_folder = args.test_name
 
 	if args.search_greed:
 		search_parameters(name = args.test_name)
@@ -299,10 +303,29 @@ if __name__ == '__main__':
 		# eval_all_weights(model, res_folder, FILE_SVC2, 888, n_epochs=25)
 		# eval_all_weights(model, res_folder, FILE_SVC3, 999, n_epochs=25)
 		
-		eval_all_weights(model, res_folder, FILE, 2000, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE8, 3000, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE9, 4000, n_epochs=25)
-		eval_all_weights(model, res_folder, FILE10, 5000, n_epochs=25)
+		eval_all_weights(model, res_folder, FILE, 2000, n_epochs=args.epochs)
+		with open(res_folder + os.sep + FILE.split(os.sep)[-1] + " summary.csv", "w") as fw: 
+			fw.write(model.buffer)
+		model.buffer = "Epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
+		model.best_eer = math.inf
+	
+		eval_all_weights(model, res_folder, FILE8, 3000, n_epochs=args.epochs)
+		with open(res_folder + os.sep + FILE8.split(os.sep)[-1] + " summary.csv", "w") as fw: 
+			fw.write(model.buffer)
+		model.buffer = "Epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
+		model.best_eer = math.inf
+
+		eval_all_weights(model, res_folder, FILE9, 4000, n_epochs=args.epochs)
+		with open(res_folder + os.sep + FILE9.split(os.sep)[-1] + " summary.csv", "w") as fw: 
+			fw.write(model.buffer)
+		model.buffer = "Epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
+		model.best_eer = math.inf
+
+		eval_all_weights(model, res_folder, FILE10, 5000, n_epochs=args.epochs)
+		with open(res_folder + os.sep + FILE10.split(os.sep)[-1] + " summary.csv", "w") as fw: 
+			fw.write(model.buffer)
+		model.buffer = "Epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
+		model.best_eer = math.inf
 
 	elif not args.evaluate and not args.validate:
 		"""Iniciar treino"""

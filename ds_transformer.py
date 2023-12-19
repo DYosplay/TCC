@@ -83,7 +83,7 @@ class DsTransformer(nn.Module):
         self.user_err_avg = 0 
         self.dataset_folder = dataset_folder
         self.comparison_data = {}
-        self.buffer = "ComparisonFile, mean_local_eer, global_eer, th_global\n"
+        self.buffer = "Epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
         self.eer = []
         self.best_eer = math.inf
         self.last_eer = math.inf
@@ -584,7 +584,7 @@ class DsTransformer(nn.Module):
 
         Args:
             data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
-            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias
             lens (torch tensor (int)): tamanho de cada assinatura no batch
             n_epoch (int): número da época que se está calculando.
 
@@ -601,18 +601,18 @@ class DsTransformer(nn.Module):
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
-            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            positives = data[i * step + 1 : i * step + 1 + self.ng]
             negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
             len_a = lens[i * step]
-            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng]
             len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
 
             dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
 
             '''Average_Pooling_2,4,6'''
-            for j in range(len(positives)): 
+            for j in range(len(positives)):
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
                 dists_gs[i*self.ng + j] = dist_g[j]
 
@@ -639,12 +639,11 @@ class DsTransformer(nn.Module):
             # lv = lk / non_zeros
             lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))
             lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))
-            
+
             ca = torch.mean(dist_g)
             cb = torch.mean(dist_n[:5])
-            #cc = torch.mean(dist_n[5:])
-            intra_loss = torch.sum(dist_g - ca) / ca
-            inter_loss = torch.sum(F.relu(self.beta - torch.abs(ca-cb))) #+ torch.sum(F.relu(self.beta - torch.abs(ca-cc)))
+            intra_loss = torch.sum(dist_g - ca)
+            inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
 
             # lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
             # lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
@@ -654,7 +653,7 @@ class DsTransformer(nn.Module):
             user_loss = lv + intra_loss * self.p + inter_loss * self.r
 
             total_loss += user_loss
-    
+
         total_loss /= self.nw
 
         # mmd1 = 0
@@ -674,12 +673,12 @@ class DsTransformer(nn.Module):
                     mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) #* self.alpha
                     ctr+=1
 
-                
+
         # mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         # var_g = torch.var(dists_gs) * self.q
         mmd1 = torch.max(mmds) * self.alpha
- 
-        return total_loss + mmd1 # + var_g 
+
+        return total_loss + mmd1 # + var_g
 
     def _compact_triplet_loss(self, data, lens):
         """ Loss de um batch
@@ -847,8 +846,8 @@ class DsTransformer(nn.Module):
             distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
             return torch.tensor([distance /((len_x + len_y))])
         else:
-            # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
-            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
+            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+            # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
             # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
     def _inference(self, files : str, n_epoch : int) -> Tuple[float, str, int]:
@@ -964,12 +963,14 @@ class DsTransformer(nn.Module):
                 users[user_id]["true_label"].append(true_label)
 
         # Nesse ponto, todos as comparações foram feitas
-        buffer = "user, eer_local, threshold\n"
+        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th\n"
         local_buffer = ""
         global_true_label = []
         global_distances = []
 
         eers = []
+
+        local_ths = []
 
         # Calculo do EER local por usuário:
         for user in tqdm(users, desc="Obtendo EER local..."):
@@ -979,21 +980,28 @@ class DsTransformer(nn.Module):
             # if "Task" not in comparison_file:
             if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
                 eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
+
+                local_ths.append(eer_threshold)
                 eers.append(eer)
-                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + "\n"
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0\n"
 
         print("Obtendo EER global...")
         
         # Calculo do EER global
         eer_global, eer_threshold_global = metrics.get_eer(global_true_label, global_distances, result_folder=comparison_folder, generate_graph=True, n_epoch=n_epoch)
 
-        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + "\n" + local_buffer
-
         local_eer_mean = np.mean(np.array(eers))
-        self.buffer += file_name + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + "\n"
+        local_ths = np.array(local_ths)
+        local_ths_var  = np.var(local_ths)
+        local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+
+        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n" + local_buffer
+
+        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n"
 
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
+
 
         self.last_eer = eer_global
 

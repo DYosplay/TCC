@@ -45,7 +45,9 @@
 # PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1  python run_ds_transformer.py -ep=25 -t=ctl026 -lr 0.01 -bs 64 -lt=compact_triplet_mmd -b 1 -a 1 -p 0.6 -r 0.6 -stop 26
 # PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1  python run_ds_transformer.py -ep=25 -t=ctl027 -lr 0.01 -bs 64 -lt=compact_triplet_mmd -b 1 -a 1 -p 0.7 -r 0.7 -stop 26
 # PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1  python run_ds_transformer.py -ep=25 -t=ctl028 -lr 0.01 -bs 64 -lt=compact_triplet_mmd -b 1 -a 1 -p 0.8 -r 0.8 -stop 26
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ctl043 -lr 0.01 -bs 64 -lt=compact_triplet_mmd -b 3 -a 0.8 -p 0.1 -r 0.1 -stop 26
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -t=ctl043 -ev
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=ctl044 -lr 0.01 -bs 64 -lt=compact_triplet_mmd -b 3 -a 1 -p 0.1 -r 0.1 -stop 26
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -t=ctl044 -ev
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=40 -t=ctl045 -lr 0.01 -bs 64 -lt=compact_triplet_mmd -b 3 -a 0.8 -p 0.1 -r 0.1 -stop 26
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -t=ctl045 -ev
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=40 -t=ctl046 -lr 0.01 -bs 64 -lt=compact_triplet_mmd -b 3 -a 1 -p 0.1 -r 0.1 -stop 26
+# PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -t=ctl046 -ev
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=CTL_S1/ctl_010 -aw
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=1 python run_ds_transformer.py -ep=25 -t=CTL_S2/ctl_006 -aw
