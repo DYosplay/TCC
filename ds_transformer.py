@@ -1,8 +1,14 @@
 from typing import List, Tuple
 from numpy import typing as npt
 
+from utils import masked_batch_normalization as mbn
+from utils import center_loss as cl
+from utils import angular_losses as al
 from utils import mmd_loss as mmd
+from utils import coral as coral
 
+import optuna
+from optuna.trial import TrialState
 
 import torch.nn.utils as nutils
 import torch.nn as nn
@@ -24,13 +30,18 @@ import utils.metrics as metrics
 
 from fastdtw import fastdtw
 
+import random
+
+# from gradient_reversal import revgrad
+from gradient_reversal import GradientReversal
+
 CHEAT = False
 CHANGE_TRAIN_MODE=80
 
 import warnings
 warnings.filterwarnings("ignore")
 class DsTransformer(nn.Module):
-    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False, early_stop : int = 10, z : bool = False):
+    def __init__(self, batch_size : int, in_channels : int, dataset_folder : str, gamma : int, lr : float = 0.01, use_mask : bool = False, loss_type : str = 'triplet_loss', alpha : float = 0.0, beta : float = 0.0, p : float = 1.0, q : float = 1.0, r : float = 1.0, qm = 0.5, margin : float = 1.0, decay : int = 0.9, nlr : float = 0.001, use_fdtw : bool = False, fine_tuning: bool = False, early_stop : int = 10, z : bool = False, kernel : int = 5, mul : int = 2):
         super(DsTransformer, self).__init__()
 
         # Variáveis do modelo
@@ -58,13 +69,13 @@ class DsTransformer(nn.Module):
         self.scores = []
         self.labels = []
         self.th = 3.5
-        self.alpha = alpha
-        self.beta = beta
+        self.alpha = (alpha)
+        self.beta = (beta)
         self.early_stop = early_stop
 
-        self.p = p
-        self.q = q
-        self.r = r
+        self.p = (p)
+        self.q = (q)
+        self.r = (r)
         # self.loss_value = math.inf
 
 
@@ -72,7 +83,7 @@ class DsTransformer(nn.Module):
         self.user_err_avg = 0 
         self.dataset_folder = dataset_folder
         self.comparison_data = {}
-        self.buffer = "ComparisonFile, mean_local_eer, global_eer, th_global\n"
+        self.buffer = "Epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
         self.eer = []
         self.best_eer = math.inf
         self.last_eer = math.inf
@@ -94,7 +105,6 @@ class DsTransformer(nn.Module):
         self.h0 = Variable(torch.zeros(self.n_layers, batch_size, self.n_hidden).cuda(), requires_grad=False)
         self.h1 = Variable(torch.zeros(self.n_layers, 5, self.n_hidden).cuda(), requires_grad=False)
         self.h2 = Variable(torch.zeros(self.n_layers, 2, self.n_hidden).cuda(), requires_grad=False)
-        self.h3 = Variable(torch.zeros(self.n_layers, batch_size//2, self.n_hidden).cuda(), requires_grad=False)
 
         # Fecha a update gate (pra virar uma GARU)
         for i in range(self.n_layers):
@@ -113,8 +123,10 @@ class DsTransformer(nn.Module):
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
         self.center_loss = None
+        # self.center_loss = cl.CenterLoss(num_classes=2, feat_dim=1, use_gpu=True)
+        self.mmd_loss = mmd.MMDLoss(kernel_num=kernel, kernel_mul=mul)
 
-        self.mmd_loss = mmd.MMDLoss()
+        self.grl = GradientReversal(alpha=1.)
         
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
@@ -138,7 +150,6 @@ class DsTransformer(nn.Module):
 
         h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
         if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
-        elif len(x) == self.batch_size//2: h, _ = self.rnn(h, self.h3)
         elif len(x) > 2: h, _ = self.rnn(h, self.h1)
         else: h, _ = self.rnn(h, self.h2)
         
@@ -154,10 +165,251 @@ class DsTransformer(nn.Module):
         h = self.linear(h)
         # h = torch.nn.functional.normalize(h, 2)
 
-        # if self.training:
-        #     return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+        if self.training:
+            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
 
         return h * mask.unsqueeze(2), length.float()
+
+    def _traceback(self, acc_cost_matrix : npt.DTypeLike):
+        """ Encontra a path (matching) dado uma matriz de custo acumulado obtida a partir do cálculo do DTW.
+        Args:
+            acc_cost_matrix (npt.DTypeLike): matriz de custo acumulado obtida a partir do cálculo do DTW.
+
+        Returns:
+            Tuple[npt.ArrayLike, npt.ArrayLike]: coordenadas ponto a ponto referente a primeira e segunda sequência utilizada no cálculo do DTW.
+        """
+        rows, columns = np.shape(acc_cost_matrix)
+        rows-=1
+        columns-=1
+
+        r = [rows]
+        c = [columns]
+
+        while rows != 0 or columns != 0:
+            aux = {}
+            if rows-1 >= 0: aux[acc_cost_matrix[rows -1][columns]] = (rows - 1, columns)
+            if columns-1 >= 0: aux[acc_cost_matrix[rows][columns-1]] = (rows, columns - 1)
+            if rows-1 >= 0 and columns-1 >= 0: aux[acc_cost_matrix[rows -1][columns-1]] = (rows -1, columns - 1)
+            key = min(aux.keys())
+        
+            rows, columns = aux[key]
+
+            r.insert(0, rows)
+            c.insert(0, columns)
+        
+        return np.array(r), np.array(c)
+    
+    def _icnn_loss(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+
+        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)):
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                # dists[i*(step-1) + j] = dist_g[j]
+                # dists[i*(5) + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                # dists[i*(step-1) + self.ng + j] = dist_n[j]
+
+            # 1. Obter o máximo e mínimo das distâncias
+            max_v = torch.max(torch.max(dist_g), torch.max(dist_n))
+            min_v = torch.min(torch.min(dist_g), torch.min(dist_n))
+
+            # 2. Normalizar as distâncias das amostras positivas e negativas
+            dist_g = (dist_g - min_v) / (max_v - min_v)
+            dist_n = (dist_n - min_v) / (max_v - min_v)
+
+            # 3. Calcular lambda_g e lambda_n
+            lambda_g = torch.sum(1 - dist_g)
+            lambda_n = torch.sum(dist_n)
+        
+            # 4. Calcular lambda_total
+            lambda_total = lambda_g/self.ng + lambda_n/self.nf
+
+            # 5. Calcular omega
+            omega = self.alpha - (torch.var(dist_g) + torch.var(dist_n))
+            if omega < 0:
+                print(omega)
+                raise ValueError("omega negativo")
+
+            # 6. Calcular gamma
+            gamma = torch.tensor(self.ng / (self.ng + self.nf))
+            icnn_score = torch.pow(lambda_total, 1/self.p) + torch.pow(omega, 1/self.q) + torch.pow(gamma, 1/self.r)
+            icnn_score /= (self.ng + self.nf)
+
+            total_loss += icnn_score
+
+        return - torch.log2(total_loss)
+    
+    def _triplet_coral(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+        dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists[i*self.ng + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+
+            lk = 0
+            non_zeros = 1
+            for g in dist_g:
+                for n in dist_n:
+                    temp = F.relu(g + self.margin - n)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
+
+            user_loss = lv + only_pos
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+       
+        # mmd = self.mmd_loss(d1, d2)
+        # mmd = F.relu(self.mmd_loss(data[0:self.ng+1+self.nf//2], data[step:step + self.ng+1 + self.nf//2]))
+        # mmd1 = F.relu(self.mmd_loss(data[0:step], data[step: step*2]))
+        # mmd2 = F.relu(self.mmd_loss(data[step: step*2], data[0:step]))
+        cor = torch.tensor(0.0).cuda()
+        for i in range(0, step):
+            cor += coral.coral(data[i], data[step + i])
+
+        cor *= self.alpha
+        var = torch.var(dists) * self.beta
+        triplet_loss = total_loss + cor + var
+
+        return triplet_loss
+    
+    def _norm_triplet_mmd(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        # dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                # dists_ns[i*self.nf + j] = dist_n[j]
+
+            new_dist_g = dist_g - torch.min(dist_g)
+            new_dist_n = dist_n - torch.min(dist_g)
+            
+
+            only_pos = torch.sum(new_dist_g) * (self.model_lambda /self.ng)
+
+            lk = 0
+            non_zeros = 1
+            for g in new_dist_g:
+                for n in new_dist_n:
+                    temp = F.relu(g + self.margin - n)
+                    if temp > 0:
+                        lk += temp
+                        non_zeros+=1
+            lv = lk / non_zeros
+
+            user_loss = lv + only_pos
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+       
+        mmd = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+        
+        var_g = torch.var(dists_gs) * self.p
+        triplet_loss = total_loss + mmd + var_g
+
+        # var_nr = torch.var(torch.cat([dists_ns[self.nf//2:self.nf], dists_ns[self.nf+self.nf//2:self.nf*2]])) * self.q
+        # var_ns = torch.var(torch.cat([dists_ns[0:self.nf//2], dists_ns[self.nf:self.nf+self.nf//2]])) * self.r
+        # triplet_loss = total_loss + mmd + var_g + var_nr + var_ns + cor
+
+        return triplet_loss
     
     def _triplet_mmd(self, data, lens):
         """ Loss de um batch
@@ -202,6 +454,21 @@ class DsTransformer(nn.Module):
 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
 
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
             lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
             lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
             lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
@@ -214,10 +481,11 @@ class DsTransformer(nn.Module):
        
         mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
         var_g = torch.var(dists_gs) * self.q
- 
-        return total_loss + mmd1 + var_g
 
-    def _loss(self, data, lens):
+ 
+        return total_loss + mmd1 + var_g 
+    
+    def _mmd(self, data):
         """ Loss de um batch
 
         Args:
@@ -229,8 +497,38 @@ class DsTransformer(nn.Module):
         Returns:
             torch.tensor (float): valor da loss
         """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
+        self.grl(data)
+
+        step = (self.ng + self.nf + 1)
+       
+        mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+
+        return mmd1 
+
+    def _hard_triplet_mmd(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
         step = (self.ng + self.nf + 1)
         total_loss = 0
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        mmd_loss = torch.tensor(0.0, device=data.device)
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
@@ -247,11 +545,268 @@ class DsTransformer(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)): 
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i*self.nf + j] = dist_n[j]
+
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+
+            lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
+            lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+            lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
+
+            user_loss = lv + only_pos
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+
+        comparisons = 0
+        for i in range(self.nw-1):
+            m = torch.max(lens[i*step:(i+1)*step - 5])
+            for j in range(i+1,self.nw):
+                n = torch.max(lens[j*step:(j+1)*step - 5])
+                trunc = int(torch.max(m,n))
+
+                mmd_loss += self.mmd_loss(data[i*step:(i+1)*step - 5, :trunc], data[j*step:(j+1)*step - 5, :trunc]) * self.alpha
+                comparisons +=1
+                
+        var_g = torch.var(dists_gs) * self.q
+        
+        
+ 
+        return total_loss + (mmd_loss/comparisons) + var_g         
+
+    def _compact_triplet_mmd(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng]
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng]
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)):
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i*self.nf + j] = dist_n[j]
+
+            only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))
+            lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))
+
+            ca = torch.mean(dist_g)
+            cb = torch.mean(dist_n[:5])
+            intra_loss = torch.sum(dist_g - ca)
+            inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
+
+            # lk1 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0)) * self.p
+            # lk2 = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0)) * (1-self.p)
+            # lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
+            lv = (torch.sum(lk_skilled) + torch.sum(lk_random)) / (lk_skilled.data.nonzero(as_tuple=False).size(0) + lk_random.data.nonzero(as_tuple=False).size(0) + 1)
+
+            user_loss = lv + intra_loss * self.p + inter_loss * self.r
+
+            total_loss += user_loss
+
+        total_loss /= self.nw
+
+        # mmd1 = 0
+        # k = 0
+        # for i in range(0, self.nw):
+        #     for j in range(1, self.nw):
+        #         if i != j:
+        #             mmd1 += self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) #* self.alpha
+        #             k+=1
+
+        siz = np.sum(np.array(list(range(1,self.nw+1))))
+        ctr = 0
+        mmds = torch.zeros(siz, dtype=data.dtype, device=data.device)
+        for i in range(0, self.nw):
+            for j in range(1, self.nw):
+                if i != j:
+                    mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) #* self.alpha
+                    ctr+=1
+
+
+        # mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+        # var_g = torch.var(dists_gs) * self.q
+        mmd1 = torch.max(mmds) * self.alpha
+
+        return total_loss + mmd1 # + var_g
+
+    def _compact_triplet_loss(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+
+        # data = self.bn(data.transpose(1,2), lens).transpose(1,2)
+
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+        dists_ns = torch.zeros(self.nf*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                dists_gs[i*self.ng + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                dists_ns[i*self.nf + j] = dist_n[j]
+
+            # only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+
+            # lk = 0
+            # non_zeros = 1
+            # for g in dist_g:
+            #     for n in dist_n[:5]:
+            #         temp = F.relu(g + self.margin - n) * self.p
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+
+            #     for n in dist_n[5:]:
+            #         temp = F.relu(g + self.quadruplet_margin - n) * (1 - self.p)
+            #         if temp > 0:
+            #             lk += temp
+            #             non_zeros+=1
+            # lv = lk / non_zeros
+            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))
+            lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))
+            
+            ca = torch.mean(dist_g)
+            cb = torch.mean(dist_n[:5])
+            intra_loss = torch.sum(dist_g - ca)
+            inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
+
+            
+            #lv = (torch.sum(lk1) + torch.sum(lk2)) / (lk1.data.nonzero(as_tuple=False).size(0) + lk2.data.nonzero(as_tuple=False).size(0) + 1)
+            t_loss = torch.sum(lk_skilled) + torch.sum(lk_random)
+
+            user_loss = t_loss * self.p + intra_loss * self.q + inter_loss * self.r
+
+            total_loss += user_loss
+    
+        total_loss /= self.nw
+       
+        mmd1 = self.mmd_loss(data[0:step - 5], data[step: step*2 - 5]) * self.alpha
+        var_g = torch.var(dists_gs) * self.q
+
+ 
+        return total_loss + mmd1 + var_g 
+    
+        
+
+    def _loss(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 16 assinaturas e se refere a um único usuário e é disposto da seguinte forma:
+            [0]: âncora; [1:6]: amostras positivas; [6:11]: falsificações profissionais; [11:16]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+            n_epoch (int): número da época que se está calculando.
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+        step = (self.ng + self.nf + 1)
+        total_loss = 0
+
+        # dists = torch.zeros(self.batch_size-self.nw, dtype=data.dtype, device=data.device)
+        # dists = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng] 
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng] 
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)): 
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+                # dists[i*(step-1) + j] = dist_g[j]
+                # dists[i*(5) + j] = dist_g[j]
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+                # dists[i*(step-1) + self.ng + j] = dist_n[j]
                 
             only_pos = torch.sum(dist_g) * (self.model_lambda /self.ng)
+            # var_g = torch.var(dist_g) * self.alpha
+            # var_n = torch.var(dist_n) * self.beta
 
             lk = 0
             non_zeros = 1
@@ -289,11 +844,13 @@ class DsTransformer(nn.Module):
         """
         if self.use_fdtw:
             distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
-            return torch.tensor([distance /(64* (len_x + len_y))])
+            return torch.tensor([distance /((len_x + len_y))])
         else:
-            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64* (len_x + len_y))
+            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+            # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
+            # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
-    def _inference(self, files : str, scenario : str, n_epoch : int) -> Tuple[float, str, int]:
+    def _inference(self, files : str, n_epoch : int) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
@@ -304,16 +861,28 @@ class DsTransformer(nn.Module):
         Returns:
             float, str, int: distância da assinatura, usuário, label 
         """
+        scenario = "stylus"
+        if "finger" in files:
+            scenario = "finger"
+
         tokens = files.split(" ")
         user_key = tokens[0].split("_")[0]
         
         result = math.nan
         refs = []
         sign = ""
+        s_avg = 0
+        s_min = 0
 
-        if len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+        if len(tokens) == 2:
+            a = tokens[0].split('_')[0]
+            b = tokens[1].split('_')[0]
+            result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
+        elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+        # if 'u0148' in refs[0] or 'u0272' in refs[0]:
 
         test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, scenario=scenario, developtment=CHEAT)
 
@@ -346,14 +915,20 @@ class DsTransformer(nn.Module):
         dk_sqrt = math.sqrt(dk)
         
         dists = []
+        # dists2 = []
         for i in range(0, len(refs)):
             dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
+            # dists2.append(self._dte(refs[i], refs[i], len_refs[i], len_refs[i]).detach().cpu().numpy()[0])
 
         dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
         s_min = min(dists)
 
-        return s_avg + s_min, user_key, result
+            # dists2 = np.array(dists2) / dk_sqrt
+            # s_avg2 = np.mean(dists2)
+            # s_min2 = min(dists2)
+
+        return (s_avg + s_min), user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -369,10 +944,6 @@ class DsTransformer(nn.Module):
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
 
-        scenario = 'stylus'
-        if 'finger' in comparison_file:
-            scenario = 'finger'
-
         if not os.path.exists(result_folder): os.mkdir(result_folder)
 
         file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
@@ -383,7 +954,7 @@ class DsTransformer(nn.Module):
         users = {}
 
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._inference(line, scenario=scenario, n_epoch=n_epoch)
+            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
@@ -392,34 +963,45 @@ class DsTransformer(nn.Module):
                 users[user_id]["true_label"].append(true_label)
 
         # Nesse ponto, todos as comparações foram feitas
-        buffer = "user, eer_local, threshold\n"
+        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th\n"
         local_buffer = ""
         global_true_label = []
         global_distances = []
 
         eers = []
 
+        local_ths = []
+
         # Calculo do EER local por usuário:
         for user in tqdm(users, desc="Obtendo EER local..."):
             global_true_label += users[user]["true_label"]
             global_distances  += users[user]["distances"]
 
-            eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
-            eers.append(eer)
-            local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + "\n"
+            # if "Task" not in comparison_file:
+            if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
+                eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
+
+                local_ths.append(eer_threshold)
+                eers.append(eer)
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0\n"
 
         print("Obtendo EER global...")
         
         # Calculo do EER global
         eer_global, eer_threshold_global = metrics.get_eer(global_true_label, global_distances, result_folder=comparison_folder, generate_graph=True, n_epoch=n_epoch)
 
-        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + "\n" + local_buffer
-
         local_eer_mean = np.mean(np.array(eers))
-        self.buffer += file_name + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + "\n"
+        local_ths = np.array(local_ths)
+        local_ths_var  = np.var(local_ths)
+        local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+
+        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n" + local_buffer
+
+        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n"
 
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
+
 
         self.last_eer = eer_global
 
@@ -431,7 +1013,7 @@ class DsTransformer(nn.Module):
 
         self.train(mode=True)
 
-    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False):
+    def start_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False, dataset_scenario : str = "stylus"):
         """ Loop de treinamento
 
         Args:
@@ -442,9 +1024,15 @@ class DsTransformer(nn.Module):
         """
         optimizer = None
         lr_scheduler = None
+        flag = False
+        if self.fine_tuning: flag = True
 
-        optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-        lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        if self.loss_type == 'icnn_loss':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        elif self.loss_type == 'grl' or self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd' or self.loss_type == 'compact_triplet_loss' or self.loss_type == 'compact_triplet_mmd':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         
         losses = [math.inf]*10
 
@@ -460,10 +1048,13 @@ class DsTransformer(nn.Module):
         for i in range(1, n_epochs+1):
             epoch = None
             scenario = None
-            if not self.fine_tuning:
-                epoch = batches_gen.generate_epoch()
-                scenario = 'stylus'
-            else:
+
+            if dataset_scenario == "mix":
+                epoch = batches_gen.generate_mixed_epoch()
+            elif dataset_scenario == "stylus":
+                    epoch = batches_gen.generate_epoch()
+                    scenario = 'stylus'
+            elif dataset_scenario == "finger":
                 epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
                 scenario = 'finger'
 
@@ -472,7 +1063,7 @@ class DsTransformer(nn.Module):
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
+            if not self.fine_tuning and ((self.best_eer > 0.04 and i >= self.early_stop)):
                 print("\n\nEarly stop!")
                 break
 
@@ -494,8 +1085,38 @@ class DsTransformer(nn.Module):
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'triplet_mmd':
+                if self.loss_type == 'grl':
+                    loss1 = self._loss(outputs, length)
+                    # data_rev = revgrad(outputs, torch.tensor([1.], device="cuda"))
+                    loss2 = self._mmd(outputs)
+                    loss1.backward(retain_graph=True)
+                    loss2.backward()
+                    loss = loss1 + loss2
+
+
+                elif self.loss_type == 'hard_triplet_mmd':
+                    loss = self._hard_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_mmd':
                     loss = self._triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'norm_triplet_mmd':
+                    loss = self._norm_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_coral':
+                    loss = self._triplet_coral(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'quadruplet_loss':
+                    loss = self._quadruplet_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'icnn_loss':
+                    loss = self._icnn_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'compact_triplet_loss':
+                    loss = self._compact_triplet_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'compact_triplet_mmd':
+                    loss = self._compact_triplet_mmd(outputs, length)
                     loss.backward()
                 else:
                     loss = self._loss(outputs, length)
@@ -509,7 +1130,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
@@ -527,7 +1148,7 @@ class DsTransformer(nn.Module):
         plt.cla()
         plt.clf()
 
-    def target_train(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str, triplet_loss_w : float = 0.5, fine_tuning : bool = False):
+    def transfer_domain(self, n_epochs : int, batch_size : int, comparison_files : List[str], result_folder : str):
         """ Loop de treinamento
 
         Args:
@@ -538,9 +1159,15 @@ class DsTransformer(nn.Module):
         """
         optimizer = None
         lr_scheduler = None
+        flag = False
+        if self.fine_tuning: flag = True
 
-        optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
-        lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        if self.loss_type == 'icnn_loss':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
+        elif self.loss_type == 'triplet_loss' or self.loss_type == 'quadruplet_loss' or self.loss_type == 'hard_triplet_mmd' or self.loss_type == 'triplet_mmd' or self.loss_type == 'triplet_coral' or self.loss_type == 'norm_triplet_mmd':
+            optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=0.9)
+            lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.decay) 
         
         losses = [math.inf]*10
 
@@ -554,49 +1181,51 @@ class DsTransformer(nn.Module):
         bckp_path = result_folder + os.sep + "Backup"
 
         for i in range(1, n_epochs+1):
-            epoch = None
-            scenario = None
-            if not self.fine_tuning:
-                epoch = batches_gen.generate_epoch()
-                scenario = 'stylus'
-            else:
-                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
-                scenario = 'finger'
-
-            epoch_size = len(epoch)
+            epoch = batches_gen.generate_transfer_domain_epoch()
+            epoch_size = min(len(epoch[0]), len(epoch[1]))
             self.loss_value = running_loss/epoch_size
             losses.append(self.loss_value)
             losses = losses[1:]
 
-            if not self.fine_tuning and ((self.best_eer > 0.025 and i >= self.early_stop) or (self.loss_value > min(losses) and i > 50)):
-                print("\n\nEarly stop!")
-                break
-
-            pbar = tqdm(total=(epoch_size//(batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
+            pbar = tqdm(total=epoch_size, position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.3f}".format(self.loss_value))
 
             running_loss = 0
             self.mean_eer = 0
             #PAL = Previous Accumulated Loss
-            while epoch != []:
-                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, batch_size, z=self.z, scenario=scenario)
+            while epoch[0] != [] and epoch[1] != []:
+                batch, lens, epoch = batches_gen.get_batch_from_transfer_domain_epoch(epoch, self.batch_size)
                 
                 mask = self.getOutputMask(lens)
 
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
                 
-                
                 outputs, length = self(inputs.float(), mask, i)
                 optimizer.zero_grad()
                 loss = None
 
-                if self.loss_type == 'triplet_mmd':
+                if self.loss_type == 'hard_triplet_mmd':
+                    loss = self._hard_triplet_mmd(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'triplet_mmd':
                     loss = self._triplet_mmd(outputs, length)
                     loss.backward()
-                else:
-                    loss = self._loss(outputs, length)
+                elif self.loss_type == 'norm_triplet_mmd':
+                    loss = self._norm_triplet_mmd(outputs, length)
                     loss.backward()
-
+                elif self.loss_type == 'triplet_coral':
+                    loss = self._triplet_coral(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'quadruplet_loss':
+                    loss = self._quadruplet_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'icnn_loss':
+                    loss = self._icnn_loss(outputs, length)
+                    loss.backward()
+                elif self.loss_type == 'compact_triplet_loss':
+                    loss = self._compact_triplet_loss(outputs, length)
+                    loss.backward()
+                
                 optimizer.step()
 
                 running_loss += loss.item()
@@ -605,7 +1234,7 @@ class DsTransformer(nn.Module):
 
             pbar.close()
 
-            if fine_tuning or i >= CHANGE_TRAIN_MODE or (i % 5 == 0 or i > (n_epochs - 3) ):
+            if i >= CHANGE_TRAIN_MODE or (i % 3 == 0 or i > (n_epochs - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
             
