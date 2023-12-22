@@ -27,6 +27,7 @@ if __name__ == '__main__':
 	parser.add_argument("-dsc", "--dataset_scenario", help="stylus, finger or mix", type=str, default="stylus")
 	parser.add_argument("-w", "--weight", help="name of weight to be used in evaluation", type=str, default="best.pt")
 	parser.add_argument("-es", "--eval_step", help="evaluation step during training", default=3, type=int)
+	parser.add_argument("-nt", "--number_of_tests", help="number of search tests (-sg)", default=10, type=int)
 	# general parameters
 	parser.add_argument("-bs", "--batch_size", help="set batch size (should be dividible by 64)", default=64, type=int)
 	parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=25, type=int)
@@ -44,7 +45,7 @@ if __name__ == '__main__':
 	parser.add_argument("-mkn", "--mmd_kernel_num", help="MMD Kernel Num", default=5, type=float)
 	parser.add_argument("-mkm", "--mmd_kernel_mul", help="MMD Kernel Mul", default=2, type=float)
 	parser.add_argument("-lbd", "--model_lambda", help="triplet loss model lambda", default=0.01, type=float)
-	parser.add_argument("-tm", "--margin", help="triplet loss margin", default=1, type=float)
+	parser.add_argument("-tm", "--margin", help="triplet loss margin", default=1.0, type=float)
 	# Testing
 	parser.add_argument("-aw", "--all_weights", help="eval all weights", action='store_true')
 	parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
@@ -71,7 +72,7 @@ if __name__ == '__main__':
 	if not os.path.exists(args.search_name): os.mkdir(args.search_name)
 	if not os.path.exists(res_folder): os.mkdir(res_folder)
 	
-	if args.all_weights or args.validate or args.search_greed:
+	if args.all_weights or args.validate:
 		model = DsPipeline(hyperparameters=hyperparameters)
 		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + args.weight))
 		print(test_protocols.count_parameters(model))
@@ -84,8 +85,8 @@ if __name__ == '__main__':
 		if args.validate:
 			test_protocols.validation(model, res_folder, "4vs1", "stylus")
 			test_protocols.validation(model, res_folder, "1vs1", "stylus")
-		if args.search_greed:
-			test_protocols.random_search_parameters(hyperparameters=hyperparameters)
+	elif args.search_greed:
+		test_protocols.random_search_parameters(hyperparameters=hyperparameters)
 	else:
 		model = DsPipeline(hyperparameters=hyperparameters)
 		print(test_protocols.count_parameters(model))
