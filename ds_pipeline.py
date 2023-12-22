@@ -362,8 +362,8 @@ class DsPipeline(nn.Module):
 
             running_loss = 0
             #PAL = Previous Accumulated Loss
-            # while epoch != []:
-            if True:
+            while epoch != []:
+            # if True:
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z)
                 
                 mask = self.getOutputMask(lens)
