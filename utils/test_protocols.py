@@ -44,6 +44,11 @@ def random_search_parameters(hyperparameters : Dict[str, Any]):
 			res_folder = hyperparameters['search_name'] + os.sep + "ctl_" + f'{i:03d}'
 			
 			if not os.path.exists(res_folder): os.mkdir(res_folder)
+
+			hyperparameters["p"] = p[i]
+			hyperparameters['r'] = r[i]
+			hyperparameters['alpha'] = alpha[i]
+			hyperparameters['beta'] = beta[i]
 			
 			model = DsPipeline(hyperparameters=hyperparameters)
 
