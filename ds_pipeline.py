@@ -1,9 +1,6 @@
 from typing import List, Tuple, Dict, Any
 from utils.utilities import define_loss, dump_hyperparameters
 
-from utils import masked_batch_normalization as mbn
-from Losses import mmd_loss as mmd
-
 import torch.nn.utils as nutils
 import torch.nn as nn
 import torch.nn.functional as F
@@ -21,6 +18,8 @@ import DataLoader.batches_gen as batches_gen
 import DTW.dtw_cuda as dtw
 import utils.metrics as metrics
 
+import wandb
+
 from fastdtw import fastdtw
 
 import warnings
@@ -31,12 +30,12 @@ class DsPipeline(nn.Module):
 
         # Tuneable Hyperparameters
         self.hyperparameters = hyperparameters
-        self.margin = torch.nn.Parameter(torch.tensor(hyperparameters['margin']))
-        self.lr = torch.nn.Parameter(torch.tensor(hyperparameters['learning_rate']))
-        self.alpha = torch.nn.Parameter(torch.tensor(hyperparameters['alpha']))
-        self.beta = torch.nn.Parameter(torch.tensor(hyperparameters['beta']))
-        self.p = torch.nn.Parameter(torch.tensor(hyperparameters['p']))
-        self.r = torch.nn.Parameter(torch.tensor(hyperparameters['r']))
+        self.margin = torch.nn.Parameter(torch.tensor(hyperparameters['margin']), requires_grad=False)
+        self.lr = torch.nn.Parameter(torch.tensor(hyperparameters['learning_rate']), requires_grad=False)
+        self.alpha = torch.nn.Parameter(torch.tensor(hyperparameters['alpha']), requires_grad=False)
+        self.beta = torch.nn.Parameter(torch.tensor(hyperparameters['beta']), requires_grad=False)
+        self.p = torch.nn.Parameter(torch.tensor(hyperparameters['p']), requires_grad=False)
+        self.r = torch.nn.Parameter(torch.tensor(hyperparameters['r']), requires_grad=False)
         
         # variáveis de controle
         self.z = hyperparameters['zscore']
@@ -72,7 +71,7 @@ class DsPipeline(nn.Module):
 
         self.rnn = nn.GRU(self.n_hidden, self.n_hidden, self.n_layers, dropout=0.1, batch_first=True, bidirectional=False)
 
-        self.h0 = Variable(torch.zeros(self.n_layers, hyperparameters['batch_size'], self.n_hidden).cuda(), requires_grad=False)
+        self.h0 = Variable(torch.zeros(self.n_layers, self.batch_size, self.n_hidden).cuda(), requires_grad=False)
         self.h1 = Variable(torch.zeros(self.n_layers, 5, self.n_hidden).cuda(), requires_grad=False)
         self.h2 = Variable(torch.zeros(self.n_layers, 2, self.n_hidden).cuda(), requires_grad=False)
 
@@ -187,7 +186,7 @@ class DsPipeline(nn.Module):
 
         # if 'u0148' in refs[0] or 'u0272' in refs[0]:
 
-        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, scenario=scenario, developtment=CHEAT)
+        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=False, scenario=scenario)
 
         mask = self.getOutputMask(lens)
         
@@ -309,6 +308,9 @@ class DsPipeline(nn.Module):
 
         self.train(mode=True)
 
+        ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+        return ret_metrics
+
     def start_train(self, comparison_files : List[str], result_folder : str):
         """ Loop de treinamento
 
@@ -325,6 +327,18 @@ class DsPipeline(nn.Module):
 
         if not os.path.exists(result_folder + os.sep + "Backup"): os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
+
+        # Wandb
+        run = None
+        if self.hyperparameters['wandb']:
+            # wandb.login()
+
+            run = wandb.init(
+                project=self.hyperparameters["test_name"],
+                config=self.hyperparameters,
+            )
+
+            wandb.watch(self, log_freq=100)
 
         running_loss = 0
         for i in range(1, self.hyperparameters['epochs']+1):
@@ -348,7 +362,8 @@ class DsPipeline(nn.Module):
 
             running_loss = 0
             #PAL = Previous Accumulated Loss
-            while epoch != []:
+            # while epoch != []:
+            if True:
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z)
                 
                 mask = self.getOutputMask(lens)
@@ -372,7 +387,9 @@ class DsPipeline(nn.Module):
 
             if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for cf in comparison_files:
-                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    ret_metrics["loss"] = loss
+                    if self.hyperparameters['wandb']: wandb.log(ret_metrics)
             
             self.loss_variation.append(running_loss/epoch_size)
             

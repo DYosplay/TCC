@@ -17,7 +17,7 @@ def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
 
     return users
 
-def files2array(batch, z : bool, developtment : bool):
+def files2array(batch, z : bool, developtment : bool, scenario = "stylus"):
     data = []; lens = []
     # scenario = None
     # if developtment:
@@ -26,14 +26,15 @@ def files2array(batch, z : bool, developtment : bool):
     for file in batch:
         file = file.replace('\\', os.sep)
         file = file.replace('/', os.sep)
+        
+        # print(file)
         if developtment == False and "Evaluation" in file: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + file.strip()
         elif developtment == False: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file.strip()
         
         # Se quiser testar usando o conjunto de treino
         # if developtment == True: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + "stylus" + os.sep + file
+        scenario = "stylus" if "stylus" in file.lower() else "finger"
 
-        scenario = "stylus" if "stylus" in file else "finger"
-        
         feat = loader.get_features(file, scenario=scenario, z=z, development=developtment)
         data.append(feat)
         lens.append(len(feat[0]))

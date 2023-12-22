@@ -8,6 +8,8 @@ import argparse
 import random
 import numpy as np
 import math
+import wandb
+import utils.baysean_search as baysean_search
 
 
 if __name__ == '__main__':
@@ -28,6 +30,7 @@ if __name__ == '__main__':
 	parser.add_argument("-w", "--weight", help="name of weight to be used in evaluation", type=str, default="best.pt")
 	parser.add_argument("-es", "--eval_step", help="evaluation step during training", default=3, type=int)
 	parser.add_argument("-nt", "--number_of_tests", help="number of search tests (-sg)", default=10, type=int)
+	parser.add_argument("-wdb", "--wandb", help="activate wandb log", action='store_true')
 	# general parameters
 	parser.add_argument("-bs", "--batch_size", help="set batch size (should be dividible by 64)", default=64, type=int)
 	parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=25, type=int)
@@ -51,12 +54,24 @@ if __name__ == '__main__':
 	parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
 	parser.add_argument("-val", "--validate", help="evaluate all mini datasets in -scene + -mode", action='store_true')
 	parser.add_argument("-sg", "--search_greed", help="search hyperparameters in a greed way", action='store_true')
+	parser.add_argument("-bays", "--baysean_search", help="search hyperparameters with a baysean search", action='store_true')
 
 	# Read arguments from command line
 	args = parser.parse_args()
 	hyperparameters = vars(args)
 
+	if hyperparameters['wandb']: wandb.login()
+
 	print(args.test_name)
+
+	res_folder = args.search_name + os.sep + args.test_name 
+	if not os.path.exists(args.search_name): os.mkdir(args.search_name)
+	if not os.path.exists(res_folder): os.mkdir(res_folder)
+
+	if args.search_greed:
+		test_protocols.random_search_parameters(hyperparameters=hyperparameters)
+	if args.baysean_search:
+		baysean_search.baysean_search(args.search_name, hyperparameters=hyperparameters)
 
 	if args.seed is not None:
 		random.seed(args.seed)
@@ -68,9 +83,6 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	res_folder = args.search_name + os.sep + args.test_name 
-	if not os.path.exists(args.search_name): os.mkdir(args.search_name)
-	if not os.path.exists(res_folder): os.mkdir(res_folder)
 	
 	if args.all_weights or args.validate:
 		model = DsPipeline(hyperparameters=hyperparameters)
@@ -85,8 +97,6 @@ if __name__ == '__main__':
 		if args.validate:
 			test_protocols.validation(model, res_folder, "4vs1", "stylus")
 			test_protocols.validation(model, res_folder, "1vs1", "stylus")
-	elif args.search_greed:
-		test_protocols.random_search_parameters(hyperparameters=hyperparameters)
 	else:
 		model = DsPipeline(hyperparameters=hyperparameters)
 		print(test_protocols.count_parameters(model))
