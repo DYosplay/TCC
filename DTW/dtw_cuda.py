@@ -64,8 +64,8 @@ def compute_dtw_cuda(D, bandwidth, max_i, max_j, inv_max_i, inv_max_j, n_passes,
             # Don't compute if outside bandwidth
             # if not (abs(i - j) > bandwidth > 0):
             if not (abs((i-1)*inv_max_i - (j-1)*inv_max_j) > bandwidth > 0):
-                r0 = R[b, i - 1, j - 1]
-                r1 = R[b, i - 1, j]
+                r0 = R[b, i - 1, j - 1] 
+                r1 = R[b, i - 1, j] 
                 r2 = R[b, i, j - 1]
                 
                 rmin = min(min(r0, r1), r2)
@@ -363,7 +363,7 @@ class DTW(torch.nn.Module):
             D = self._calc_distance_matrix(x, y)
             out = func_dtw(D, self.bandwidth)
             out_xy, out_xx, out_yy = torch.split(out, X.shape[0])
-            return out_xy - 1 / 2 * (out_xx + out_yy)
+            return (out_xy - 1 / 2 * (out_xx + out_yy)) 
         else:
             D_xy = self._calc_distance_matrix(X, Y)
             return func_dtw(D_xy, self.bandwidth)

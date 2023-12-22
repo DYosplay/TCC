@@ -17,7 +17,7 @@ def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
 
     return users
 
-def files2array(batch, scenario : str, z : bool, developtment : bool):
+def files2array(batch, z : bool, developtment : bool):
     data = []; lens = []
     # scenario = None
     # if developtment:
@@ -92,7 +92,7 @@ def get_batch_from_transfer_domain_epoch(epoch, batch_size : int):
     return data, lens, epoch
 
 """DeepSign"""
-def get_batch_from_epoch(epoch, batch_size : int, z : bool, scenario : str):
+def get_batch_from_epoch(epoch, batch_size : int, z : bool):
     assert batch_size % 16 == 0
     step = batch_size // 16
 
@@ -100,7 +100,7 @@ def get_batch_from_epoch(epoch, batch_size : int, z : bool, scenario : str):
     for i in range(0, step):
         batch += epoch.pop()
 
-    data, lens = files2array(batch, scenario=scenario, z=z, developtment=True)
+    data, lens = files2array(batch, z=z, developtment=True)
 
     return data, lens, epoch
 
