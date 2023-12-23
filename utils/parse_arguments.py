@@ -7,7 +7,7 @@ def parse_arguments():
 	parser = argparse.ArgumentParser()
 	
 	# Optimization
-	parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, triplet_mmd, compact_triplet_mmd)", type=str, required=True)
+	parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, triplet_mmd, compact_triplet_mmd)", type=str, default="compact_triplet_mmd")
 	parser.add_argument("-lr", "--learning_rate", help="set learning rate value", default=0.01, type=float)
 	parser.add_argument("-mm", "--momentum", help="set SGD momentum value", default=0.9, type=float)
 	parser.add_argument("-dc", "--decay", help="learning rate decay value", default=0.9, type=float)
@@ -15,12 +15,12 @@ def parse_arguments():
 	# results
 	parser.add_argument("-df", "--dataset_folder", help="set dataset folder", default=".." + os.sep + "Data" + os.sep + "DeepSignDB", type=str)
 	parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
-	parser.add_argument("-sn", "--search_name", help="set search name", type=str, default="CTL_S5")
+	parser.add_argument("-pf", "--parent_folder", help="set folder where test will be saved.", type=str, default="Resultados")
 	parser.add_argument("-dsc", "--dataset_scenario", help="stylus, finger or mix", type=str, default="stylus")
 	parser.add_argument("-w", "--weight", help="name of weight to be used in evaluation", type=str, default="best.pt")
 	parser.add_argument("-es", "--eval_step", help="evaluation step during training", default=3, type=int)
 	parser.add_argument("-nt", "--number_of_tests", help="number of search tests (-sg)", default=10, type=int)
-	parser.add_argument("-wdb", "--wandb", help="activate wandb log", action='store_true')
+	parser.add_argument("-wdb", "--wandb", help="Turns on wandb", action="store_true")
 	# general parameters
 	parser.add_argument("-bs", "--batch_size", help="set batch size (should be dividible by 64)", default=64, type=int)
 	parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=25, type=int)
@@ -43,10 +43,16 @@ def parse_arguments():
 	parser.add_argument("-aw", "--all_weights", help="eval all weights", action='store_true')
 	parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
 	parser.add_argument("-val", "--validate", help="evaluate all mini datasets in -scene + -mode", action='store_true')
-	parser.add_argument("-sg", "--search_greed", help="search hyperparameters in a greed way", action='store_true')
+	parser.add_argument("-rs", "--random_search", help="search hyperparameters in a random way", action='store_true')
 	parser.add_argument("-bays", "--baysean_search", help="search hyperparameters with a baysean search", action='store_true')
 
 	# Read arguments from command line
 	args = parser.parse_args()
 	hyperparameters = vars(args)
+
+	if hyperparameters["wandb"] == True:
+		hyperparameters["wandb_name"] = hyperparameters["test_name"]
+	else:
+		hyperparameters["wandb_name"] = None
+
 	return hyperparameters

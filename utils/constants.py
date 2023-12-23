@@ -16,3 +16,5 @@ SVC_TASK3 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Compariso
 
 FILE_TESTE = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "SVC_OnGoing_Competition" + os.sep + "DeepSignDB_Task1.txt"
 PATH = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal"
+
+EBIOSIGN_W1_SKILLED_4VS1 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W1_skilled_stylus_4vs1.txt"
