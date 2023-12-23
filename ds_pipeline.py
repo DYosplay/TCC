@@ -394,7 +394,7 @@ class DsPipeline(nn.Module):
 
             pbar.close()
 
-            if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': loss}) 
+            if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
 
             if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for cf in comparison_files:
@@ -414,5 +414,3 @@ class DsPipeline(nn.Module):
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
         plt.clf()
-
-        wandb.finish()
