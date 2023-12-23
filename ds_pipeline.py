@@ -404,3 +404,5 @@ class DsPipeline(nn.Module):
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
         plt.clf()
+
+        wandb.finish()
