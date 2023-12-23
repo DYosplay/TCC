@@ -60,7 +60,9 @@ def random_search_parameters(hyperparameters : Dict[str, Any]):
 			model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
 			
 			parm_log += "ctl_" + f'{i:03d},' + str(alpha[i]) + "," + str(beta[i]) + "," + str(p[i]) + "," + str(r[i]) + "," + str(model.best_eer) + "\n" 
+			del model
 		except:
+			del model
 			continue
 
 		with open(hyperparameters['search_name'] + os.sep + "log.csv", "w") as fw:
