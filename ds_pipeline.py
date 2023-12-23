@@ -92,6 +92,21 @@ class DsPipeline(nn.Module):
         
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
+        # Wandb
+        run = None
+        if self.hyperparameters['wandb']:
+            # wandb.login()
+
+            run = wandb.init(
+                project=self.hyperparameters["test_name"],
+                config=self.hyperparameters,
+            )
+
+            wandb.watch(self, log_freq=100)
+    
+    def __del__(self):
+        if self.hyperparameters['wandb']: wandb.finish()
+
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
         lens = (lens + 1) // 2
@@ -309,6 +324,8 @@ class DsPipeline(nn.Module):
         self.train(mode=True)
 
         ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+        if self.hyperparameters['wandb']: wandb.log(ret_metrics)
+        
         return ret_metrics
 
     def start_train(self, comparison_files : List[str], result_folder : str):
@@ -327,18 +344,6 @@ class DsPipeline(nn.Module):
 
         if not os.path.exists(result_folder + os.sep + "Backup"): os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
-
-        # Wandb
-        run = None
-        if self.hyperparameters['wandb']:
-            # wandb.login()
-
-            run = wandb.init(
-                project=self.hyperparameters["test_name"],
-                config=self.hyperparameters,
-            )
-
-            wandb.watch(self, log_freq=100)
 
         running_loss = 0
         for i in range(1, self.hyperparameters['epochs']+1):
@@ -385,11 +390,12 @@ class DsPipeline(nn.Module):
 
             pbar.close()
 
+            if self.hyperparameters['wandb']: wandb.log({'loss': loss}) 
+
             if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for cf in comparison_files:
-                    ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
-                    ret_metrics["loss"] = loss
-                    if self.hyperparameters['wandb']: wandb.log(ret_metrics)
+                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    
             
             self.loss_variation.append(running_loss/epoch_size)
             
