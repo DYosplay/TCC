@@ -18,17 +18,18 @@ if __name__ == '__main__':
 	hyperparameters = parse_arguments.parse_arguments()
 
 	print(hyperparameters['test_name'])
+	res_folder = hyperparameters['parent_folder'] + os.sep + hyperparameters['test_name'] 
+	
+	# if not os.path.exists(hyperparameters['parent_folder']): os.mkdir(hyperparameters['parent_folder'])
+	# if not os.path.exists(res_folder): os.mkdir(res_folder)
+	os.makedirs(res_folder, exist_ok=True)
 
-	res_folder = hyperparameters['search_name'] + os.sep + hyperparameters['test_name'] 
-	if not os.path.exists(hyperparameters['search_name']): os.mkdir(hyperparameters['search_name'])
-	if not os.path.exists(res_folder): os.mkdir(res_folder)
-
-	if hyperparameters['search_greed']:
+	if hyperparameters['random_search']:
 		test_protocols.random_search_parameters(hyperparameters=hyperparameters)
 		exit(0)
 
 	if hyperparameters['baysean_search']:
-		baysean_search.baysean_search(hyperparameters['search_name'], hyperparameters=hyperparameters)
+		baysean_search.baysean_search(hyperparameters['parent_folder'], hyperparameters=hyperparameters)
 		exit(0)
 
 	# Sementes e algoritmos deterministicos
@@ -42,23 +43,24 @@ if __name__ == '__main__':
 	cudnn.benchmark = False
 	cudnn.deterministic = True
 
-	if hyperparameters['all_weights'] or hyperparameters['validate']:
-		model = DsPipeline(hyperparameters=hyperparameters)
-		model.load_state_dict(torch.load(res_folder + os.sep + "Backup" + os.sep + hyperparameters['weight']))
-		print(test_protocols.count_parameters(model))
-		model.cuda()
-		model.train(mode=False)
-		model.eval()
+	if hyperparameters['all_weights']:
+		test_protocols.eval_all_weights_stylus(hyperparameters, res_folder)
+		exit(0)
+	
+	if hyperparameters['validate']:
+		test_protocols.validation(hyperparameters, res_folder, "4vs1", "stylus")
+		test_protocols.validation(hyperparameters, res_folder, "1vs1", "stylus")
+		exit(0)
 
-		if hyperparameters['all_weights']: 
-			test_protocols.eval_all_weights_stylus()(model, res_folder, hyperparameters['epochs'])
-		if hyperparameters['validate']:
-			test_protocols.validation(model, res_folder, "4vs1", "stylus")
-			test_protocols.validation(model, res_folder, "1vs1", "stylus")
-	else: # Treinamento
-		model = DsPipeline(hyperparameters=hyperparameters)
-		print(test_protocols.count_parameters(model))
-		model.cuda()
-		model.train(mode=True)
-		model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
-		del model
+	if hyperparameters['evaluate']:
+		test_protocols.evaluate(hyperparameters, res_folder)
+		exit(0)
+
+	
+	# Treinamento
+	model = DsPipeline(hyperparameters=hyperparameters)
+	print(test_protocols.count_parameters(model))
+	model.cuda()
+	model.train(mode=True)
+	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
+	del model

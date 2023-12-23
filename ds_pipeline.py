@@ -20,10 +20,10 @@ import utils.metrics as metrics
 
 import wandb
 
-from fastdtw import fastdtw
-
 import warnings
-warnings.filterwarnings("ignore")
+from numba.core.errors import NumbaPerformanceWarning
+warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
+
 class DsPipeline(nn.Module):
     def __init__(self, hyperparameters : Dict[str, Any]):    
         super(DsPipeline, self).__init__()
@@ -94,18 +94,21 @@ class DsPipeline(nn.Module):
 
         # Wandb
         run = None
-        if self.hyperparameters['wandb']:
+        if self.hyperparameters['wandb_name'] is not None:
             # wandb.login()
 
-            run = wandb.init(
-                project=self.hyperparameters["test_name"],
-                config=self.hyperparameters,
-            )
+            try:
+                run = wandb.init(
+                    project=self.hyperparameters["wandb_name"],
+                    config=self.hyperparameters,
+                )
 
-            wandb.watch(self, log_freq=100)
+                wandb.watch(self, log_freq=100)
+            except:
+                self.hyperparameters['wandb_name'] = None
     
     def __del__(self):
-        if self.hyperparameters['wandb']: wandb.finish()
+        if self.hyperparameters['wandb_name'] is not None: wandb.finish()
 
     def getOutputMask(self, lens):    
         lens = np.array(lens, dtype=np.int32)
@@ -159,11 +162,12 @@ class DsPipeline(nn.Module):
         Returns:
             float: DTW normalizado entre as assinaturas
         """
-        if self.use_fdtw:
-            distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
-            return torch.tensor([distance /((len_x + len_y))])
-        else:
-            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+        # if self.use_fdtw:
+        #     distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
+        #     return torch.tensor([distance /((len_x + len_y))])
+        # else:
+        #     return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
             # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
             # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
@@ -324,7 +328,7 @@ class DsPipeline(nn.Module):
         self.train(mode=True)
 
         ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
-        if self.hyperparameters['wandb']: wandb.log(ret_metrics)
+        if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
         
         return ret_metrics
 
@@ -390,7 +394,7 @@ class DsPipeline(nn.Module):
 
             pbar.close()
 
-            if self.hyperparameters['wandb']: wandb.log({'loss': loss}) 
+            if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': loss}) 
 
             if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for cf in comparison_files:
