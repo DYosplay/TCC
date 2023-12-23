@@ -19,10 +19,10 @@ def random_search_parameters(hyperparameters : Dict[str, Any]):
         Args:
             search_name (str): nome da bateria de testes
     """
-	alpha = np.round(np.random.uniform(0.7,1.2,40),2)
-	beta  = np.round(np.random.uniform(0.5,4,40),1)
-	p     = np.round(np.random.uniform(0.05,1,40),3)
-	r     = np.round(np.random.uniform(0.05,1,40),3)
+	alpha = np.round(np.random.uniform(0.7,1.2,hyperparameters['number_of_tests']),2)
+	beta  = np.round(np.random.uniform(0.5,4,hyperparameters['number_of_tests']),1)
+	p     = np.round(np.random.uniform(0.05,1,hyperparameters['number_of_tests']),3)
+	r     = np.round(np.random.uniform(0.05,1,hyperparameters['number_of_tests']),3)
 
 	random.seed(hyperparameters["seed"])
 	np.random.seed(hyperparameters["seed"])
@@ -58,8 +58,8 @@ def random_search_parameters(hyperparameters : Dict[str, Any]):
 			
 			model.cuda()
 			model.train(mode=True)
-			# model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
-			model.start_train(comparison_files=[EBIOSIGN_W1_SKILLED_4VS1], result_folder=res_folder)
+			model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
+			# model.start_train(comparison_files=[EBIOSIGN_W1_SKILLED_4VS1], result_folder=res_folder)
 			
 			parm_log += "ctl_" + f'{i:03d},' + str(alpha[i]) + "," + str(beta[i]) + "," + str(p[i]) + "," + str(r[i]) + "," + str(model.best_eer) + "\n" 
 			del model
