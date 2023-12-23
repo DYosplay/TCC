@@ -100,7 +100,7 @@ def eval_all_weights_stylus(hyperparameters : Dict[str, Any], res_folder : str):
 def validate(hyperparameters : Dict[str, Any], res_folder : str, comparison_file : str):
 	f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
 	
-	protocol_name = comparison_file.split(os.sep)[-1].upper()
+	protocol_name = comparison_file.split(os.sep)[-1].split(".")[0]
 	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_VAL_" + protocol_name.upper()
 
 	model = DsPipeline(hyperparameters=hyperparameters)
