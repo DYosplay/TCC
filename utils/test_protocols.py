@@ -39,9 +39,10 @@ def random_search_parameters(hyperparameters : Dict[str, Any]):
 	parm_log = "Name, alpha, beta, p, r, EER\n"
 	for i in range(0, hyperparameters['number_of_tests']):
 		try:
+			hyperparameters['test_name'] = "ctl_" + f'{i:03d}'
 			print("Name, alpha, beta, p, r")
 			print("ctl_" + f'{i:03d},' + str(alpha[i]) + "," + str(beta[i]) + "," + str(p[i]) + "," + str(r[i]))
-			res_folder = hyperparameters['search_name'] + os.sep + "ctl_" + f'{i:03d}'
+			res_folder = hyperparameters['search_name'] + os.sep + hyperparameters['test_name']
 			
 			if not os.path.exists(res_folder): os.mkdir(res_folder)
 
