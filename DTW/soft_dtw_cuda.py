@@ -375,7 +375,8 @@ def timed_run(a, b, sdtw):
 
     # Forward
     start = timer()
-    forward = sdtw(a, b)
+    forward = sdtw(a, b)[0]
+    print(forward)
     end = timer()
     t = end - start
 
@@ -409,7 +410,10 @@ def profile(batch_size, seq_len_a, seq_len_b, dims, tol_backward):
     b_gpu = b_cpu.cuda()
 
     # GPU
-    t, _, _ = timed_run(a_gpu, b_gpu, sdtw_cuda)
+    t, _, _ = timed_run(a_gpu, a_gpu, sdtw_cuda)
+    print(str(t))
+    print("\n\n\nNOVA")
+    t, _, _ = timed_run(a_gpu, a_gpu + 0.0001, sdtw_cuda)
     print(str(t))
     # # CPU
     # t_cpu, forward_cpu, backward_cpu = timed_run(a_cpu, b_cpu, sdtw)
@@ -436,7 +440,7 @@ if __name__ == "__main__":
 
     torch.manual_seed(1234)
     print("Versao pequena")
-    profile(1, 2112, 2112, 64, tol_backward=1e-6)
+    profile(5, 120, 120, 64, tol_backward=1e-6)
 
     # print("Versao maior")
     # profile(1, 11819, 7552, 64, tol_backward=1e-6)

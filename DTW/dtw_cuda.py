@@ -379,7 +379,8 @@ def timed_run(a, b, sdtw):
 
     # Forward
     start = timer()
-    forward = sdtw(a, b)
+    forward = sdtw(a, b)[0]
+    print(forward)
     end = timer()
     t = end - start
 
@@ -451,9 +452,9 @@ if __name__ == "__main__":
     # print(D_GPU[123:127, 119:122])
     # print(D_CPU[123:127, 119:122])
 
-    profile(128, 17, 15, 64, tol_backward=1e-6)
-    profile(512, 64, 64, 2, tol_backward=1e-4)
-    profile(512, 256, 256, 2, tol_backward=1e-3) 
+    profile(512, 17, 15, 64, tol_backward=1e-6)
+    # profile(512, 64, 64, 2, tol_backward=1e-4)
+    # profile(512, 256, 256, 2, tol_backward=1e-3) 
 
     # sdtw_cuda = DTW(True, normalize=False)
     # loss = []
