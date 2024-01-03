@@ -1,0 +1,10 @@
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_001 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.02 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_002 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.03 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_003 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.04 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_004 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.05 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_005 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_006 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_007 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_008 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_009 -pf=Constrative_S01
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=contrastive_loss -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -t=Constrastive_Loss_010 -pf=Constrative_S01
