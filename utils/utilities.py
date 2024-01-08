@@ -1,7 +1,7 @@
     
 import numpy as np
 from numpy import typing as npt
-from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss
+from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset
 from typing import List, Tuple, Dict, Any
 import torch
 import json
@@ -18,6 +18,8 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return clustering_triplet_mmd.Clustering_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "contrastive_loss":
         return contrastive_loss.Contrastive_Loss(ng=ng, nf=nf, nw=nw, margin=margin)
+    if loss_type.lower() == "triplet_loss_offset":
+        return triplet_loss_offset.Triplet_Loss_Offset(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda,alpha=alpha)
     
     raise NameError("Loss function not found")
 
