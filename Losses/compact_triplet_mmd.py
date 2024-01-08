@@ -77,8 +77,8 @@ class Compact_Triplet_MMD(nn.Module):
             ca = torch.mean(dist_g)
             cb = torch.mean(dist_n[:5])
             intra_loss = torch.sum(dist_g - ca)
-            # inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
-            inter_loss = torch.sum(F.relu(self.beta - torch.abs(ca-cb)))
+            inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
+            # inter_loss = torch.sum(F.relu(self.beta - torch.abs(ca-cb)))
 
             lv = (torch.sum(lk_skilled) + torch.sum(lk_random)) / (lk_skilled.data.nonzero(as_tuple=False).size(0) + lk_random.data.nonzero(as_tuple=False).size(0) + 1)
 
