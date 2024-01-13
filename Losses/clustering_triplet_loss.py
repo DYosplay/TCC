@@ -5,8 +5,8 @@ from Losses import mmd_loss as mmd
 import DTW.soft_dtw_cuda as soft_dtw
 import numpy as np
 
-class Clustering_Triplet_MMD(nn.Module):
-    def __init__(self, ng : int, nf : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
+class Clustering_Triplet_Loss(nn.Module):
+    def __init__(self, ng : int, nf : int, nw : int, margin : float, model_lambda : float):
         """_summary_
 
         Args:
@@ -21,18 +21,14 @@ class Clustering_Triplet_MMD(nn.Module):
             mmd_kernel_num (torch.nn.Parameter): number of kernels for MMD
             mmd_kernel_mul (torch.nn.Parameter): multipler for MMD
         """
-        super(Clustering_Triplet_MMD, self).__init__()
+        super(Clustering_Triplet_Loss, self).__init__()
         # Hyperparameters
         self.ng = ng
         self.nf = nf
         self.nw = nw
         self.margin = margin
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
-        self.mmd_loss = mmd.MMDLoss(kernel_num=mmd_kernel_num, kernel_mul=mmd_kernel_mul)
-        self.alpha = alpha
-        self.beta = beta
-        self.p = p
-        self.r = r
+        self.model_lambda = model_lambda
 
 
         self.siz = np.sum(np.array(list(range(1,self.nw+1))))
@@ -77,37 +73,20 @@ class Clustering_Triplet_MMD(nn.Module):
             dists_rf_matrix = (dists[self.ng+1+(n_skilleds):].unsqueeze(0) + dists[self.ng+1+(n_skilleds):].unsqueeze(1)) / 2
             mask = torch.tril(torch.ones_like(dists_rf_matrix, dtype=torch.bool), diagonal=-1)
             dists_rf = dists_rf_matrix[mask]
-            
+
             # Triplets
             lk_skilled = F.relu(dists_gs.unsqueeze(1) + self.margin - dists_sk.unsqueeze(0))
             lk_random = F.relu(dists_gs.unsqueeze(1) + self.margin - dists_rf.unsqueeze(0))
-            
 
 
-            ca = torch.sum(dists_gs) / (self.ng * (self.ng - 1))
-            cb = torch.sum(dists_sk) / (n_skilleds * (n_skilleds - 1))
-            # cb = torch.mean(dist_n[:n_skilleds])
-            intra_loss = torch.sum(dists_gs - ca)
-            # inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
-            inter_loss = torch.sum(F.relu(self.beta - torch.abs(ca-cb)))
+            only_pos = torch.sum(dists_gs) * (self.model_lambda /self.ng)
 
             lv = (torch.sum(lk_skilled) + torch.sum(lk_random)) / (lk_skilled.data.nonzero(as_tuple=False).size(0) + lk_random.data.nonzero(as_tuple=False).size(0) + 1)
 
-            user_loss = lv + intra_loss * self.p + inter_loss * self.r
+            user_loss = lv + only_pos
 
             total_loss += user_loss
 
         total_loss /= self.nw
 
-        ctr = 0
-        mmds = torch.zeros(self.siz, dtype=data.dtype, device=data.device)
-        
-        for i in range(0, self.nw):
-            for j in range(1, self.nw):
-                if i != j:
-                    mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) #* self.alpha
-                    ctr+=1
-
-        mmd1 = torch.max(mmds) * self.alpha
-
-        return total_loss + mmd1
+        return total_loss 
