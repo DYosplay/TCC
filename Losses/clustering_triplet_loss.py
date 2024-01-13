@@ -60,28 +60,21 @@ class Clustering_Triplet_Loss(nn.Module):
                 dists[j] = self.sdtw(signatures[j:j+1, :int(signatures_lens[j])], signatures[j:j+1, :int(signatures_lens[j])])[0] / (signatures_lens[j] + signatures_lens[j])
 
             # genuines
-            dists_gs_matrix = (dists[:self.ng+1].unsqueeze(0) + dists[:self.ng+1].unsqueeze(1)) / 2
+            dists_matrix = (dists.unsqueeze(0) + dists.unsqueeze(1)) / 2
+            
+            # pode ser relevante desconsiderar a distância da âncora com ela mesma
+            # aqui ela é considerada
+            lks = torch.zeros((self.ng+1,self.ng+1,self.nf), dtype=data.dtype, device=data.device)
+            for j in range(0,self.ng+1):
+                lks[j] = F.relu(dists_matrix[j][:self.ng+1].unsqueeze(1) + self.margin - dists_matrix[j][self.ng+1:].unsqueeze(0))
+
+            dists_gs_matrix = dists_matrix[:self.ng+1,:self.ng+1]
             mask = torch.tril(torch.ones_like(dists_gs_matrix, dtype=torch.bool), diagonal=-1)
             dists_gs = dists_gs_matrix[mask]
 
-            # skilled
-            dists_sk_matrix = (dists[self.ng+1:self.ng+1+(n_skilleds)].unsqueeze(0) + dists[self.ng+1:self.ng+1+(n_skilleds)].unsqueeze(1)) / 2
-            mask = torch.tril(torch.ones_like(dists_sk_matrix, dtype=torch.bool), diagonal=-1)
-            dists_sk = dists_sk_matrix[mask]
-
-            # random
-            dists_rf_matrix = (dists[self.ng+1+(n_skilleds):].unsqueeze(0) + dists[self.ng+1+(n_skilleds):].unsqueeze(1)) / 2
-            mask = torch.tril(torch.ones_like(dists_rf_matrix, dtype=torch.bool), diagonal=-1)
-            dists_rf = dists_rf_matrix[mask]
-
-            # Triplets
-            lk_skilled = F.relu(dists_gs.unsqueeze(1) + self.margin - dists_sk.unsqueeze(0))
-            lk_random = F.relu(dists_gs.unsqueeze(1) + self.margin - dists_rf.unsqueeze(0))
-
-
             only_pos = torch.sum(dists_gs) * (self.model_lambda /self.ng)
 
-            lv = (torch.sum(lk_skilled) + torch.sum(lk_random)) / (lk_skilled.data.nonzero(as_tuple=False).size(0) + lk_random.data.nonzero(as_tuple=False).size(0) + 1)
+            lv = torch.sum(lks) / (lks.data.nonzero(as_tuple=False).size(0)+1)
 
             user_loss = lv + only_pos
 
