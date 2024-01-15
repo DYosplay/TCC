@@ -1,7 +1,7 @@
     
 import numpy as np
 from numpy import typing as npt
-from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss
+from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss, hard_triplet_loss_avg, hard_triplet_loss_max
 from typing import List, Tuple, Dict, Any
 import torch
 import json
@@ -24,6 +24,10 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return compact_triplet_mmd_offset.Compact_Triplet_MMD_Offset(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "clustering_triplet_loss":
         return clustering_triplet_loss.Clustering_Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
+    if loss_type.lower() == "hard_triplet_loss_avg":
+        return hard_triplet_loss_avg.Hard_Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
+    if loss_type.lower() == "hard_triplet_loss_max":
+        return hard_triplet_loss_max.Hard_Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
     
     raise NameError("Loss function not found")
 
