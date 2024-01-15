@@ -167,7 +167,7 @@ class DsPipeline(nn.Module):
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
 
 
-        return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))) + (self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))))/2
+        return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], x[None, :int(len_x)])[0] /((len_x + len_x))) + (self.sdtw2(y[None, :int(len_y)], y[None, :int(len_y)])[0] /((len_y + len_y))))/2
 
         # if self.use_fdtw:
         #     distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
