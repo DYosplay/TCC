@@ -16,6 +16,7 @@ import numpy as np
 
 import DataLoader.batches_gen as batches_gen
 import DTW.dtw_cuda as dtw
+import DTW.soft_dtw_cuda as sdtw
 import utils.metrics as metrics
 
 import wandb
@@ -91,6 +92,7 @@ class DsPipeline(nn.Module):
         self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'])
         
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
+        self.sdtw2 = sdtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
         # Wandb
         run = None
@@ -162,7 +164,11 @@ class DsPipeline(nn.Module):
         Returns:
             float: DTW normalizado entre as assinaturas
         """
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+        # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))
+
+
+        return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))) + (self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y))))/2
+
         # if self.use_fdtw:
         #     distance, _ = fastdtw(x[:int(len_x)].detach().cpu().numpy(), y[:int(len_y)].detach().cpu().numpy(), dist=2)
         #     return torch.tensor([distance /((len_x + len_y))])
