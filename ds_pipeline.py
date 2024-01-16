@@ -89,10 +89,9 @@ class DsPipeline(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         nn.init.zeros_(self.cran[3].bias)
 
-        self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'])
+        self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'], margin_max=hyperparameters['margin_max'], margin_min=hyperparameters['margin_min'])
         
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
-        self.sdtw2 = sdtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
         # Wandb
         run = None
@@ -390,6 +389,90 @@ class DsPipeline(nn.Module):
                 optimizer.zero_grad()
 
                 loss = self.loss_function(outputs, length)
+                loss.backward()
+
+                optimizer.step()
+
+                running_loss += loss.item()
+            
+                pbar.update(1)
+
+            pbar.close()
+
+            if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
+
+            if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+                for cf in comparison_files:
+                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    
+            
+            self.loss_variation.append(running_loss/epoch_size)
+            
+            lr_scheduler.step()
+
+            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+
+        # Loss graph
+        plt.xlabel("#Epoch")
+        plt.ylabel("Loss")
+        plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
+        plt.savefig(result_folder + os.sep + "loss.png")
+        plt.cla()
+        plt.clf()
+
+    def start_transfer(self, comparison_files : List[str], result_folder : str, teacher_model):
+        """ Loop de treinamento
+
+        Args:
+            comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
+            result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
+        """
+        dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
+
+        optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=self.hyperparameters['momentum'])
+        lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.hyperparameters['decay']) 
+            
+        if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+        if not os.path.exists(result_folder + os.sep + "Backup"): os.mkdir(result_folder + os.sep + "Backup")
+        bckp_path = result_folder + os.sep + "Backup"
+
+        running_loss = 0
+        for i in range(1, self.hyperparameters['epochs']+1):
+            epoch = None
+
+            if self.hyperparameters['dataset_scenario'] == "mix":
+                epoch = batches_gen.generate_mixed_epoch()
+            elif self.hyperparameters['dataset_scenario'] == "stylus":
+                epoch = batches_gen.generate_epoch()
+            elif self.hyperparameters['dataset_scenario'] == "finger":
+                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
+
+            epoch_size = len(epoch)
+            self.loss_value = running_loss/epoch_size
+
+            if (self.best_eer > 0.04 and i >= self.hyperparameters['early_stop']):
+                print("\n\nEarly stop!")
+                break
+
+            pbar = tqdm(total=(epoch_size//(self.batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.4f}".format(self.loss_value))
+
+            running_loss = 0
+            #PAL = Previous Accumulated Loss
+            while epoch != []:
+            # if True:
+                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z)
+                
+                mask = self.getOutputMask(lens)
+                mask = Variable(torch.from_numpy(mask)).cuda()
+                inputs = Variable(torch.from_numpy(batch)).cuda()
+                
+                outputs, length = self(inputs.float(), mask, i)
+                outputs_t, length_t = teacher_model(inputs.float(), mask, i)
+                
+                optimizer.zero_grad()
+
+                loss = self.loss_function(outputs, length, outputs_t)
                 loss.backward()
 
                 optimizer.step()

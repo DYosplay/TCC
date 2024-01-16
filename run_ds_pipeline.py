@@ -53,7 +53,23 @@ if __name__ == '__main__':
 		test_protocols.evaluate(hyperparameters, res_folder)
 		exit(0)
 
-	
+	if hyperparameters['transfer_learning']:
+		teacher_model = DsPipeline(hyperparameters=hyperparameters)
+		teacher_model.cuda()
+		# teacher_model.train(mode=False)
+		# teacher_model.eval()
+
+		teacher_model.load_state_dict(torch.load(hyperparameters['weight']))
+
+		# Treinamento
+		model = DsPipeline(hyperparameters=hyperparameters)
+		print(test_protocols.count_parameters(model))
+		model.cuda()
+		model.train(mode=True)
+		model.start_transfer(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder, teacher_model=teacher_model)
+		del teacher_model
+		del model
+
 	# Treinamento
 	model = DsPipeline(hyperparameters=hyperparameters)
 	print(test_protocols.count_parameters(model))
