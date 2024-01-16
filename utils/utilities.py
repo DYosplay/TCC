@@ -1,13 +1,13 @@
     
 import numpy as np
 from numpy import typing as npt
-from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss, hard_triplet_loss_avg, hard_triplet_loss_max
+from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss, hard_triplet_loss_avg, hard_triplet_loss_max, triplet_distillation
 from typing import List, Tuple, Dict, Any
 import torch
 import json
 import os
 
-def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn.Parameter, model_lambda : float, alpha : torch.nn.Parameter, beta : torch.nn.Parameter, p : torch.nn.Parameter, r : torch.nn.Parameter, mmd_kernel_num : float, mmd_kernel_mul : float):
+def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn.Parameter, model_lambda : float, alpha : torch.nn.Parameter, beta : torch.nn.Parameter, p : torch.nn.Parameter, r : torch.nn.Parameter, mmd_kernel_num : float, mmd_kernel_mul : float, margin_max : float, margin_min : float):
     if loss_type.lower() == "triplet_loss":
         return triplet_loss.Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
     if loss_type.lower() == "triplet_mmd":
@@ -28,6 +28,8 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return hard_triplet_loss_avg.Hard_Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
     if loss_type.lower() == "hard_triplet_loss_max":
         return hard_triplet_loss_max.Hard_Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
+    if loss_type.lower() == "distillation_loss":
+        return triplet_distillation.Triplet_Distillation_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul, margin_max=margin_max, margin_min=margin_min)
     
     raise NameError("Loss function not found")
 
