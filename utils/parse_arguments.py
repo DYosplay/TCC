@@ -21,6 +21,7 @@ def parse_arguments():
 	parser.add_argument("-es", "--eval_step", help="evaluation step during training", default=3, type=int)
 	parser.add_argument("-nt", "--number_of_tests", help="number of search tests (-sg)", default=10, type=int)
 	parser.add_argument("-wdb", "--wandb", help="Turns on wandb", action="store_true")
+	parser.add_argument("-wpn", "--wandb_project_name", help="Wandb name for training mode", default="", type=str)
 	# general parameters
 	parser.add_argument("-bs", "--batch_size", help="set batch size (should be dividible by 64)", default=64, type=int)
 	parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=25, type=int)
