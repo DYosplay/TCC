@@ -30,6 +30,8 @@ def parse_arguments():
 	parser.add_argument("-ng", "--ng", help="number of genuine signatures in a mini-batch", default=5, type=int)
 	parser.add_argument("-nf", "--nf", help="number of forgery signatures in a mini-batch", default=10, type=int)
 	parser.add_argument("-nw", "--nw", help="number of writers in a batch", default=4, type=int)
+	parser.add_argument("-trans", "--transfer_learning", help="transfer learning method for distillation loss", action='store_true')
+
 	# loss hyperparameters
 	parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=math.nan, type=float)
 	parser.add_argument("-b", "--beta", help="set beta value for variance of negative signatures", default=math.nan, type=float)
@@ -39,6 +41,8 @@ def parse_arguments():
 	parser.add_argument("-mkm", "--mmd_kernel_mul", help="MMD Kernel Mul", default=2, type=float)
 	parser.add_argument("-lbd", "--model_lambda", help="triplet loss model lambda", default=0.01, type=float)
 	parser.add_argument("-tm", "--margin", help="triplet loss margin", default=1.0, type=float)
+	parser.add_argument("-mmax", "--margin_max", help="set max margin value for distillation loss", default=1.0, type=float)
+	parser.add_argument("-mmin", "--margin_min", help="set min margin value for distillation loss", default=0.5, type=float)
 	# Testing
 	parser.add_argument("-aw", "--all_weights", help="eval all weights", action='store_true')
 	parser.add_argument("-ev", "--evaluate", help="validate model using best weights", action='store_true')
