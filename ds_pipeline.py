@@ -45,8 +45,8 @@ class DsPipeline(nn.Module):
         
         self.n_layers = 2
         self.n_in = 12
-        self.n_out = 64
-        self.n_hidden = 128
+        self.n_out = hyperparameters["nout"]
+        self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
 

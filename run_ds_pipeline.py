@@ -56,9 +56,6 @@ if __name__ == '__main__':
 	if hyperparameters['transfer_learning']:
 		teacher_model = DsPipeline(hyperparameters=hyperparameters)
 		teacher_model.cuda()
-		# teacher_model.train(mode=False)
-		# teacher_model.eval()
-
 		teacher_model.load_state_dict(torch.load(hyperparameters['weight']))
 
 		# Treinamento
@@ -69,11 +66,23 @@ if __name__ == '__main__':
 		model.start_transfer(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder, teacher_model=teacher_model)
 		del teacher_model
 		del model
+		exit(0)
+
+	if hyperparameters['tune_model']:
+		model = DsPipeline(hyperparameters=hyperparameters)
+		model.cuda()
+		model.load_state_dict(torch.load(hyperparameters['weight']))
+		
+		model.train(mode=True)
+		model.start_train(comparison_files=[EBIOSIGN_W1_SKILLED_4VS1, EBIOSIGN_W1_SKILLED_1VS1], result_folder=res_folder)
+		del model
+		exit(0)
 
 	# Treinamento
 	model = DsPipeline(hyperparameters=hyperparameters)
 	print(test_protocols.count_parameters(model))
 	model.cuda()
 	model.train(mode=True)
+	# model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
 	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
 	del model
