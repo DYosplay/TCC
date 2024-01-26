@@ -6,6 +6,9 @@ def parse_arguments():
     # Initialize parser
 	parser = argparse.ArgumentParser()
 	
+	#Network
+	parser.add_argument("-nout", "--nout", help="number of 1st convolution layer filters", default=64, type=int)
+	parser.add_argument("-nh", "--nhidden", help="number of 2nd convolutional layer filters", default=128, type=int)
 	# Optimization
 	parser.add_argument("-lt", "--loss_type", help="choose loss type (triplet_loss, triplet_mmd, compact_triplet_mmd)", type=str, default="compact_triplet_mmd")
 	parser.add_argument("-lr", "--learning_rate", help="set learning rate value", default=0.01, type=float)
@@ -32,6 +35,7 @@ def parse_arguments():
 	parser.add_argument("-nf", "--nf", help="number of forgery signatures in a mini-batch", default=10, type=int)
 	parser.add_argument("-nw", "--nw", help="number of writers in a batch", default=4, type=int)
 	parser.add_argument("-trans", "--transfer_learning", help="transfer learning method for distillation loss", action='store_true')
+	parser.add_argument("-tune", "--tune_model", help="tune model initializing it with a specific weight", action='store_true')
 
 	# loss hyperparameters
 	parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=math.nan, type=float)
