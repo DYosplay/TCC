@@ -97,6 +97,6 @@ class Compact_Triplet_MMD(nn.Module):
                     mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) #* self.alpha
                     ctr+=1
 
-        mmd1 = torch.max(mmds) * self.alpha
+        mmd1 = torch.sum(mmds) * self.alpha
 
         return total_loss + mmd1
