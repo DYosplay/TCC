@@ -37,6 +37,7 @@ class DsPipeline(nn.Module):
         self.beta = torch.nn.Parameter(torch.tensor(hyperparameters['beta']), requires_grad=False)
         self.p = torch.nn.Parameter(torch.tensor(hyperparameters['p']), requires_grad=False)
         self.r = torch.nn.Parameter(torch.tensor(hyperparameters['r']), requires_grad=False)
+        self.q = torch.nn.Parameter(torch.tensor(hyperparameters['q']), requires_grad=False)
         
         # variáveis de controle
         self.z = hyperparameters['zscore']
@@ -89,7 +90,7 @@ class DsPipeline(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         nn.init.zeros_(self.cran[3].bias)
 
-        self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'], margin_max=hyperparameters['margin_max'], margin_min=hyperparameters['margin_min'])
+        self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, q=self.q, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'], margin_max=hyperparameters['margin_max'], margin_min=hyperparameters['margin_min'])
         
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
