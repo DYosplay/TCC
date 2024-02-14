@@ -41,6 +41,7 @@ def parse_arguments():
 	parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=math.nan, type=float)
 	parser.add_argument("-b", "--beta", help="set beta value for variance of negative signatures", default=math.nan, type=float)
 	parser.add_argument("-p", "--p", help="set p value for icnn_loss", default=math.nan, type=float)
+	parser.add_argument("-q", "--q", help="set p value for icnn_loss", default=math.nan, type=float)
 	parser.add_argument("-r", "--r", help="set r value for icnn_loss", default=math.nan, type=float)
 	parser.add_argument("-mkn", "--mmd_kernel_num", help="MMD Kernel Num", default=5, type=float)
 	parser.add_argument("-mkm", "--mmd_kernel_mul", help="MMD Kernel Mul", default=2, type=float)
