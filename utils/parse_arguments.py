@@ -38,6 +38,7 @@ def parse_arguments():
 	parser.add_argument("-tune", "--tune_model", help="tune model initializing it with a specific weight", action='store_true')
 
 	# loss hyperparameters
+	parser.add_argument("-ga", "--ga", help="turns on gradient for alpha.", action="store_tru")
 	parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=math.nan, type=float)
 	parser.add_argument("-b", "--beta", help="set beta value for variance of negative signatures", default=math.nan, type=float)
 	parser.add_argument("-p", "--p", help="set p value for icnn_loss", default=math.nan, type=float)
