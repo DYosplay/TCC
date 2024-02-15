@@ -488,6 +488,7 @@ class DsPipeline(nn.Module):
                 optimizer.step()
 
                 if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
+                print(self.p)
 
                 running_loss += loss.item()
             
