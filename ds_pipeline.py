@@ -34,9 +34,9 @@ class DsPipeline(nn.Module):
         self.margin = torch.nn.Parameter(torch.tensor(hyperparameters['margin']), requires_grad=False)
         self.lr = torch.nn.Parameter(torch.tensor(hyperparameters['learning_rate']), requires_grad=False)
         self.alpha = torch.nn.Parameter(torch.tensor(hyperparameters['alpha']), requires_grad=False)
-        if hyperparameters['ga']: self.alpha.requires_grad_()
         self.beta = torch.nn.Parameter(torch.tensor(hyperparameters['beta']), requires_grad=False)
         self.p = torch.nn.Parameter(torch.tensor(hyperparameters['p']), requires_grad=False)
+        if hyperparameters['ga']: self.p.requires_grad_()
         self.r = torch.nn.Parameter(torch.tensor(hyperparameters['r']), requires_grad=False)
         self.q = torch.nn.Parameter(torch.tensor(hyperparameters['q']), requires_grad=False)
         
@@ -487,7 +487,7 @@ class DsPipeline(nn.Module):
 
                 optimizer.step()
 
-                if self.hyperparameters['ga']: self.alpha.data.clamp_(0.0,1.0)
+                if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
 
                 running_loss += loss.item()
             
