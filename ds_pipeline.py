@@ -34,6 +34,7 @@ class DsPipeline(nn.Module):
         self.margin = torch.nn.Parameter(torch.tensor(hyperparameters['margin']), requires_grad=False)
         self.lr = torch.nn.Parameter(torch.tensor(hyperparameters['learning_rate']), requires_grad=False)
         self.alpha = torch.nn.Parameter(torch.tensor(hyperparameters['alpha']), requires_grad=False)
+        if hyperparameters['ga']: self.alpha.requires_grad_()
         self.beta = torch.nn.Parameter(torch.tensor(hyperparameters['beta']), requires_grad=False)
         self.p = torch.nn.Parameter(torch.tensor(hyperparameters['p']), requires_grad=False)
         self.r = torch.nn.Parameter(torch.tensor(hyperparameters['r']), requires_grad=False)
