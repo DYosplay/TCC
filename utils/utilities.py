@@ -36,6 +36,8 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return compact_triplet_mmd2.Compact_Triplet_MMD2(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r,q=q, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "window_loss":
         return window_loss.Window_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda, r=r)
+    if loss_type.lower() == "window_loss2":
+        return window_loss.Window_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda, p=p)
     raise NameError("Loss function not found")
 
 def traceback(acc_cost_matrix : npt.DTypeLike):
