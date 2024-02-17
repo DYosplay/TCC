@@ -24,7 +24,7 @@ class Window_Loss(nn.Module):
         self.nw = nw
         self.model_lambda = model_lambda
         self.margin = margin
-        self.r
+        self.r = r
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
 
     def forward(self, data, lens):
