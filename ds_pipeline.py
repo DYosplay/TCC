@@ -38,7 +38,8 @@ class DsPipeline(nn.Module):
         self.p = torch.nn.Parameter(torch.tensor(hyperparameters['p']), requires_grad=False)
         if hyperparameters['ga']: self.p.requires_grad_()
         self.r = torch.nn.Parameter(torch.tensor(hyperparameters['r']), requires_grad=False)
-        self.q = torch.nn.Parameter(torch.tensor(hyperparameters['q']), requires_grad=False)
+        # self.q = torch.nn.Parameter(torch.tensor(hyperparameters['q']), requires_grad=False)
+        self.q =hyperparameters['q']
         
         # variáveis de controle
         self.z = hyperparameters['zscore']
@@ -291,7 +292,7 @@ class DsPipeline(nn.Module):
                 users[user_id]["true_label"].append(true_label)
 
         # Nesse ponto, todos as comparações foram feitas
-        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th\n"
+        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
         local_buffer = ""
         global_true_label = []
         global_distances = []
@@ -308,10 +309,11 @@ class DsPipeline(nn.Module):
             # if "Task" not in comparison_file:
             if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
                 eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
+                th_range_local = np.max(np.array(users[user]["distances"])[np.array(users[user]["distances"]) < eer_threshold])
 
                 local_ths.append(eer_threshold)
                 eers.append(eer)
-                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0\n"
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ")\n"
 
         print("Obtendo EER global...")
         
@@ -322,10 +324,12 @@ class DsPipeline(nn.Module):
         local_ths = np.array(local_ths)
         local_ths_var  = np.var(local_ths)
         local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+        
+        th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
 
-        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n" + local_buffer
+        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n" + local_buffer
 
-        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n"
+        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
 
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
