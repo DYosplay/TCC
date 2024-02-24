@@ -1,5 +1,6 @@
 from typing import List, Tuple, Dict, Any
 from utils.utilities import define_loss, dump_hyperparameters
+from utils.pre_alignment import align
 
 import torch.nn.utils as nutils
 import torch.nn as nn
@@ -392,7 +393,7 @@ class DsPipeline(nn.Module):
             #PAL = Previous Accumulated Loss
             while epoch != []:
             # if True:
-                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z)
+                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
                 
                 mask = self.getOutputMask(lens)
                 mask = Variable(torch.from_numpy(mask)).cuda()
