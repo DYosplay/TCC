@@ -49,8 +49,8 @@ def traceback(acc_cost_matrix : npt.DTypeLike):
         Tuple[npt.ArrayLike, npt.ArrayLike]: coordenadas ponto a ponto referente a primeira e segunda sequência utilizada no cálculo do DTW.
     """
     rows, columns = np.shape(acc_cost_matrix)
-    rows-=1
-    columns-=1
+    rows-=3
+    columns-=3
 
     r = [rows]
     c = [columns]
