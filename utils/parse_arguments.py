@@ -36,6 +36,7 @@ def parse_arguments():
 	parser.add_argument("-nw", "--nw", help="number of writers in a batch", default=4, type=int)
 	parser.add_argument("-trans", "--transfer_learning", help="transfer learning method for distillation loss", action='store_true')
 	parser.add_argument("-tune", "--tune_model", help="tune model initializing it with a specific weight", action='store_true')
+	parser.add_argument("-pa", "--pre_alignment", help="use dtw pre alignment during pre processing", action='store_true')
 
 	# loss hyperparameters
 	parser.add_argument("-ga", "--ga", help="turns on gradient for alpha.", action="store_true")
