@@ -5,8 +5,8 @@ from Losses import mmd_loss as mmd
 import DTW.soft_dtw_cuda as soft_dtw
 import numpy as np
 
-class Compact_Triplet_MMD2(nn.Module):
-    def __init__(self, ng : int, nf : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, q : float, mmd_kernel_num : float, mmd_kernel_mul : float):
+class Compact_Triplet_MMD(nn.Module):
+    def __init__(self, ng : int, nf : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
         """_summary_
 
         Args:
@@ -21,7 +21,7 @@ class Compact_Triplet_MMD2(nn.Module):
             mmd_kernel_num (torch.nn.Parameter): number of kernels for MMD
             mmd_kernel_mul (torch.nn.Parameter): multipler for MMD
         """
-        super(Compact_Triplet_MMD2, self).__init__()
+        super(Compact_Triplet_MMD, self).__init__()
         # Hyperparameters
         self.ng = ng
         self.nf = nf
@@ -33,7 +33,6 @@ class Compact_Triplet_MMD2(nn.Module):
         self.beta = beta
         self.p = p
         self.r = r
-        self.q = q
 
 
         self.siz = np.sum(np.array(list(range(1,self.nw+1))))
@@ -51,7 +50,6 @@ class Compact_Triplet_MMD2(nn.Module):
         """
 
         step = (self.ng + self.nf + 1)
-        dists_gs = torch.zeros(self.ng*self.nw, dtype=data.dtype, device=data.device)
         total_loss = 0
 
         for i in range(0, self.nw):
@@ -69,7 +67,6 @@ class Compact_Triplet_MMD2(nn.Module):
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
                 dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
-                dists_gs[i*self.ng + j] = dist_g[j]
 
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
@@ -100,7 +97,11 @@ class Compact_Triplet_MMD2(nn.Module):
                     mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) #* self.alpha
                     ctr+=1
 
-        mmd1 = torch.sum(mmds) * self.alpha
-        var_g = torch.var(dists_gs) * self.q
+        smooth = 5
 
-        return total_loss + mmd1 + var_g
+        expg = torch.exp(smooth * mmds)
+        max_mmds = torch.sum(mmds * expg)/torch.sum(expg)
+
+        mmd1 = max_mmds * self.alpha
+
+        return total_loss + mmd1
