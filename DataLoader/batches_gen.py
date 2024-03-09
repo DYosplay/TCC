@@ -136,7 +136,7 @@ def generate_mixed_epoch(train_offset = [(1, 498), (1009, 1084)]):
     random.shuffle(epoch)
     return epoch
 
-def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus", train_offset = [(1, 498), (1009, 1084)], users=None, development = True, scenario : str = 'stylus'):
+def generate_epoch(dataset_folder : str, train_offset = [(1, 498), (1009, 1084)], users=None, development = True, scenario : str = 'stylus', hyperparameters = None):
     files = get_files(dataset_folder=dataset_folder)
     files_backup = files.copy()
 
@@ -150,6 +150,10 @@ def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus
     epoch = []
     number_of_mini_baches = 0
 
+    multiplier = 1
+    if hyperparameters is not None and hyperparameters['rotation']:
+        multiplier = 2
+
     database = None
     print("Gererating new epoch")
 
@@ -158,12 +162,12 @@ def generate_epoch(dataset_folder : str = "../Data/DeepSignDB/Development/stylus
         database = loader.get_database(user_id=user_id, scenario=scenario, development=development)
 
         if database == loader.EBIOSIGN1_DS1 or database == loader.EBIOSIGN1_DS2:
-            number_of_mini_baches = 1
+            number_of_mini_baches = 1 * multiplier
         elif database == loader.MCYT or database == loader.BIOSECURE_DS2:
-            number_of_mini_baches = 4
+            number_of_mini_baches = 4 * multiplier
             # continue
         elif database == loader.BIOSECUR_ID:
-            number_of_mini_baches = 2
+            number_of_mini_baches = 2 * multiplier
             # continue
         else:
             raise ValueError("Dataset desconhecido!")
