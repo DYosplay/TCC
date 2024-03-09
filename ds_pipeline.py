@@ -376,9 +376,9 @@ class DsPipeline(nn.Module):
             if self.hyperparameters['dataset_scenario'] == "mix":
                 epoch = batches_gen.generate_mixed_epoch()
             elif self.hyperparameters['dataset_scenario'] == "stylus":
-                epoch = batches_gen.generate_epoch()
+                epoch = batches_gen.generate_epoch(dataset_folder= self.hyperparameters['dataset_folder'] + os.sep + "Development" + os.sep + self.hyperparameters['dataset_scenario'], hyperparameters = self.hyperparameters)
             elif self.hyperparameters['dataset_scenario'] == "finger":
-                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
+                epoch = batches_gen.generate_epoch(dataset_folder= self.hyperparameters['dataset_folder'] + os.sep + "Development" + os.sep + self.hyperparameters['dataset_scenario'], train_offset=[(1009, 1084)], scenario='finger', hyperparameters = self.hyperparameters)
 
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
