@@ -5,7 +5,7 @@ from Losses import mmd_loss as mmd
 import DTW.soft_dtw_cuda as soft_dtw
 import numpy as np
 
-class Compact_Triplet_MMD(nn.Module):
+class Compact_Triplet_MMD2(nn.Module):
     def __init__(self, ng : int, nf : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
         """_summary_
 
@@ -21,7 +21,7 @@ class Compact_Triplet_MMD(nn.Module):
             mmd_kernel_num (torch.nn.Parameter): number of kernels for MMD
             mmd_kernel_mul (torch.nn.Parameter): multipler for MMD
         """
-        super(Compact_Triplet_MMD, self).__init__()
+        super(Compact_Triplet_MMD2, self).__init__()
         # Hyperparameters
         self.ng = ng
         self.nf = nf
