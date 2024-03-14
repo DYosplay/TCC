@@ -21,7 +21,7 @@ def parse_arguments():
 	parser.add_argument("-pf", "--parent_folder", help="set folder where test will be saved.", type=str, default="Resultados")
 	parser.add_argument("-dsc", "--dataset_scenario", help="stylus, finger or mix", type=str, default="stylus")
 	parser.add_argument("-w", "--weight", help="name of weight to be used in evaluation", type=str, default="best.pt")
-	parser.add_argument("-es", "--eval_step", help="evaluation step during training", default=3, type=int)
+	parser.add_argument("-es", "--eval_step", help="evaluation step during training and testing all weights", default=3, type=int)
 	parser.add_argument("-nt", "--number_of_tests", help="number of search tests (-sg)", default=10, type=int)
 	parser.add_argument("-wdb", "--wandb", help="Turns on wandb", action="store_true")
 	parser.add_argument("-wpn", "--wandb_project_name", help="Wandb name for training mode", default="", type=str)

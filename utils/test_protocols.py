@@ -76,7 +76,7 @@ def eval_all_weights(hyperparameters : Dict[str, Any], res_folder : str, file : 
 	model.train(mode=False)
 	model.eval()
 	
-	for i in range(1, hyperparameters['epochs']+1):
+	for i in list(range(1, hyperparameters['epochs']+1, hyperparameters['eval_step'])):
 		f = res_folder + os.sep + 'Backup' + os.sep + "epoch" + str(i) + ".pt" 
 		model.load_state_dict(torch.load(f))
 		model.new_evaluate(file, iter+i, result_folder=res_folder)
@@ -88,14 +88,14 @@ def eval_all_weights(hyperparameters : Dict[str, Any], res_folder : str, file : 
 		
 
 def eval_all_weights_stylus(hyperparameters : Dict[str, Any], res_folder : str):
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_AW_SKILLED_STYLUS_1VS1"
-	eval_all_weights(hyperparameters, res_folder, SKILLED_STYLUS_1VS1, 1000)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_AW_RANDOM_STYLUS_1VS1"
-	eval_all_weights(hyperparameters, res_folder, RANDOM_STYLUS_1VS1, 1000)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_AW_SKILLED_STYLUS_4VS1"
-	eval_all_weights(hyperparameters, res_folder, SKILLED_STYLUS_4VS1, 1000)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_AW_RANDOM_STYLUS_4VS1"
-	eval_all_weights(hyperparameters, res_folder, RANDOM_STYLUS_4VS1, 1000)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['test_name'] + "_AW_SKILLED_STYLUS_1VS1"
+	eval_all_weights(hyperparameters, res_folder, SKILLED_STYLUS_1VS1, 2000)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['test_name'] + "_AW_RANDOM_STYLUS_1VS1"
+	eval_all_weights(hyperparameters, res_folder, RANDOM_STYLUS_1VS1, 2000)
+	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['test_name'] + "_AW_SKILLED_STYLUS_4VS1"
+	# eval_all_weights(hyperparameters, res_folder, SKILLED_STYLUS_4VS1, 2000)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['test_name'] + "_AW_RANDOM_STYLUS_4VS1"
+	eval_all_weights(hyperparameters, res_folder, RANDOM_STYLUS_4VS1, 2000)
 
 def validate(hyperparameters : Dict[str, Any], res_folder : str, comparison_file : str):
 	f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
