@@ -180,11 +180,8 @@ class DsPipeline(nn.Module):
         x_step = int(len_x//self.hyperparameters['number_of_slices'])
         y_step = int(len_y//self.hyperparameters['number_of_slices'])
         for n in range(1, int(self.hyperparameters['number_of_slices'])):
-            aux = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
-            d += aux
-            del aux
-            torch.cuda.empty_cache()
-            gc.collect()
+            d += self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
+
 
         n = int(self.hyperparameters['number_of_slices'])
         d5 = self.dtw(x[None, x_step*(n-1):int(len_x)], y[None, y_step*(n-1):int(len_y)])[0] /(64* ((len_x - x_step*(n-1)) + (len_y - y_step*(n-1))))
