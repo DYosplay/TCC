@@ -174,20 +174,16 @@ class DsPipeline(nn.Module):
         Returns:
             float: DTW normalizado entre as assinaturas
         """
-        x_step = int(len_x//5)
-        y_step = int(len_y//5)
-        n=1
-        d1 = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
-        n+=1
-        d2 = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
-        n+=1
-        d3 = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
-        n+=1
-        d4 = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
-        n+=1
+        d = 0
+        x_step = int(len_x//self.hyperparameters['alpha'])
+        y_step = int(len_y//self.hyperparameters['alpha'])
+        for n in range(1, int(self.hyperparameters['alpha'])):
+            d += self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
+
+        n = int(self.hyperparameters['alpha'])
         d5 = self.dtw(x[None, x_step*(n-1):], y[None, y_step*(n-1):])[0] /(64* ((len_x - x_step*(n-1)) + (len_y - y_step*(n-1))))
 
-        d = d1+d2+d3+d4+d5
+        d += d5
         # f = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
         return d
 
