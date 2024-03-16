@@ -185,7 +185,7 @@ class DsPipeline(nn.Module):
         n+=1
         d4 = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
         n+=1
-        d5 = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64* ((len_x - x_step*n) + (len_y - y_step*n)))
+        d5 = self.dtw(x[None, x_step*(n-1):], y[None, y_step*(n-1):])[0] /(64* ((len_x - x_step*(n-1)) + (len_y - y_step*(n-1))))
 
         d = d1+d2+d3+d4+d5
         # f = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
@@ -263,6 +263,8 @@ class DsPipeline(nn.Module):
 
             dk = dk/(count)
     
+        if dk <= 0 or dk is math.nan or dk > 10000:
+            print("oi")
         dk_sqrt = math.sqrt(dk)
         
         dists = []
