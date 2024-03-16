@@ -1,7 +1,7 @@
 from typing import List, Tuple, Dict, Any
 from utils.utilities import define_loss, dump_hyperparameters
 from utils.pre_alignment import align
-
+import gc
 import torch.nn.utils as nutils
 import torch.nn as nn
 import torch.nn.functional as F
@@ -162,6 +162,8 @@ class DsPipeline(nn.Module):
 
         return h * mask.unsqueeze(2), length.float()
 
+    
+    
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
 
@@ -178,10 +180,14 @@ class DsPipeline(nn.Module):
         x_step = int(len_x//self.hyperparameters['alpha'])
         y_step = int(len_y//self.hyperparameters['alpha'])
         for n in range(1, int(self.hyperparameters['alpha'])):
-            d += self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
+            aux = self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
+            d += aux
+            del aux
+            torch.cuda.empty_cache()
+            gc.collect()
 
         n = int(self.hyperparameters['alpha'])
-        d5 = self.dtw(x[None, x_step*(n-1):], y[None, y_step*(n-1):])[0] /(64* ((len_x - x_step*(n-1)) + (len_y - y_step*(n-1))))
+        d5 = self.dtw(x[None, x_step*(n-1):int(len_x)], y[None, y_step*(n-1):int(len_y)])[0] /(64* ((len_x - x_step*(n-1)) + (len_y - y_step*(n-1))))
 
         d += d5
         # f = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
