@@ -54,8 +54,8 @@ class Compact_Triplet_MMD_Random(nn.Module):
         total_loss = 0
 
         for i in range(0, self.nw):
-            new_ng = list(random.sample(range(1, self.ng+1), random.randint(1,self.ng)))
-            new_nf = list(random.sample(range(1, self.nf+1), random.randint(1,self.nf)))
+            new_ng = torch.tensor(list(random.sample(range(0, self.ng), random.randint(1,self.ng)))).long().cuda()
+            new_nf = torch.tensor(list(random.sample(range(0, self.nf), random.randint(1,self.nf)))).long().cuda()
             anchor    = data[i * step]
             positives = (data[i * step + 1 : i * step + 1 + self.ng])[new_ng]
             negatives = (data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf])[new_nf]
