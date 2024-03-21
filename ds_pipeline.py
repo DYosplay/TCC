@@ -176,20 +176,22 @@ class DsPipeline(nn.Module):
         Returns:
             float: DTW normalizado entre as assinaturas
         """
-        d = 0
-        x_step = int(len_x//self.hyperparameters['number_of_slices'])
-        y_step = int(len_y//self.hyperparameters['number_of_slices'])
-        for n in range(1, int(self.hyperparameters['number_of_slices'])):
-            d += self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
+        if self.hyperparameters['number_of_slices'] > 0:
+            d = 0
+            x_step = int(len_x//self.hyperparameters['number_of_slices'])
+            y_step = int(len_y//self.hyperparameters['number_of_slices'])
+            for n in range(1, int(self.hyperparameters['number_of_slices'])):
+                d += self.dtw(x[None, x_step*(n-1):x_step*n], y[None, y_step*(n-1):y_step*n])[0] /(64*(x_step + y_step))
 
 
-        n = int(self.hyperparameters['number_of_slices'])
-        d5 = self.dtw(x[None, x_step*(n-1):int(len_x)], y[None, y_step*(n-1):int(len_y)])[0] /(64* ((len_x - x_step*(n-1)) + (len_y - y_step*(n-1))))
+            n = int(self.hyperparameters['number_of_slices'])
+            d5 = self.dtw(x[None, x_step*(n-1):int(len_x)], y[None, y_step*(n-1):int(len_y)])[0] /(64* ((len_x - x_step*(n-1)) + (len_y - y_step*(n-1))))
 
-        d += d5
-        # f = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
-        return d
-
+            d += d5
+            # f = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
+            return d
+        
+        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
 
         # return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], x[None, :int(len_x)])[0] /((len_x + len_x))) + (self.sdtw2(y[None, :int(len_y)], y[None, :int(len_y)])[0] /((len_y + len_y))))/2
 
