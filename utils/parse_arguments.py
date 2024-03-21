@@ -38,7 +38,7 @@ def parse_arguments():
 	parser.add_argument("-tune", "--tune_model", help="tune model initializing it with a specific weight", action='store_true')
 	parser.add_argument("-pa", "--pre_alignment", help="use dtw pre alignment during pre processing", action='store_true')
 	parser.add_argument("-rot", "--rotation", help="max rotation augmentation angle, 0.0 if disabled", action='store_true')
-	parser.add_argument("-nsl", "--number_of_slices", help="number of writers in a batch", default=5, type=int)
+	parser.add_argument("-nsl", "--number_of_slices", help="number of writers in a batch", default=0, type=int)
 	parser.add_argument("-sps", "--suppress", help="suppress zero pression on data loader", action='store_true')
 	# loss hyperparameters
 	parser.add_argument("-ga", "--ga", help="turns on gradient for alpha.", action="store_true")
