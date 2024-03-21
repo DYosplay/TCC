@@ -37,7 +37,7 @@ def files2array(batch, z : bool, developtment : bool, scenario : str = "stylus",
         # if developtment == True: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + "stylus" + os.sep + file
         scenario = "stylus" if "stylus" in file.lower() else "finger"
 
-        feat = loader.get_features(file, scenario=scenario, z=z, development=developtment)
+        feat = loader.get_features(file, scenario=scenario, z=z, development=developtment, hyperparameters=hyperparameters)
         data.append(feat)
         lens.append(len(feat[0]))
 

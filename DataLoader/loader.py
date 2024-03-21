@@ -1,7 +1,7 @@
 import numpy.typing as npt
 import numpy as np
 import os
-
+from typing import Dict, Any
 try:
     from typing import Literal
 except ImportError:
@@ -96,7 +96,7 @@ def normalize_x_and_y(x : npt.ArrayLike, y : npt.ArrayLike):
 def normalize(x):
     return (x - np.mean(x))/(np.max(x)-np.min(x))
 
-def generate_features(input_file : str, scenario : str, z : bool = False, database : Literal = UNDEFINED):
+def generate_features(input_file : str, scenario : str, z : bool = False, database : Literal = UNDEFINED, hyperparameters : Dict[str, Any] = None):
     df = None
     if database == MCYT:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
@@ -105,10 +105,21 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     elif database == BIOSECUR_ID or database == BIOSECURE_DS2:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "Uk3", "P"])
 
-    p = bf(np.array(df['P']))[:8000]
-    # p = (np.array(df['P']))[:8000]
-    x = bf(np.array(df['X']))[:8000]
-    y = bf(np.array(df['Y']))[:8000]
+    p = np.array(df['P'])
+    x = np.array(df['X'])
+    y = np.array(df['Y'])
+
+    # Ignore when stylus is not touching the screen
+    if hyperparameters is not None and hyperparameters['suppress']:
+        indexes = p!=0
+        p = p[indexes]
+        x = x[indexes]
+        y = y[indexes]
+    
+    p = bf(p)[:8000]
+    x = bf(x)[:8000]
+    y = bf(y)[:8000]
+
 
     dx = diff(x)
     dy = diff(y)
@@ -276,10 +287,10 @@ def get_database(user_id : int, scenario : str, development : bool) -> Literal:
 
     return database
 
-def get_features(file_name : str, scenario : str, z : bool, development : bool = True):
+def get_features(file_name : str, scenario : str, z : bool, development : bool = True, hyperparameters : Dict[str, Any] = None):
     user_id = int(((file_name.split(os.sep)[-1]).split("_")[0]).split("u")[-1])
     database = get_database(user_id = user_id, scenario=scenario, development=development)
-    return generate_features(file_name, scenario, z=z, database=database)
+    return generate_features(file_name, scenario, z=z, database=database, hyperparameters=hyperparameters)
 
 # if __name__ == '__main__':
 #     FOLDER = ["../Data/Data Investigation/dataset127/"]
