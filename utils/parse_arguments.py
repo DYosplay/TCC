@@ -40,6 +40,7 @@ def parse_arguments():
 	parser.add_argument("-rot", "--rotation", help="max rotation augmentation angle, 0.0 if disabled", action='store_true')
 	parser.add_argument("-nsl", "--number_of_slices", help="number of writers in a batch", default=0, type=int)
 	parser.add_argument("-sps", "--suppress", help="suppress zero pression on data loader", action='store_true')
+	parser.add_argument("-xnorm", "--xnorm", help="normalize only by x lenght", action='store_true')
 	# loss hyperparameters
 	parser.add_argument("-ga", "--ga", help="turns on gradient for alpha.", action="store_true")
 	parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=math.nan, type=float)
