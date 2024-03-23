@@ -191,6 +191,9 @@ class DsPipeline(nn.Module):
             # f = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
             return d
         
+        if self.hyperparameters['xnorm']:
+            return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x))
+         
         return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
 
         # return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], x[None, :int(len_x)])[0] /((len_x + len_x))) + (self.sdtw2(y[None, :int(len_y)], y[None, :int(len_y)])[0] /((len_y + len_y))))/2
