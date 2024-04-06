@@ -61,6 +61,8 @@ def parse_arguments():
 	parser.add_argument("-rs", "--random_search", help="search hyperparameters in a random way", action='store_true')
 	parser.add_argument("-bays", "--baysean_search", help="search hyperparameters with a baysean search", action='store_true')
 
+	parser.add_argument("-gen", "--generate_features", help="extract and store features", action='store_true')
+
 	# Read arguments from command line
 	args = parser.parse_args()
 	hyperparameters = vars(args)
