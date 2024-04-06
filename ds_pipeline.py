@@ -53,6 +53,7 @@ class DsPipeline(nn.Module):
         self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
+        self.dumped_users = {}
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -206,7 +207,7 @@ class DsPipeline(nn.Module):
             # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
             # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
-    def _inference(self, files : str, n_epoch : int) -> Tuple[float, str, int]:
+    def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
@@ -241,6 +242,7 @@ class DsPipeline(nn.Module):
         # if 'u0148' in refs[0] or 'u0272' in refs[0]:
 
         test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=False, scenario=scenario)
+        users = refs.copy()
 
         mask = self.getOutputMask(lens)
         
@@ -253,6 +255,15 @@ class DsPipeline(nn.Module):
 
         len_refs = lengths[:len(embeddings)-1]
         len_sign = lengths[-1]
+
+        if self.hyperparameters['generate_features']:
+            if not os.path.exists(result_folder + os.sep + "features"):
+                os.makedirs(result_folder + os.sep + "features")
+            if user_key not in self.dumped_users:
+                self.dumped_users[user_key] = True
+
+                for i in range(len(refs)):
+                    torch.save(refs[i][:int(len_refs[i])], result_folder + os.sep + "features" + os.sep + user_key + "_g_" +  '{:04d}'.format(i) + ".pt")
 
         dk = math.nan
         count = 0
@@ -305,7 +316,7 @@ class DsPipeline(nn.Module):
         users = {}
 
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch)
+            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
