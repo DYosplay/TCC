@@ -573,7 +573,7 @@ class DsPipeline(nn.Module):
         limit = len(files)
 
         print("Calculando distâncias...")
-        for i in tqdm(self.a, range(limit)): # index start for paralelization
+        for i in tqdm(self.alpha, range(limit)): # index start for paralelization
             for j in tqdm(range(i, limit)):
                 batch = [files[i], files[j]]
 
@@ -621,7 +621,7 @@ class DsPipeline(nn.Module):
             dists[key] = dict(sorted(dists[key].items(), key=lambda item: item[1]))
 
         # Open the file in binary mode
-        with open(result_folder + os.sep + "matrix.pickle", 'wb') as file:
+        with open(result_folder + os.sep + "matrix_" + str(self.alpha) + ".pickle", 'wb') as file:
             # Serialize and write the variable to the file
             pickle.dump(dists, file)
     
