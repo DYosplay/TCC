@@ -573,8 +573,8 @@ class DsPipeline(nn.Module):
         limit = len(files)
 
         print("Calculando distâncias...")
-        for i in tqdm(range(limit)):
-            for j in range(i, limit):
+        for i in tqdm(self.a, range(limit)): # index start for paralelization
+            for j in tqdm(range(i, limit)):
                 batch = [files[i], files[j]]
 
                 # prepara chaves do dicionário
@@ -586,6 +586,9 @@ class DsPipeline(nn.Module):
 
                 if "_g_" in files[j]: tst_id+='g' 
                 else: tst_id+='s'
+
+                if 's' in ref_id and 's' in tst_id:
+                    continue
 
                 test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
             
@@ -621,3 +624,8 @@ class DsPipeline(nn.Module):
         with open(result_folder + os.sep + "matrix.pickle", 'wb') as file:
             # Serialize and write the variable to the file
             pickle.dump(dists, file)
+    
+    def knn(matrix_path : str):
+        with open(matrix_path, 'rb') as fr:
+            # Serialize and write the variable to the file
+            dists = pickle.load(fr)
