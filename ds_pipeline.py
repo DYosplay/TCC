@@ -20,6 +20,8 @@ import DTW.dtw_cuda as dtw
 import DTW.soft_dtw_cuda as sdtw
 import utils.metrics as metrics
 
+import pickle
+
 import wandb
 
 import warnings
@@ -53,7 +55,9 @@ class DsPipeline(nn.Module):
         self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
+
         self.dumped_users = {}
+        self.knn_matrix = np.zeros((443,443)) - 1
 
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
@@ -223,6 +227,7 @@ class DsPipeline(nn.Module):
             scenario = "finger"
 
         tokens = files.split(" ")
+        files_bckp = tokens.copy()
         user_key = tokens[0].split("_")[0]
         
         result = math.nan
@@ -263,7 +268,11 @@ class DsPipeline(nn.Module):
                 self.dumped_users[user_key] = True
 
                 for i in range(len(refs)):
-                    torch.save(refs[i][:int(len_refs[i])], result_folder + os.sep + "features" + os.sep + user_key + "_g_" +  '{:04d}'.format(i) + ".pt")
+                    file_name = files_bckp[i].split('.')[0] + ".pt"
+                    torch.save(refs[i][:int(len_refs[i])], result_folder + os.sep + "features" + os.sep + file_name)
+
+            file_name = files_bckp[-2].split('.')[0] + ".pt"
+            torch.save(sign[:int(len_sign)], result_folder + os.sep + "features" + os.sep + file_name)
 
         dk = math.nan
         count = 0
@@ -554,3 +563,61 @@ class DsPipeline(nn.Module):
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
         plt.clf()
+
+    def knn_generate_matrix(self, result_folder : str, n_epoch : int = 0):
+        folder = self.hyperparameters["dataset_folder"] + os.sep + "Evaluation" + os.sep + self.hyperparameters['dataset_scenario']
+        files = os.listdir(folder)
+
+        dists = {}
+
+        limit = len(files)
+
+        print("Calculando distâncias...")
+        for i in tqdm(range(limit)):
+            for j in range(i, limit):
+                batch = [files[i], files[j]]
+
+                # prepara chaves do dicionário
+                ref_id = files[i].split('_')[0]
+                tst_id = files[j].split('_')[0]
+                
+                if "_g_" in files[i]: ref_id+='g' 
+                else: ref_id+='s'
+
+                if "_g_" in files[j]: tst_id+='g' 
+                else: tst_id+='s'
+
+                test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
+            
+                mask = self.getOutputMask(lens)
+        
+                mask = Variable(torch.from_numpy(mask)).cuda()
+                inputs = Variable(torch.from_numpy(test_batch)).cuda()
+
+                embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+                refs = embeddings[:len(embeddings)-1]
+                sign = embeddings[-1]
+
+                len_refs = lengths[:len(embeddings)-1]
+                len_sign = lengths[-1]
+
+                distance_value = (self._dte(refs[0], sign, len_refs[0], len_sign).detach().cpu().numpy()[0])
+
+                if ref_id not in dists:
+                    dists[ref_id] = {batch[1]: distance_value}
+                else:
+                    dists[ref_id][batch[1]] = distance_value
+
+                if tst_id not in dists:
+                    dists[tst_id] = {batch[0]: distance_value}
+                else:
+                    dists[tst_id][batch[0]] = distance_value
+
+        print("Ordenando distâncias")
+        for key in tqdm(dists.keys()):
+            dists[key] = dict(sorted(dists[key].items(), key=lambda item: item[1]))
+
+        # Open the file in binary mode
+        with open(result_folder + os.sep + "matrix.pickle", 'wb') as file:
+            # Serialize and write the variable to the file
+            pickle.dump(dists, file)

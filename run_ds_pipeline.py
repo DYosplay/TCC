@@ -78,6 +78,18 @@ if __name__ == '__main__':
 		del model
 		exit(0)
 
+	if hyperparameters['knn_generate_matrix']:
+		f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+		model = DsPipeline(hyperparameters=hyperparameters)
+		model.cuda()
+		model.load_state_dict(torch.load(f))
+		
+		model.train(mode=False)
+		model.eval()
+		model.knn_generate_matrix(result_folder=res_folder)
+		del model
+		exit(0)
+
 	# Treinamento
 	model = DsPipeline(hyperparameters=hyperparameters)
 	print(test_protocols.count_parameters(model))
