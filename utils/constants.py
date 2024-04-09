@@ -18,3 +18,6 @@ FILE_TESTE = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparis
 PATH = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal"
 
 EBIOSIGN_W1_SKILLED_4VS1 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_eBioSignDS1_W1_skilled_stylus_4vs1.txt"
+MCYT_SKILLED_4VS1 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_MCYT_skilled_stylus_4vs1.txt"
+
+PROTOCOLO319 = "protocolo319.txt"
