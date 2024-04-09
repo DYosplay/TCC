@@ -1,5 +1,4 @@
-for i in {001..010}
-do
-	result="RND_S1_"
-	PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -lt=compact_triplet_mmd_random -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -pf=$result -wpn=$result -t=$result$i
-done
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -kgen -p=0 -q=5001 -wdb -wpn="matrix"
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -kgen -p=5001 -q=8697 -wdb -wpn="matrix"
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -kgen -p=8697 -q=15698 -wdb -wpn="matrix"
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -kgen -p=15698 -q=18637 -wdb -wpn="matrix"
