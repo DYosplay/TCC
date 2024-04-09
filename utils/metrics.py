@@ -63,8 +63,8 @@ def get_eer(y_true = List[int], y_scores = List[float], result_folder : str = No
             frr_list = np.array(frr)
             far_list = np.array(far)
 
-            plt.plot(threshold, frr_list, 'r', label="FRR")
-            plt.plot(threshold, far_list, 'b', label="FAR")
+            plt.plot(threshold, frr_list, 'b', label="FRR")
+            plt.plot(threshold, far_list, 'r', label="FAR")
             plt.legend(loc="upper right")
  
             plt.xlabel("Threshold")
