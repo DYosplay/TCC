@@ -574,8 +574,8 @@ class DsPipeline(nn.Module):
         assert self.hyperparameters['p'] >= 0
 
         print("Calculando distâncias...")
-        limit = len(files)
-        # limit = 5001
+        # limit = len(files)
+        limit = 5001
         for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
         # for i in tqdm(range(0, len(files))):
             
@@ -661,15 +661,32 @@ class DsPipeline(nn.Module):
             sign = files[-2]
             true_label  = files[-1]
 
-            dt = np.mean(np.array(list(dists[sign].values())[:3]))
+            dt = np.mean(np.array(list(dists[sign].values())[1:4]))
+
+            dt = 0
+            dtd = 0
+
+            u = refs[0].split("_")[0] + "_g_"
+            l = list(dists[sign].keys())
+            for i in range(len(l)):
+                # ignora se eh original, mas nao eh referencia
+                if u in l[i] and ('v00' not in l[i]) and ('v01' not in l[i]) and ('v02' not in l[i]) and ('v03' not in l[i]):
+                    continue
+
+                dt += dists[sign][l[i]]
+                dtd += 1
+                if dtd == 3: break
+            dt /= dtd
+
+
+
             # dr = (dists[user_id][refs[0]] + dists[user_id][refs[1]] + dists[user_id][refs[2]] + dists[user_id][refs[3]]) / 3
             dr = 0
             drd = 0
             for i in range(0, 4):
-                for j in range(0, 4):
-                    if i != j:
-                        dr += dists[refs[i],refs[j]]
-                        drd += 1
+                for j in range(i+1, 4):
+                    dr += dists[refs[i]][refs[j]]
+                    drd += 1
             dr = dr/drd
            
             distance = abs(dr-dt)
