@@ -566,7 +566,7 @@ class DsPipeline(nn.Module):
 
     def knn_generate_matrix(self, result_folder : str, n_epoch : int = 0):
         folder = self.hyperparameters["dataset_folder"] + os.sep + "Evaluation" + os.sep + self.hyperparameters['dataset_scenario']
-        files = os.listdir(folder)
+        files = sorted(os.listdir(folder))
 
         dists = {}
 
@@ -574,8 +574,8 @@ class DsPipeline(nn.Module):
         assert self.hyperparameters['p'] >= 0
 
         print("Calculando distâncias...")
-        # limit = len(files)
-        limit = 5001
+        limit = len(files)
+        # limit = 5001
         for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
         # for i in tqdm(range(0, len(files))):
             
@@ -661,15 +661,24 @@ class DsPipeline(nn.Module):
             sign = files[-2]
             true_label  = files[-1]
 
+            dt = np.mean(np.array(list(dists[sign].values())[:3]))
+            # dr = (dists[user_id][refs[0]] + dists[user_id][refs[1]] + dists[user_id][refs[2]] + dists[user_id][refs[3]]) / 3
+            dr = 0
+            drd = 0
+            for i in range(0, 4):
+                for j in range(0, 4):
+                    if i != j:
+                        dr += dists[refs[i],refs[j]]
+                        drd += 1
+            dr = dr/drd
+           
+            distance = abs(dr-dt)
+
             user_id = refs[0].split('_')[0] + 'g'
             
             user_tst = sign.split('_')[0]
             if '_g_' in sign: user_tst += 'g'
             else: user_tst += 's'
-
-            dt = np.mean(np.array(list(dists[user_tst].values())[:3]))
-            dr = (dists[user_id][refs[0]] + dists[user_id][refs[1]] + dists[user_id][refs[2]] + dists[user_id][refs[3]]) / 3
-            distance = abs(dr-dt)
 
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}

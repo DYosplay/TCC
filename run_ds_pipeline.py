@@ -98,7 +98,7 @@ if __name__ == '__main__':
 		
 		model.train(mode=False)
 		model.eval()
-		model.knn(matrix_path=hyperparameters['knn_matrix'], comparison_file=SKILLED_STYLUS_4VS1, result_folder=res_folder, n_epoch=10000)
+		model.knn(matrix_path=hyperparameters['knn_matrix'], comparison_file=MCYT_SKILLED_4VS1, result_folder=res_folder, n_epoch=10000)
 		del model
 		exit(0)
 
