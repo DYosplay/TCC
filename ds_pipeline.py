@@ -574,10 +574,12 @@ class DsPipeline(nn.Module):
         assert self.hyperparameters['p'] >= 0
 
         print("Calculando distâncias...")
+        # limit = len(files)
+        limit = 5001
         for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
         # for i in tqdm(range(0, len(files))):
             
-            for j in tqdm(range(i, len(files))):
+            for j in tqdm(range(i, limit)):
             
             # if not ('0319' in files[i]):
             #     continue
