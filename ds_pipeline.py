@@ -575,20 +575,21 @@ class DsPipeline(nn.Module):
 
         print("Calculando distâncias...")
         for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
-            for j in tqdm(range(i, int(self.hyperparameters['q']))):
+        # for i in tqdm(range(0, len(files))):
+            
+            for j in tqdm(range(i, len(files))):
+            
+            # if not ('0319' in files[i]):
+            #     continue
+            # for j in tqdm(range(0, len(files))):
+            
                 batch = [files[i], files[j]]
 
                 # prepara chaves do dicionário
-                ref_id = files[i].split('_')[0]
-                tst_id = files[j].split('_')[0]
-                
-                if "_g_" in files[i]: ref_id+='g' 
-                else: ref_id+='s'
+                ref_id = files[i]
+                tst_id = files[j]
 
-                if "_g_" in files[j]: tst_id+='g' 
-                else: tst_id+='s'
-
-                if 's' in ref_id and 's' in tst_id:
+                if '_s_' in ref_id and '_s_' in tst_id:
                     continue
 
                 test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
@@ -612,10 +613,11 @@ class DsPipeline(nn.Module):
                 else:
                     dists[ref_id][batch[1]] = distance_value
 
-                if tst_id not in dists:
-                    dists[tst_id] = {batch[0]: distance_value}
-                else:
-                    dists[tst_id][batch[0]] = distance_value
+                if ref_id != tst_id:
+                    if tst_id not in dists:
+                        dists[tst_id] = {batch[0]: distance_value}
+                    else:
+                        dists[tst_id][batch[0]] = distance_value
 
         print("Ordenando distâncias")
         for key in tqdm(dists.keys()):
@@ -626,7 +628,107 @@ class DsPipeline(nn.Module):
             # Serialize and write the variable to the file
             pickle.dump(dists, fw)
     
-    def knn(matrix_path : str):
+    def knn(self, matrix_path : str, comparison_file : str, result_folder : str, n_epoch : int = 0):
+        dists : Dict[Dict[str, float]]
         with open(matrix_path, 'rb') as fr:
             # Serialize and write the variable to the file
-            dists = pickle.load(fr)
+            dists = pickle.load(fr) 
+        
+        # merge nos dicts
+        # ordenar dicts
+
+        lines = []
+        with open(comparison_file, "r") as fr:
+            lines = fr.readlines()
+
+        if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+        file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
+        print("\n\tAvaliando " + file_name)
+        comparison_folder = result_folder + os.sep + file_name
+        if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
+
+        users = {}
+
+        for line in lines:
+            files = line.split(' ')
+
+            assert len(files) == 6
+
+            refs = files[:4]
+            sign = files[-2]
+            true_label  = files[-1]
+
+            user_id = refs[0].split('_')[0] + 'g'
+            
+            user_tst = sign.split('_')[0]
+            if '_g_' in sign: user_tst += 'g'
+            else: user_tst += 's'
+
+            dt = np.mean(np.array(list(dists[user_tst].values())[:3]))
+            dr = (dists[user_id][refs[0]] + dists[user_id][refs[1]] + dists[user_id][refs[2]] + dists[user_id][refs[3]]) / 3
+            distance = abs(dr-dt)
+
+            if user_id not in users: 
+                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
+            else:
+                users[user_id]["distances"].append(distance)
+                users[user_id]["true_label"].append(true_label)
+
+        # Nesse ponto, todos as comparações foram feitas
+        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
+        local_buffer = ""
+        global_true_label = []
+        global_distances = []
+
+        eers = []
+
+        local_ths = []
+
+        # Calculo do EER local por usuário:
+        for user in tqdm(users, desc="Obtendo EER local..."):
+            global_true_label += users[user]["true_label"]
+            global_distances  += users[user]["distances"]
+
+            # if "Task" not in comparison_file:
+            if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
+                eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
+                th_range_local = np.max(np.array(users[user]["distances"])[np.array(users[user]["distances"]) < eer_threshold])
+
+                local_ths.append(eer_threshold)
+                eers.append(eer)
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ")\n"
+
+        print("Obtendo EER global...")
+        
+        # Calculo do EER global
+        eer_global, eer_threshold_global = metrics.get_eer(global_true_label, global_distances, result_folder=comparison_folder, generate_graph=True, n_epoch=n_epoch)
+
+        local_eer_mean = np.mean(np.array(eers))
+        local_ths = np.array(local_ths)
+        local_ths_var  = np.var(local_ths)
+        local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+        
+        th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
+
+        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n" + local_buffer
+
+        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
+
+        with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
+            fw.write(buffer)
+
+
+        self.last_eer = eer_global
+        ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+        if n_epoch != 0 and n_epoch != 777 and n_epoch != 888 and n_epoch < 100:
+            if eer_global < self.best_eer:
+                torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
+                self.best_eer = eer_global
+                print("EER atualizado: ")
+                print(ret_metrics)
+
+        # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+        if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
+        
+        return ret_metrics

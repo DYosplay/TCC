@@ -89,6 +89,18 @@ if __name__ == '__main__':
 		model.knn_generate_matrix(result_folder=res_folder)
 		del model
 		exit(0)
+	
+	if hyperparameters['knn']:
+		f = res_folder + os.sep + 'Backup' + os.sep + "best.pt"
+		model = DsPipeline(hyperparameters=hyperparameters)
+		model.cuda()
+		model.load_state_dict(torch.load(f))
+		
+		model.train(mode=False)
+		model.eval()
+		model.knn(matrix_path=hyperparameters['knn_matrix'], comparison_file=SKILLED_STYLUS_4VS1, result_folder=res_folder, n_epoch=10000)
+		del model
+		exit(0)
 
 	# Treinamento
 	model = DsPipeline(hyperparameters=hyperparameters)
