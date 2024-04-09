@@ -62,6 +62,8 @@ def parse_arguments():
 	parser.add_argument("-bays", "--baysean_search", help="search hyperparameters with a baysean search", action='store_true')
 
 	parser.add_argument("-kgen", "--knn_generate_matrix", help="generate knn matrix", action='store_true')
+	parser.add_argument("-knn", "--knn", help="calculate knn", action='store_true')
+	parser.add_argument("-kmat", "--knn_matrix", help="path to knn matrix", type=str)
 
 	# Read arguments from command line
 	args = parser.parse_args()
