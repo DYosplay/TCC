@@ -591,7 +591,8 @@ class DsPipeline(nn.Module):
                 ref_id = files[i]
                 tst_id = files[j]
 
-                if '_s_' in ref_id and '_s_' in tst_id:
+                # if '_s_' in ref_id and '_s_' in tst_id:
+                if not ('_s_' in ref_id and '_s_' in tst_id):
                     continue
 
                 test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
@@ -630,14 +631,47 @@ class DsPipeline(nn.Module):
             # Serialize and write the variable to the file
             pickle.dump(dists, fw)
     
+    def _knn_cluster(self, dists: Dict[str, Dict[str, float]]):
+        from scipy.cluster.hierarchy import linkage, dendrogram
+        
+        sorted_dists_by_user = {k: dists[k] for k in sorted(dists.keys())} 
+        dict_size = len(list(sorted_dists_by_user))
+        dist_matrix = np.zeros((dict_size, dict_size))
+
+        matrix_line = 0
+        for key in sorted_dists_by_user:
+            dists_j = np.array(list(({k: dists[key][k] for k in sorted(dists[key].keys())}).values()))
+            dist_matrix[matrix_line] = dists_j
+            matrix_line += 1
+
+        linkage_matrix = linkage(dist_matrix, method='complete')
+        dendrogram_leaves_order = dendrogram(linkage_matrix, no_plot=True)['leaves']
+        sorted_strings = [sorted_dists_by_user.keys()[i] for i in dendrogram_leaves_order]
+        return sorted_strings      
+
+    def _knn_distance(self, cluster : List[str], ref : str, test : str):
+        """ Calculate hierarchical distance for knn
+
+        Args:
+            dists (Dict[Dict[str, float]]): dictionary containing the distances of all genuine signatures against all other signatures in the dataset
+            ref (str): file name of the reference signature
+            test (str): file name of the testing signatur
+
+        Returns:
+            float: the distance
+        """
+        return abs(cluster.index(ref) - cluster.index(test))
+
     def knn(self, matrix_path : str, comparison_file : str, result_folder : str, n_epoch : int = 0):
-        dists : Dict[Dict[str, float]]
+        dists : Dict[str, Dict[str, float]]
         with open(matrix_path, 'rb') as fr:
             # Serialize and write the variable to the file
             dists = pickle.load(fr) 
         
         # merge nos dicts
         # ordenar dicts
+
+        cluster = self._knn_cluster(dists)
 
         lines = []
         with open(comparison_file, "r") as fr:
@@ -659,25 +693,26 @@ class DsPipeline(nn.Module):
 
             refs = files[:4]
             sign = files[-2]
-            true_label  = files[-1]
-
-            dt = np.mean(np.array(list(dists[sign].values())[1:4]))
+            true_label  = int(files[-1].split('\n')[0])
 
             dt = 0
             dtd = 0
 
+            """ versao anterior
             u = refs[0].split("_")[0] + "_g_"
             l = list(dists[sign].keys())
+            dt_signs = []
             for i in range(len(l)):
                 # ignora se eh original, mas nao eh referencia
                 if u in l[i] and ('v00' not in l[i]) and ('v01' not in l[i]) and ('v02' not in l[i]) and ('v03' not in l[i]):
                     continue
 
                 dt += dists[sign][l[i]]
-                dtd += 1
                 if dtd == 3: break
+                dt_signs.append(l[i])
+                dtd += 1
             dt /= dtd
-
+            """
 
 
             # dr = (dists[user_id][refs[0]] + dists[user_id][refs[1]] + dists[user_id][refs[2]] + dists[user_id][refs[3]]) / 3
