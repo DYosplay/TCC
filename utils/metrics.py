@@ -4,6 +4,8 @@ import os
 from matplotlib import pyplot as plt
 from shapely.geometry import LineString
 from sklearn.metrics import roc_curve
+import numpy.typing as npt
+
 
 def generate_graph(legit : List[float], forgery : List[float], epoch, result_folder : str, user : str = '0'):
         total_distances = np.array(legit + forgery)
@@ -25,8 +27,8 @@ def generate_graph(legit : List[float], forgery : List[float], epoch, result_fol
         if not os.path.exists(result_folder + os.sep + user):
             os.mkdir(result_folder + os.sep + user)
 
-        plt.plot(total_distances, frr_list, 'r', label="FRR")
-        plt.plot(total_distances, far_list, 'b', label="FAR")
+        plt.plot(total_distances, frr_list, 'b', label="FRR")
+        plt.plot(total_distances, far_list, 'r', label="FAR")
         plt.legend(loc="upper right")
 
         line_1 = LineString(np.column_stack((total_distances, frr_list)))
@@ -43,6 +45,69 @@ def generate_graph(legit : List[float], forgery : List[float], epoch, result_fol
         plt.clf()
 
         return y[0], x[0]
+
+def get_multidimensional_eer(legit : npt.ArrayLike, forgery : npt.ArrayLike, n_epoch : int = 0, result_folder : str = None, user : str = '0', generate_graph : bool = False):
+    """ Calculate EER using n thresholds. 
+
+    Args:
+        legit (npt.ArrayLike[npt.ArrayLike]): Distances of genuine signatures. Each element is a np.array containing n values and is related with one genuine signature.
+        forgery (npt.ArrayLike[npt.ArrayLike]): Distances of forgeries. Each element is a np.array containing n values and is related with one forgery signature.
+        epoch (_type_): epoch number
+        result_folder (str): where the graph should be stored
+        user (str, optional): user id. Defaults to '0'.
+
+    Returns:
+        (float, npt.ArrayLike): eer, optimal threshold
+    """
+    legit = np.array(legit)
+    forgery = np.array(forgery)
+    total_distances = np.concatenate((legit, forgery), axis=0)
+
+    total_distances = np.sort(total_distances, axis=0)
+
+    frr_list = []
+    far_list = []
+
+    for dist in total_distances:
+    # for i in range(0, len(total_distances)):
+    #     for j in range(0, len(total_distances[0])):
+             
+
+        aux_l = (legit < dist)
+        frr = np.sum(np.logical_not(np.apply_along_axis(np.all, axis=1, arr=aux_l)).astype(int)) / len(legit)
+        frr_list.append(frr)
+        
+        aux_f = (forgery < dist)
+        far = np.sum(np.apply_along_axis(np.all, axis=1, arr=aux_f).astype(int)) / len(forgery)
+        far_list.append(far)
+
+    frr_list = np.array(frr_list)
+    far_list = np.array(far_list)
+
+    indexes = np.array(list(range(len(total_distances))))
+
+    line_1 = LineString(np.column_stack((indexes, frr_list)))
+    line_2 = LineString(np.column_stack((indexes, far_list)))
+    intersection = line_1.intersection(line_2)
+    x,y = intersection.xy
+
+    if generate_graph:
+        if not os.path.exists(result_folder + os.sep + user):
+            os.mkdir(result_folder + os.sep + user)
+
+        plt.plot(indexes, frr_list, 'b', label="FRR")
+        plt.plot(indexes, far_list, 'r', label="FAR")
+        plt.legend(loc="upper right")
+        
+        plt.xlabel("Threshold")
+        plt.ylabel("Error Rate")
+        plt.plot(*intersection.xy, 'ro')
+        plt.text(x[0]+0.05,y[0]+0.05, "EER = " + "{:.3f}".format(y[0]))
+        plt.savefig(result_folder + os.sep + user + os.sep + "Epoch" + str(n_epoch) + ".png")
+        plt.cla()
+        plt.clf()
+
+    return y[0], x[0]
 
 def get_eer(y_true = List[int], y_scores = List[float], result_folder : str = None, generate_graph : bool = False, n_epoch : int = None) -> Tuple[float, float]:
         fpr, tpr, threshold = roc_curve(y_true=y_true, y_score=y_scores, pos_label=1)
