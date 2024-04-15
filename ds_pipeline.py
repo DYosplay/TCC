@@ -20,6 +20,7 @@ import DTW.dtw_cuda as dtw
 import DTW.soft_dtw_cuda as sdtw
 import utils.metrics as metrics
 
+
 import pickle
 
 import wandb
@@ -167,7 +168,15 @@ class DsPipeline(nn.Module):
 
         return h * mask.unsqueeze(2), length.float()
 
-    
+    def _multidimensional_dte(self, x, y, len_x, len_y):
+        assert x.shape[1] == y.shape[1]
+        dte_value = torch.zeros(x.shape[1]).cuda()
+        for i in range(0,x.shape[1]):
+            dte_value[i] = self.dtw(x[None, :int(len_x),i:i+1], y[None, :int(len_y),i:i+1])[0]
+
+
+            
+        return dte_value /(len_x + len_y)
     
     def _dte(self, x, y, len_x, len_y):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
@@ -260,19 +269,6 @@ class DsPipeline(nn.Module):
 
         len_refs = lengths[:len(embeddings)-1]
         len_sign = lengths[-1]
-
-        if self.hyperparameters['generate_features']:
-            if not os.path.exists(result_folder + os.sep + "features"):
-                os.makedirs(result_folder + os.sep + "features")
-            if user_key not in self.dumped_users:
-                self.dumped_users[user_key] = True
-
-                for i in range(len(refs)):
-                    file_name = files_bckp[i].split('.')[0] + ".pt"
-                    torch.save(refs[i][:int(len_refs[i])], result_folder + os.sep + "features" + os.sep + file_name)
-
-            file_name = files_bckp[-2].split('.')[0] + ".pt"
-            torch.save(sign[:int(len_sign)], result_folder + os.sep + "features" + os.sep + file_name)
 
         dk = math.nan
         count = 0
@@ -580,19 +576,14 @@ class DsPipeline(nn.Module):
         # for i in tqdm(range(0, len(files))):
             
             for j in tqdm(range(i, limit)):
-            
-            # if not ('0319' in files[i]):
-            #     continue
-            # for j in tqdm(range(0, len(files))):
-            
                 batch = [files[i], files[j]]
 
                 # prepara chaves do dicionário
                 ref_id = files[i]
                 tst_id = files[j]
 
-                # if '_s_' in ref_id and '_s_' in tst_id:
-                if not ('_s_' in ref_id and '_s_' in tst_id):
+                if '_s_' in ref_id and '_s_' in tst_id:
+                # if not ('_s_' in ref_id and '_s_' in tst_id):
                     continue
 
                 test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
@@ -636,17 +627,36 @@ class DsPipeline(nn.Module):
         
         sorted_dists_by_user = {k: dists[k] for k in sorted(dists.keys())} 
         dict_size = len(list(sorted_dists_by_user))
+        
+        ###
+        # dict_size = 2000
+        ###
+
         dist_matrix = np.zeros((dict_size, dict_size))
 
         matrix_line = 0
         for key in sorted_dists_by_user:
+            ###
+            # dists_j = np.array(list(({k: dists[key][k] for k in sorted(dists[key].keys())}).values()))[:2000]
+            ###
+
             dists_j = np.array(list(({k: dists[key][k] for k in sorted(dists[key].keys())}).values()))
             dist_matrix[matrix_line] = dists_j
             matrix_line += 1
 
+            # ###
+            # if matrix_line >= 2000: break
+            # ###
+
         linkage_matrix = linkage(dist_matrix, method='complete')
         dendrogram_leaves_order = dendrogram(linkage_matrix, no_plot=True)['leaves']
-        sorted_strings = [sorted_dists_by_user.keys()[i] for i in dendrogram_leaves_order]
+
+        ###
+        # sorted_dists_by_user = list(sorted_dists_by_user.keys())[:2000]
+        # sorted_strings = [sorted_dists_by_user[i] for i in dendrogram_leaves_order]
+        ###
+
+        sorted_strings = [list(sorted_dists_by_user.keys())[i] for i in dendrogram_leaves_order]
         return sorted_strings      
 
     def _knn_distance(self, cluster : List[str], ref : str, test : str):
@@ -666,10 +676,7 @@ class DsPipeline(nn.Module):
         dists : Dict[str, Dict[str, float]]
         with open(matrix_path, 'rb') as fr:
             # Serialize and write the variable to the file
-            dists = pickle.load(fr) 
-        
-        # merge nos dicts
-        # ordenar dicts
+            dists = pickle.load(fr)
 
         cluster = self._knn_cluster(dists)
 
@@ -696,26 +703,13 @@ class DsPipeline(nn.Module):
             true_label  = int(files[-1].split('\n')[0])
 
             dt = 0
-            dtd = 0
+            dtd = len(refs)
 
             """ versao anterior
-            u = refs[0].split("_")[0] + "_g_"
-            l = list(dists[sign].keys())
-            dt_signs = []
-            for i in range(len(l)):
-                # ignora se eh original, mas nao eh referencia
-                if u in l[i] and ('v00' not in l[i]) and ('v01' not in l[i]) and ('v02' not in l[i]) and ('v03' not in l[i]):
-                    continue
-
-                dt += dists[sign][l[i]]
-                if dtd == 3: break
-                dt_signs.append(l[i])
-                dtd += 1
+            for i in range(len(refs)):
+                dt += dists[refs[i]][sign]
             dt /= dtd
-            """
 
-
-            # dr = (dists[user_id][refs[0]] + dists[user_id][refs[1]] + dists[user_id][refs[2]] + dists[user_id][refs[3]]) / 3
             dr = 0
             drd = 0
             for i in range(0, 4):
@@ -723,7 +717,22 @@ class DsPipeline(nn.Module):
                     dr += dists[refs[i]][refs[j]]
                     drd += 1
             dr = dr/drd
-           
+            """
+            
+            #""" versao com cluster
+            for i in range(len(refs)):
+                dt += self._knn_distance(cluster, refs[i], sign)
+            dt /= dtd
+
+            dr = 0
+            drd = 0
+            for i in range(len(refs)):
+                for j in range(i+1, len(refs)):
+                    dr += self._knn_distance(cluster, refs[i], refs[j])
+                    drd += 1
+            dr /= drd
+            #"""
+            
             distance = abs(dr-dt)
 
             user_id = refs[0].split('_')[0] + 'g'
@@ -795,3 +804,180 @@ class DsPipeline(nn.Module):
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
         
         return ret_metrics
+    
+    def multidimensional_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
+        """ Avaliação da rede conforme o arquivo de comparação
+
+        Args:
+            comparison_file (str): path do arquivo que contém as assinaturas a serem comparadas entre si, bem como a resposta da comparação. 0 é positivo (original), 1 é negativo (falsificação).
+            n_epoch (int): número que indica após qual época de treinamento a avaliação está sendo realizada.
+            result_folder (str): path onde salvar os resultados.
+        """
+
+        self.train(mode=False)
+        lines = []
+        with open(comparison_file, "r") as fr:
+            lines = fr.readlines()
+
+        if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+        file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
+        print("\n\tAvaliando " + file_name)
+        comparison_folder = result_folder + os.sep + file_name
+        if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
+
+        users = {}
+
+        for line in tqdm(lines, "Calculando distâncias..."):
+            distance, user_id, true_label = self._multidimensional_inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            
+            if user_id not in users: 
+                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "legit":[], "forgery":[]}
+            else:
+                users[user_id]["distances"].append(distance)
+                users[user_id]["true_label"].append(true_label)
+                if true_label == 0: users[user_id]["legit"].append(distance)
+                else: users[user_id]["forgery"].append(distance)
+
+        with open('users.pkl', 'wb') as fw: 
+            pickle.dump(users, fw) 
+
+        # Nesse ponto, todos as comparações foram feitas
+        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
+        local_buffer = ""
+        global_true_label = []
+        global_legit = []
+        global_forgery = []
+        global_distances = []
+
+        eers = []
+
+        local_ths = []
+
+        # Calculo do EER local por usuário:
+        for user in tqdm(users, desc="Obtendo EER local..."):
+            global_true_label += users[user]["true_label"]
+            global_legit  += users[user]["legit"]
+            global_forgery += users[user]["forgery"]
+            global_distances += users[user]["distances"]
+
+            # if "Task" not in comparison_file:
+            if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
+                eer, eer_threshold = (1,1)
+                # eer, eer_threshold = metrics.get_multidimensional_eer(legit=users[user]["legit"], forgery=users[user]["forgery"])
+                
+                local_ths.append(eer_threshold)
+                eers.append(eer)
+                local_buffer += user + ", " + "{:.5f}".format(eer) + "0,0,0\n"
+
+        print("Obtendo EER global...")
+        
+        # Calculo do EER global
+        eer_global, eer_threshold_global = metrics.get_multidimensional_eer(global_legit, global_forgery, result_folder=comparison_folder, n_epoch=n_epoch)
+
+        local_eer_mean = np.mean(np.array(eers))
+        local_ths = np.array(local_ths)
+        local_ths_var  = np.var(local_ths)
+        local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+        
+        th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
+
+        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n" + local_buffer
+
+        # self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
+
+        with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
+            fw.write(buffer)
+
+
+        self.last_eer = eer_global
+        ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+        if n_epoch != 0 and n_epoch != 777 and n_epoch != 888 and n_epoch < 100:
+            if eer_global < self.best_eer:
+                torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
+                self.best_eer = eer_global
+                print("EER atualizado: ")
+                print(ret_metrics)
+
+        self.train(mode=True)
+
+        # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+        if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
+        
+        return ret_metrics
+    
+    def _multidimensional_inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[Any, str, int]:
+        """
+        Args:
+            files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
+
+        Raises:
+            ValueError: "Arquivos de comparação com formato desconhecido"
+
+        Returns:
+            float, str, int: distância da assinatura, usuário, label 
+        """
+        scenario = "stylus"
+        if "finger" in files:
+            scenario = "finger"
+
+        tokens = files.split(" ")
+        files_bckp = tokens.copy()
+        user_key = tokens[0].split("_")[0]
+        
+        result = math.nan
+        refs = []
+        sign = ""
+        s_avg = 0
+        s_min = 0
+
+        if len(tokens) == 2:
+            a = tokens[0].split('_')[0]
+            b = tokens[1].split('_')[0]
+            result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
+        elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+        elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
+        else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+        # if 'u0148' in refs[0] or 'u0272' in refs[0]:
+
+        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=False, scenario=scenario)
+        users = refs.copy()
+
+        mask = self.getOutputMask(lens)
+        
+        mask = Variable(torch.from_numpy(mask)).cuda()
+        inputs = Variable(torch.from_numpy(test_batch)).cuda()
+
+        embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+        refs = embeddings[:len(embeddings)-1]
+        sign = embeddings[-1]
+
+        len_refs = lengths[:len(embeddings)-1]
+        len_sign = lengths[-1]
+
+        dk = math.nan
+        count = 0
+        if len(refs) == 1 : dk = 1
+        else:
+            dk = torch.zeros(refs[0].shape[1]).cuda()
+            for i in range(0, len(refs)):
+                for j in range(1, len(refs)):
+                    if i < j:
+                        dk += (self._multidimensional_dte(refs[i], refs[j], len_refs[i], len_refs[j]))
+                        count += 1
+
+            dk = dk/(count)
+    
+        dk_sqrt = torch.sqrt(dk)
+        
+        dists = torch.zeros((refs.shape[0], refs[0].shape[1])).cuda()
+
+        for i in range(0, len(refs)):
+            dists[i] = self._multidimensional_dte(refs[i], sign, len_refs[i], len_sign)
+
+        dists = dists / dk_sqrt
+        s_avg = torch.mean(dists,axis=0)
+        s_min = (torch.min(dists,axis=0)).values
+
+        return (s_avg + s_min).detach().cpu().numpy(), user_key, result
