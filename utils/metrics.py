@@ -46,7 +46,7 @@ def generate_graph(legit : List[float], forgery : List[float], epoch, result_fol
 
         return y[0], x[0]
 
-def get_multidimensional_eer(legit : npt.ArrayLike, forgery : npt.ArrayLike, n_epoch : int = 0, result_folder : str = None, user : str = '0', generate_graph : bool = False):
+def get_multidimensional_eer(users, legit : npt.ArrayLike, forgery : npt.ArrayLike, n_epoch : int = 0, result_folder : str = None, user : str = '0', generate_graph : bool = False):
     """ Calculate EER using n thresholds. 
 
     Args:
@@ -62,9 +62,26 @@ def get_multidimensional_eer(legit : npt.ArrayLike, forgery : npt.ArrayLike, n_e
     legit = np.array(legit)
     forgery = np.array(forgery)
     total_distances = np.concatenate((legit, forgery), axis=0)
-
     total_distances = np.sort(total_distances, axis=0)
 
+    from sklearn.manifold import TSNE
+    from matplotlib import pyplot as plt
+    from sklearn.datasets import load_iris
+    from numpy import reshape
+    import seaborn as sns
+    import pandas as pd
+
+    y = 0
+    for key in users.keys():
+        x = np.array(users[key]['distances'])
+        z = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3).fit_transform(x)     
+        scikit = pd.DataFrame()
+        scikit["y"] = y
+        y+=1
+        scikit[str(y) + "comp-1"] = z[:,0]
+        scikit[str(y) + "comp-2"] = z[:,1]
+    sns.scatterplot().set (title="Scikit learn TSNE") 
+    plt.show()
     frr_list = []
     far_list = []
 
@@ -83,8 +100,17 @@ def get_multidimensional_eer(legit : npt.ArrayLike, forgery : npt.ArrayLike, n_e
 
     frr_list = np.array(frr_list)
     far_list = np.array(far_list)
-
+    
     indexes = np.array(list(range(len(total_distances))))
+
+    crossing_index = np.where(far_list >= frr_list)[0][0]
+
+    # Interpolate the exact crossing value
+    crossing_value = np.interp(crossing_index, [crossing_index - 1, crossing_index],
+                            [far_list[crossing_index - 1], far_list[crossing_index]])
+
+    print("Crossing Index:", crossing_index)
+    print("Crossing Value:", crossing_value)
 
     line_1 = LineString(np.column_stack((indexes, frr_list)))
     line_2 = LineString(np.column_stack((indexes, far_list)))
