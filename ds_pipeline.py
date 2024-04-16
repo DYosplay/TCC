@@ -236,7 +236,6 @@ class DsPipeline(nn.Module):
             scenario = "finger"
 
         tokens = files.split(" ")
-        files_bckp = tokens.copy()
         user_key = tokens[0].split("_")[0]
         
         result = math.nan
@@ -254,9 +253,8 @@ class DsPipeline(nn.Module):
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
         # if 'u0148' in refs[0] or 'u0272' in refs[0]:
-
+        tensor_names = refs.copy() + [sign]
         test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=False, scenario=scenario)
-        users = refs.copy()
 
         mask = self.getOutputMask(lens)
         
@@ -269,6 +267,12 @@ class DsPipeline(nn.Module):
 
         len_refs = lengths[:len(embeddings)-1]
         len_sign = lengths[-1]
+
+        if not os.path.exists(result_folder + os.sep + 'generated_features'):
+            os.mkdir(result_folder + os.sep + 'generated_features')
+        save_folder = result_folder + os.sep + 'generated_features' + os.sep
+        for i, tensor in enumerate(embeddings):
+            torch.save(tensor, save_folder + tensor_names[i].split('.')[0] + ".pt")
 
         dk = math.nan
         count = 0
@@ -828,19 +832,23 @@ class DsPipeline(nn.Module):
 
         users = {}
 
-        for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._multidimensional_inference(line, n_epoch=n_epoch, result_folder=result_folder)
+        # for line in tqdm(lines, "Calculando distâncias..."):
+        #     distance, user_id, true_label = self._multidimensional_inference(line, n_epoch=n_epoch, result_folder=result_folder)
             
-            if user_id not in users: 
-                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "legit":[], "forgery":[]}
-            else:
-                users[user_id]["distances"].append(distance)
-                users[user_id]["true_label"].append(true_label)
-                if true_label == 0: users[user_id]["legit"].append(distance)
-                else: users[user_id]["forgery"].append(distance)
+        #     if user_id not in users: 
+        #         users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "legit":[], "forgery":[]}
+        #     else:
+        #         users[user_id]["distances"].append(distance)
+        #         users[user_id]["true_label"].append(true_label)
+        #         if true_label == 0: users[user_id]["legit"].append(distance)
+        #         else: users[user_id]["forgery"].append(distance)
 
-        with open('users.pkl', 'wb') as fw: 
-            pickle.dump(users, fw) 
+        # with open('users.pkl', 'wb') as fw: 
+        #     pickle.dump(users, fw)
+
+        with open('users.pkl', 'rb') as fr:
+            # Serialize and write the variable to the file
+            users = pickle.load(fr) 
 
         # Nesse ponto, todos as comparações foram feitas
         buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
@@ -873,7 +881,7 @@ class DsPipeline(nn.Module):
         print("Obtendo EER global...")
         
         # Calculo do EER global
-        eer_global, eer_threshold_global = metrics.get_multidimensional_eer(global_legit, global_forgery, result_folder=comparison_folder, n_epoch=n_epoch)
+        eer_global, eer_threshold_global = metrics.get_multidimensional_eer(users, global_legit, global_forgery, result_folder=comparison_folder, n_epoch=n_epoch)
 
         local_eer_mean = np.mean(np.array(eers))
         local_ths = np.array(local_ths)
