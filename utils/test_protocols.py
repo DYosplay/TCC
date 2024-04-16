@@ -150,23 +150,23 @@ def eval_db(hyperparameters : Dict[str, Any], res_folder, comparison_file : str)
 	model.eval()
 
 	model.load_state_dict(torch.load(f))
-	# model.new_evaluate(comparison_file, 100, result_folder=res_folder)
-	model.multidimensional_evaluate(comparison_file, 100000, result_folder=res_folder)
+	model.new_evaluate(comparison_file, 100, result_folder=res_folder)
+	# model.multidimensional_evaluate(comparison_file, 100000, result_folder=res_folder)
 
 	del model
 
 def evaluate(hyperparameters : Dict[str, Any], res_folder):
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
-	eval_db(hyperparameters, res_folder, EBIOSIGN_W1_SKILLED_4VS1)
+	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
+	# eval_db(hyperparameters, res_folder, EBIOSIGN_W1_SKILLED_4VS1)
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
 	# eval_db(hyperparameters, res_folder, EBIOSIGN_W1_SKILLED_4VS1)
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_4VS1"
 	# eval_db(hyperparameters, res_folder, RANDOM_STYLUS_4VS1)
-	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_1VS1"
-	# eval_db(hyperparameters, res_folder, SKILLED_STYLUS_1VS1)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_1VS1"
+	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_1VS1)
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
 	# eval_db(hyperparameters, res_folder, SKILLED_STYLUS_4VS1)
-	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_1VS1"
-	# eval_db(hyperparameters, res_folder, RANDOM_STYLUS_1VS1)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_1VS1"
+	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_1VS1)
 	
 
