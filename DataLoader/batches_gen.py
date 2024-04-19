@@ -34,8 +34,8 @@ def files2array(batch, z : bool, developtment : bool, scenario : str = "stylus",
         elif developtment == False: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file.strip()
         
         # Se quiser testar usando o conjunto de treino
-        # if developtment == True: file = "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + "stylus" + os.sep + file
-        scenario = "stylus" if "stylus" in file.lower() else "finger"
+        if developtment == True: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + scenario + os.sep + file
+        # scenario = "stylus" if "stylus" in file.lower() else "finger"
 
         feat = loader.get_features(file, scenario=scenario, z=z, development=developtment, hyperparameters=hyperparameters)
         data.append(feat)
