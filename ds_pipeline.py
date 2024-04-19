@@ -253,8 +253,7 @@ class DsPipeline(nn.Module):
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
         # if 'u0148' in refs[0] or 'u0272' in refs[0]:
-        tensor_names = refs.copy() + [sign]
-        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=False, scenario=scenario)
+        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=self.hyperparameters["development"], scenario=scenario)
 
         mask = self.getOutputMask(lens)
         
@@ -267,12 +266,6 @@ class DsPipeline(nn.Module):
 
         len_refs = lengths[:len(embeddings)-1]
         len_sign = lengths[-1]
-
-        if not os.path.exists(result_folder + os.sep + 'generated_features'):
-            os.mkdir(result_folder + os.sep + 'generated_features')
-        save_folder = result_folder + os.sep + 'generated_features' + os.sep
-        for i, tensor in enumerate(embeddings):
-            torch.save(tensor, save_folder + tensor_names[i].split('.')[0] + ".pt")
 
         dk = math.nan
         count = 0
@@ -476,6 +469,32 @@ class DsPipeline(nn.Module):
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
         plt.clf()
+
+    def extract(self, result_folder : str):
+        if not os.path.exists(result_folder): os.mkdir(result_folder)
+        
+        scenario = "stylus"
+        if "finger" in result_folder:
+            scenario = "finger"
+
+        devl = "Development" in self.hyperparameters['extract_features']
+        file_path = self.hyperparameters['dataset_folder'] + os.sep + self.hyperparameters['extract_features'] + os.sep + self.hyperparameters['dataset_scenario']
+        files = os.listdir(file_path)
+
+        for i in tqdm(range(0, len(files), 2)):
+            sign_names = [files[i], files[i+1]]
+	    
+            test_batch, lens = batches_gen.files2array(sign_names, z=self.z, developtment=devl, scenario=scenario)
+
+            mask = self.getOutputMask(lens)
+            
+            mask = Variable(torch.from_numpy(mask)).cuda()
+            inputs = Variable(torch.from_numpy(test_batch)).cuda()
+
+            embeddings, lengths = self(inputs.float(), mask, 0)    
+
+            for i, tensor in enumerate(embeddings):
+                torch.save(tensor, result_folder + sign_names[i].split('.')[0] + ".pt")
 
     def start_transfer(self, comparison_files : List[str], result_folder : str, teacher_model):
         """ Loop de treinamento
@@ -989,3 +1008,5 @@ class DsPipeline(nn.Module):
         s_min = (torch.min(dists,axis=0)).values
 
         return (s_avg + s_min).detach().cpu().numpy(), user_key, result
+    
+    

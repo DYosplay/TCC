@@ -91,7 +91,7 @@ if __name__ == '__main__':
 		exit(0)
 	
 	if hyperparameters['knn']:
-		f = res_folder + os.sep + 'Backup' + os.sep + "best.pt"
+		f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
 		model = DsPipeline(hyperparameters=hyperparameters)
 		model.cuda()
 		model.load_state_dict(torch.load(f))
@@ -101,6 +101,19 @@ if __name__ == '__main__':
 		model.knn(matrix_path=hyperparameters['knn_matrix'], comparison_file=MCYT_SKILLED_4VS1, result_folder=res_folder, n_epoch=10000)
 		del model
 		exit(0)
+	
+	if hyperparameters['extract_features'] != "":
+		result_folder = res_folder + os.sep + "Extracted Features " + os.sep + hyperparameters['extract_features']
+		f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+		model = DsPipeline(hyperparameters=hyperparameters)
+		model.cuda()
+		model.load_state_dict(torch.load(f))
+		model.train(mode=False)
+		model.eval()
+		model.extract(result_folder=result_folder)
+		del model
+		exit(0)
+	
 
 	# Treinamento
 	model = DsPipeline(hyperparameters=hyperparameters)
