@@ -60,6 +60,10 @@ def parse_arguments():
 	parser.add_argument("-val", "--validate", help="evaluate all mini datasets in -scene + -mode", action='store_true')
 	parser.add_argument("-rs", "--random_search", help="search hyperparameters in a random way", action='store_true')
 	parser.add_argument("-bays", "--baysean_search", help="search hyperparameters with a baysean search", action='store_true')
+	# Prototype
+	parser.add_argument("-ef", "--extract_features", help="<Development> or <Evaluation>", default="", type=str)
+	parser.add_argument("-dev", "--development", help="load files from development folder (only inference mode)", action='store_true')
+
 
 	parser.add_argument("-kgen", "--knn_generate_matrix", help="generate knn matrix", action='store_true')
 	parser.add_argument("-knn", "--knn", help="calculate knn", action='store_true')

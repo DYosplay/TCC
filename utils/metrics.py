@@ -72,19 +72,10 @@ def get_multidimensional_eer(users, legit : npt.ArrayLike, forgery : npt.ArrayLi
     import pandas as pd
 
     y = 0
-    for key in users.keys():
-        x = np.array(users[key]['distances'])
-        z = TSNE(n_components=2, learning_rate='auto', init='random', perplexity=3).fit_transform(x)     
-        scikit = pd.DataFrame()
-        scikit["y"] = y
-        y+=1
-        scikit[str(y) + "comp-1"] = z[:,0]
-        scikit[str(y) + "comp-2"] = z[:,1]
-    sns.scatterplot().set (title="Scikit learn TSNE") 
-    plt.show()
+
     frr_list = []
     far_list = []
-
+ 
     for dist in total_distances:
     # for i in range(0, len(total_distances)):
     #     for j in range(0, len(total_distances[0])):

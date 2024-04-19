@@ -21,4 +21,4 @@ EBIOSIGN_W1_SKILLED_4VS1 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.s
 MCYT_SKILLED_4VS1 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "skilled" + os.sep + "Comp_MCYT_skilled_stylus_4vs1.txt"
 MCYT_RANDOM_4VS1 = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "TBIOM_2021_Journal" + os.sep + "stylus" + os.sep + "4vs1" + os.sep + "random" + os.sep + "Comp_MCYT_random_stylus_4vs1.txt"
 
-PROTOCOLO319 = "protocolo319.txt"
+JPROTOCOL = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Comparison_Files" + os.sep + "jprotocol.txt"
