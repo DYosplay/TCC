@@ -53,52 +53,13 @@ if __name__ == '__main__':
 		test_protocols.evaluate(hyperparameters, res_folder)
 		exit(0)
 
-	if hyperparameters['transfer_learning']:
-		teacher_model = DsPipeline(hyperparameters=hyperparameters)
-		teacher_model.cuda()
-		teacher_model.load_state_dict(torch.load(hyperparameters['weight']))
-
-		# Treinamento
-		model = DsPipeline(hyperparameters=hyperparameters)
-		print(test_protocols.count_parameters(model))
-		model.cuda()
-		model.train(mode=True)
-		model.start_transfer(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder, teacher_model=teacher_model)
-		del teacher_model
-		del model
-		exit(0)
-
 	if hyperparameters['tune_model']:
 		model = DsPipeline(hyperparameters=hyperparameters)
 		model.cuda()
 		model.load_state_dict(torch.load(hyperparameters['weight']))
 		
 		model.train(mode=True)
-		model.start_train(comparison_files=[EBIOSIGN_W1_SKILLED_4VS1, EBIOSIGN_W1_SKILLED_1VS1], result_folder=res_folder)
-		del model
-		exit(0)
-
-	if hyperparameters['knn_generate_matrix']:
-		f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
-		model = DsPipeline(hyperparameters=hyperparameters)
-		model.cuda()
-		model.load_state_dict(torch.load(f))
-		
-		model.train(mode=False)
-		model.eval()
-		model.knn_generate_matrix(result_folder=res_folder)
-		del model
-		exit(0)
-	
-	if hyperparameters['knn']:
-		f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
-		model = DsPipeline(hyperparameters=hyperparameters)
-		model.cuda()
-		model.load_state_dict(torch.load(f))
-		
-		model.train(mode=False)
-		model.eval()
-		model.knn(matrix_path=hyperparameters['knn_matrix'], comparison_file=MCYT_SKILLED_4VS1, result_folder=res_folder, n_epoch=10000)
+		model.start_train(comparison_files=[EBIOSIGN_W1_SKILLED_4VS1], result_folder=res_folder)
 		del model
 		exit(0)
 	
@@ -113,7 +74,60 @@ if __name__ == '__main__':
 		model.extract(result_folder=result_folder)
 		del model
 		exit(0)
+
+	if hyperparameters['cluster']:
+		f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+		result_folder = res_folder + os.sep + "Clusterized"
+		model = DsPipeline(hyperparameters=hyperparameters)
+		model.cuda()
+		model.train(mode=False)
+		model.eval()
+		model.load_state_dict(torch.load(f))
+		model.clusterize(result_folder=result_folder, comparison_file="pairs.txt")
+		
+		del model
+		exit(0)
 	
+	"""Experimental"""
+	# if hyperparameters['knn_generate_matrix']:
+	# 	f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+	# 	model = DsPipeline(hyperparameters=hyperparameters)
+	# 	model.cuda()
+	# 	model.load_state_dict(torch.load(f))
+		
+	# 	model.train(mode=False)
+	# 	model.eval()
+	# 	model.knn_generate_matrix(result_folder=res_folder)
+	# 	del model
+	# 	exit(0)
+ 
+	# if hyperparameters['knn']:
+	# 	f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+	# 	model = DsPipeline(hyperparameters=hyperparameters)
+	# 	model.cuda()
+	# 	model.load_state_dict(torch.load(f))
+		
+	# 	model.train(mode=False)
+	# 	model.eval()
+	# 	model.knn(matrix_path=hyperparameters['knn_matrix'], comparison_file=MCYT_SKILLED_4VS1, result_folder=res_folder, n_epoch=10000)
+	# 	del model
+	# 	exit(0)
+ 
+	# if hyperparameters['transfer_learning']:
+	# 	teacher_model = DsPipeline(hyperparameters=hyperparameters)
+	# 	teacher_model.cuda()
+	# 	teacher_model.load_state_dict(torch.load(hyperparameters['weight']))
+
+	# 	# Treinamento
+	# 	model = DsPipeline(hyperparameters=hyperparameters)
+	# 	print(test_protocols.count_parameters(model))
+	# 	model.cuda()
+	# 	model.train(mode=True)
+	# 	model.start_transfer(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder, teacher_model=teacher_model)
+	# 	del teacher_model
+	# 	del model
+	# 	exit(0)
+	"""Experimental"""
 
 	# Treinamento
 	model = DsPipeline(hyperparameters=hyperparameters)

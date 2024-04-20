@@ -231,10 +231,6 @@ class DsPipeline(nn.Module):
         Returns:
             float, str, int: distância da assinatura, usuário, label 
         """
-        scenario = "stylus"
-        if "finger" in files:
-            scenario = "finger"
-
         tokens = files.split(" ")
         user_key = tokens[0].split("_")[0]
         
@@ -252,8 +248,7 @@ class DsPipeline(nn.Module):
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
-        # if 'u0148' in refs[0] or 'u0272' in refs[0]:
-        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=self.hyperparameters["development"], scenario=scenario)
+        test_batch, lens = batches_gen.files2array(refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
 
         mask = self.getOutputMask(lens)
         
@@ -403,16 +398,19 @@ class DsPipeline(nn.Module):
         if not os.path.exists(result_folder + os.sep + "Backup"): os.mkdir(result_folder + os.sep + "Backup")
         bckp_path = result_folder + os.sep + "Backup"
 
+        data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
+
         running_loss = 0
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
 
+
             if self.hyperparameters['dataset_scenario'] == "mix":
                 epoch = batches_gen.generate_mixed_epoch()
             elif self.hyperparameters['dataset_scenario'] == "stylus":
-                epoch = batches_gen.generate_epoch(dataset_folder= self.hyperparameters['dataset_folder'] + os.sep + "Development" + os.sep + self.hyperparameters['dataset_scenario'], hyperparameters = self.hyperparameters)
+                epoch = batches_gen.generate_epoch(dataset_folder=data_path, hyperparameters=self.hyperparameters, development=True)
             elif self.hyperparameters['dataset_scenario'] == "finger":
-                epoch = batches_gen.generate_epoch(dataset_folder= self.hyperparameters['dataset_folder'] + os.sep + "Development" + os.sep + self.hyperparameters['dataset_scenario'], train_offset=[(1009, 1084)], scenario='finger', hyperparameters = self.hyperparameters)
+                epoch = batches_gen.generate_epoch(dataset_folder=data_path, hyperparameters=self.hyperparameters, train_offset=[(1009, 1084)], development=True)
 
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
@@ -472,19 +470,14 @@ class DsPipeline(nn.Module):
 
     def extract(self, result_folder : str):
         if not os.path.exists(result_folder): os.mkdir(result_folder)
-        
-        scenario = "stylus"
-        if "finger" in result_folder:
-            scenario = "finger"
 
         devl = "Development" in self.hyperparameters['extract_features']
-        file_path = self.hyperparameters['dataset_folder'] + os.sep + self.hyperparameters['extract_features'] + os.sep + self.hyperparameters['dataset_scenario']
-        files = os.listdir(file_path)
+        files = os.listdir(self.hyperparameters['signature_path'])
 
         for i in tqdm(range(0, len(files), 2)):
-            sign_names = [files[i], files[i+1]]
+            batch = [files[i], files[i+1]]
 	    
-            test_batch, lens = batches_gen.files2array(sign_names, z=self.z, developtment=devl, scenario=scenario)
+            test_batch, lens = batches_gen.files2array(batch, hyperparameters=self.hyperparameters, z=self.z, developtment=devl)
 
             mask = self.getOutputMask(lens)
             
@@ -494,519 +487,576 @@ class DsPipeline(nn.Module):
             embeddings, lengths = self(inputs.float(), mask, 0)    
 
             for i, tensor in enumerate(embeddings):
-                torch.save(tensor, result_folder + sign_names[i].split('.')[0] + ".pt")
+                torch.save(tensor, result_folder + batch[i].split('.')[0] + ".pt")
 
-    def start_transfer(self, comparison_files : List[str], result_folder : str, teacher_model):
-        """ Loop de treinamento
-
-        Args:
-            comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
-            result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
-        """
-        dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
-
-        optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=self.hyperparameters['momentum'])
-        lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.hyperparameters['decay']) 
-            
-        if not os.path.exists(result_folder): os.mkdir(result_folder)
-
-        if not os.path.exists(result_folder + os.sep + "Backup"): os.mkdir(result_folder + os.sep + "Backup")
-        bckp_path = result_folder + os.sep + "Backup"
-
-        running_loss = 0
-        for i in range(1, self.hyperparameters['epochs']+1):
-            epoch = None
-
-            if self.hyperparameters['dataset_scenario'] == "mix":
-                epoch = batches_gen.generate_mixed_epoch()
-            elif self.hyperparameters['dataset_scenario'] == "stylus":
-                epoch = batches_gen.generate_epoch()
-            elif self.hyperparameters['dataset_scenario'] == "finger":
-                epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
-
-            epoch_size = len(epoch)
-            self.loss_value = running_loss/epoch_size
-
-            if (self.best_eer > 0.04 and i >= self.hyperparameters['early_stop']):
-                print("\n\nEarly stop!")
-                break
-
-            pbar = tqdm(total=(epoch_size//(self.batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.4f}".format(self.loss_value))
-
-            running_loss = 0
-            #PAL = Previous Accumulated Loss
-            while epoch != []:
-            # if True:
-                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z)
-                
-                mask = self.getOutputMask(lens)
-                mask = Variable(torch.from_numpy(mask)).cuda()
-                inputs = Variable(torch.from_numpy(batch)).cuda()
-                
-                outputs, length = self(inputs.float(), mask, i)
-                outputs_t, length_t = teacher_model(inputs.float(), mask, i)
-                
-                optimizer.zero_grad()
-
-                loss = self.loss_function(outputs, length, outputs_t)
-                loss.backward()
-
-                optimizer.step()
-
-                if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
-                print(self.p)
-
-                running_loss += loss.item()
-            
-                pbar.update(1)
-
-            pbar.close()
-
-            if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
-
-            if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
-                for cf in comparison_files:
-                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
-                    
-            
-            self.loss_variation.append(running_loss/epoch_size)
-            
-            lr_scheduler.step()
-
-            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
-
-        # Loss graph
-        plt.xlabel("#Epoch")
-        plt.ylabel("Loss")
-        plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
-        plt.savefig(result_folder + os.sep + "loss.png")
-        plt.cla()
-        plt.clf()
-
-    def knn_generate_matrix(self, result_folder : str, n_epoch : int = 0):
-        folder = self.hyperparameters["dataset_folder"] + os.sep + "Evaluation" + os.sep + self.hyperparameters['dataset_scenario']
-        files = sorted(os.listdir(folder))
-
-        dists = {}
-
-        assert len(files) >= self.hyperparameters['q']
-        assert self.hyperparameters['p'] >= 0
-
-        print("Calculando distâncias...")
-        # limit = len(files)
-        limit = 5001
-        for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
-        # for i in tqdm(range(0, len(files))):
-            
-            for j in tqdm(range(i, limit)):
-                batch = [files[i], files[j]]
-
-                # prepara chaves do dicionário
-                ref_id = files[i]
-                tst_id = files[j]
-
-                if '_s_' in ref_id and '_s_' in tst_id:
-                # if not ('_s_' in ref_id and '_s_' in tst_id):
-                    continue
-
-                test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
-            
-                mask = self.getOutputMask(lens)
-        
-                mask = Variable(torch.from_numpy(mask)).cuda()
-                inputs = Variable(torch.from_numpy(test_batch)).cuda()
-
-                embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-                refs = embeddings[:len(embeddings)-1]
-                sign = embeddings[-1]
-
-                len_refs = lengths[:len(embeddings)-1]
-                len_sign = lengths[-1]
-
-                distance_value = (self._dte(refs[0], sign, len_refs[0], len_sign).detach().cpu().numpy()[0])
-
-                if ref_id not in dists:
-                    dists[ref_id] = {batch[1]: distance_value}
-                else:
-                    dists[ref_id][batch[1]] = distance_value
-
-                if ref_id != tst_id:
-                    if tst_id not in dists:
-                        dists[tst_id] = {batch[0]: distance_value}
-                    else:
-                        dists[tst_id][batch[0]] = distance_value
-
-        print("Ordenando distâncias")
-        for key in tqdm(dists.keys()):
-            dists[key] = dict(sorted(dists[key].items(), key=lambda item: item[1]))
-
-        # Open the file in binary mode
-        with open(result_folder + os.sep + "matrix_" + str(int(self.hyperparameters['p'])) + "_to_" + str(int(self.hyperparameters['q'])) + ".pickle", 'wb') as fw:
-            # Serialize and write the variable to the file
-            pickle.dump(dists, fw)
-    
-    def _knn_cluster(self, dists: Dict[str, Dict[str, float]]):
-        from scipy.cluster.hierarchy import linkage, dendrogram
-        
-        sorted_dists_by_user = {k: dists[k] for k in sorted(dists.keys())} 
-        dict_size = len(list(sorted_dists_by_user))
-        
-        ###
-        # dict_size = 2000
-        ###
-
-        dist_matrix = np.zeros((dict_size, dict_size))
-
-        matrix_line = 0
-        for key in sorted_dists_by_user:
-            ###
-            # dists_j = np.array(list(({k: dists[key][k] for k in sorted(dists[key].keys())}).values()))[:2000]
-            ###
-
-            dists_j = np.array(list(({k: dists[key][k] for k in sorted(dists[key].keys())}).values()))
-            dist_matrix[matrix_line] = dists_j
-            matrix_line += 1
-
-            # ###
-            # if matrix_line >= 2000: break
-            # ###
-
-        linkage_matrix = linkage(dist_matrix, method='complete')
-        dendrogram_leaves_order = dendrogram(linkage_matrix, no_plot=True)['leaves']
-
-        ###
-        # sorted_dists_by_user = list(sorted_dists_by_user.keys())[:2000]
-        # sorted_strings = [sorted_dists_by_user[i] for i in dendrogram_leaves_order]
-        ###
-
-        sorted_strings = [list(sorted_dists_by_user.keys())[i] for i in dendrogram_leaves_order]
-        return sorted_strings      
-
-    def _knn_distance(self, cluster : List[str], ref : str, test : str):
-        """ Calculate hierarchical distance for knn
-
-        Args:
-            dists (Dict[Dict[str, float]]): dictionary containing the distances of all genuine signatures against all other signatures in the dataset
-            ref (str): file name of the reference signature
-            test (str): file name of the testing signatur
-
-        Returns:
-            float: the distance
-        """
-        return abs(cluster.index(ref) - cluster.index(test))
-
-    def knn(self, matrix_path : str, comparison_file : str, result_folder : str, n_epoch : int = 0):
-        dists : Dict[str, Dict[str, float]]
-        with open(matrix_path, 'rb') as fr:
-            # Serialize and write the variable to the file
-            dists = pickle.load(fr)
-
-        cluster = self._knn_cluster(dists)
-
-        lines = []
-        with open(comparison_file, "r") as fr:
-            lines = fr.readlines()
-
-        if not os.path.exists(result_folder): os.mkdir(result_folder)
-
-        file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
-        print("\n\tAvaliando " + file_name)
-        comparison_folder = result_folder + os.sep + file_name
-        if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
-
-        users = {}
-
-        for line in lines:
-            files = line.split(' ')
-
-            assert len(files) == 6
-
-            refs = files[:4]
-            sign = files[-2]
-            true_label  = int(files[-1].split('\n')[0])
-
-            dt = 0
-            dtd = len(refs)
-
-            """ versao anterior
-            for i in range(len(refs)):
-                dt += dists[refs[i]][sign]
-            dt /= dtd
-
-            dr = 0
-            drd = 0
-            for i in range(0, 4):
-                for j in range(i+1, 4):
-                    dr += dists[refs[i]][refs[j]]
-                    drd += 1
-            dr = dr/drd
-            """
-            
-            #""" versao com cluster
-            for i in range(len(refs)):
-                dt += self._knn_distance(cluster, refs[i], sign)
-            dt /= dtd
-
-            dr = 0
-            drd = 0
-            for i in range(len(refs)):
-                for j in range(i+1, len(refs)):
-                    dr += self._knn_distance(cluster, refs[i], refs[j])
-                    drd += 1
-            dr /= drd
-            #"""
-            
-            distance = abs(dr-dt)
-
-            user_id = refs[0].split('_')[0] + 'g'
-            
-            user_tst = sign.split('_')[0]
-            if '_g_' in sign: user_tst += 'g'
-            else: user_tst += 's'
-
-            if user_id not in users: 
-                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
-            else:
-                users[user_id]["distances"].append(distance)
-                users[user_id]["true_label"].append(true_label)
-
-        # Nesse ponto, todos as comparações foram feitas
-        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
-        local_buffer = ""
-        global_true_label = []
-        global_distances = []
-
-        eers = []
-
-        local_ths = []
-
-        # Calculo do EER local por usuário:
-        for user in tqdm(users, desc="Obtendo EER local..."):
-            global_true_label += users[user]["true_label"]
-            global_distances  += users[user]["distances"]
-
-            # if "Task" not in comparison_file:
-            if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
-                eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
-                th_range_local = np.max(np.array(users[user]["distances"])[np.array(users[user]["distances"]) < eer_threshold])
-
-                local_ths.append(eer_threshold)
-                eers.append(eer)
-                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ")\n"
-
-        print("Obtendo EER global...")
-        
-        # Calculo do EER global
-        eer_global, eer_threshold_global = metrics.get_eer(global_true_label, global_distances, result_folder=comparison_folder, generate_graph=True, n_epoch=n_epoch)
-
-        local_eer_mean = np.mean(np.array(eers))
-        local_ths = np.array(local_ths)
-        local_ths_var  = np.var(local_ths)
-        local_ths_amp  = np.max(local_ths) - np.min(local_ths)
-        
-        th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
-
-        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n" + local_buffer
-
-        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
-
-        with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
-            fw.write(buffer)
-
-
-        self.last_eer = eer_global
-        ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
-        if n_epoch != 0 and n_epoch != 777 and n_epoch != 888 and n_epoch < 100:
-            if eer_global < self.best_eer:
-                torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
-                self.best_eer = eer_global
-                print("EER atualizado: ")
-                print(ret_metrics)
-
-        # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
-        if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
-        
-        return ret_metrics
-    
-    def multidimensional_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
-        """ Avaliação da rede conforme o arquivo de comparação
-
-        Args:
-            comparison_file (str): path do arquivo que contém as assinaturas a serem comparadas entre si, bem como a resposta da comparação. 0 é positivo (original), 1 é negativo (falsificação).
-            n_epoch (int): número que indica após qual época de treinamento a avaliação está sendo realizada.
-            result_folder (str): path onde salvar os resultados.
-        """
+    def clusterize(self, result_folder : str, comparison_file : str):
+        if not os.path.exists(result_folder): os.makedirs(result_folder)
 
         self.train(mode=False)
         lines = []
         with open(comparison_file, "r") as fr:
             lines = fr.readlines()
 
-        if not os.path.exists(result_folder): os.mkdir(result_folder)
+        self.hyperparameters["signature_path"] = ""
 
-        file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
-        print("\n\tAvaliando " + file_name)
-        comparison_folder = result_folder + os.sep + file_name
-        if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
+        distances : Dict[str, Dict[str, float]] = {}
+        
+        previous_user = "u0001"
+        with open(os.path.join(result_folder, "clusters.csv"), "w") as fw:
+            fw.write("Evaluation User, Closer Development User, Closer Signature, Distance (dte)\n")
 
-        users = {}
+        for line in tqdm(lines):
+            tokens = line.split(" ")
+            assert len(tokens) == 2
 
-        # for line in tqdm(lines, "Calculando distâncias..."):
-        #     distance, user_id, true_label = self._multidimensional_inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            ref_name = (tokens[0].split(os.sep)[-1]).split("_")[0]
+            tst_name = (tokens[1].split(os.sep)[-1]).split("_")[0]
+
+            if len(list(distances.keys())) > 1 and ref_name != previous_user:             
+
+                sorted_dict = dict(sorted(distances[previous_user].items(), key=lambda x: x[1]))
+                closer_user = next(iter(sorted_dict.keys()))
+                closer_user_name = (closer_user.split(os.sep)[-1]).split("_")[0]
+
+                with open(os.path.join(result_folder, "clusters.csv"), "a") as fa:
+                    fa.write(f"{previous_user}, {closer_user_name}, {closer_user}, {distances[previous_user][closer_user]}\n")
+
+                previous_user = ref_name
+               
+            test_batch, lens = batches_gen.files2array(tokens, hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
+
+            mask = self.getOutputMask(lens)
             
-        #     if user_id not in users: 
-        #         users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "legit":[], "forgery":[]}
-        #     else:
-        #         users[user_id]["distances"].append(distance)
-        #         users[user_id]["true_label"].append(true_label)
-        #         if true_label == 0: users[user_id]["legit"].append(distance)
-        #         else: users[user_id]["forgery"].append(distance)
+            mask = Variable(torch.from_numpy(mask)).cuda()
+            inputs = Variable(torch.from_numpy(test_batch)).cuda()
 
-        # with open('users.pkl', 'wb') as fw: 
-        #     pickle.dump(users, fw)
+            embeddings, lengths = self(inputs.float(), mask, 0)    
+            ref  = embeddings[0]
+            sign = embeddings[1]
 
-        with open('users.pkl', 'rb') as fr:
-            # Serialize and write the variable to the file
-            users = pickle.load(fr) 
+            len_ref  = lengths[0]
+            len_sign = lengths[1]
 
-        # Nesse ponto, todos as comparações foram feitas
-        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
-        local_buffer = ""
-        global_true_label = []
-        global_legit = []
-        global_forgery = []
-        global_distances = []
+            if ref_name not in distances:
+                distances[ref_name] = {} 
+                distances[ref_name][tokens[1]] = (self._dte(ref, sign, len_ref, len_sign).detach().cpu().numpy()[0])
+            else:
+                distances[ref_name][tokens[1]] = (self._dte(ref, sign, len_ref, len_sign).detach().cpu().numpy()[0])
 
-        eers = []
+        with open(os.path.join(result_folder,'clusters.pickle'), 'wb') as fw:
+            pickle.dump(distances, fw)
 
-        local_ths = []
+    # def start_transfer(self, comparison_files : List[str], result_folder : str, teacher_model):
+    #     """ Loop de treinamento
 
-        # Calculo do EER local por usuário:
-        for user in tqdm(users, desc="Obtendo EER local..."):
-            global_true_label += users[user]["true_label"]
-            global_legit  += users[user]["legit"]
-            global_forgery += users[user]["forgery"]
-            global_distances += users[user]["distances"]
+    #     Args:
+    #         comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
+    #         result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
+    #     """
+    #     dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
 
-            # if "Task" not in comparison_file:
-            if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
-                eer, eer_threshold = (1,1)
-                # eer, eer_threshold = metrics.get_multidimensional_eer(legit=users[user]["legit"], forgery=users[user]["forgery"])
+    #     optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=self.hyperparameters['momentum'])
+    #     lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.hyperparameters['decay']) 
+            
+    #     if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+    #     if not os.path.exists(result_folder + os.sep + "Backup"): os.mkdir(result_folder + os.sep + "Backup")
+    #     bckp_path = result_folder + os.sep + "Backup"
+
+    #     running_loss = 0
+    #     for i in range(1, self.hyperparameters['epochs']+1):
+    #         epoch = None
+
+    #         if self.hyperparameters['dataset_scenario'] == "mix":
+    #             epoch = batches_gen.generate_mixed_epoch()
+    #         elif self.hyperparameters['dataset_scenario'] == "stylus":
+    #             epoch = batches_gen.generate_epoch()
+    #         elif self.hyperparameters['dataset_scenario'] == "finger":
+    #             epoch = batches_gen.generate_epoch(dataset_folder="../Data/DeepSignDB/Development/finger", train_offset=[(1009, 1084)], scenario='finger')
+
+    #         epoch_size = len(epoch)
+    #         self.loss_value = running_loss/epoch_size
+
+    #         if (self.best_eer > 0.04 and i >= self.hyperparameters['early_stop']):
+    #             print("\n\nEarly stop!")
+    #             break
+
+    #         pbar = tqdm(total=(epoch_size//(self.batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.4f}".format(self.loss_value))
+
+    #         running_loss = 0
+    #         #PAL = Previous Accumulated Loss
+    #         while epoch != []:
+    #         # if True:
+    #             batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z)
                 
-                local_ths.append(eer_threshold)
-                eers.append(eer)
-                local_buffer += user + ", " + "{:.5f}".format(eer) + "0,0,0\n"
+    #             mask = self.getOutputMask(lens)
+    #             mask = Variable(torch.from_numpy(mask)).cuda()
+    #             inputs = Variable(torch.from_numpy(batch)).cuda()
+                
+    #             outputs, length = self(inputs.float(), mask, i)
+    #             outputs_t, length_t = teacher_model(inputs.float(), mask, i)
+                
+    #             optimizer.zero_grad()
 
-        print("Obtendo EER global...")
+    #             loss = self.loss_function(outputs, length, outputs_t)
+    #             loss.backward()
+
+    #             optimizer.step()
+
+    #             if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
+    #             print(self.p)
+
+    #             running_loss += loss.item()
+            
+    #             pbar.update(1)
+
+    #         pbar.close()
+
+    #         if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
+
+    #         if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+    #             for cf in comparison_files:
+    #                 self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    
+            
+    #         self.loss_variation.append(running_loss/epoch_size)
+            
+    #         lr_scheduler.step()
+
+    #         torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+
+    #     # Loss graph
+    #     plt.xlabel("#Epoch")
+    #     plt.ylabel("Loss")
+    #     plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
+    #     plt.savefig(result_folder + os.sep + "loss.png")
+    #     plt.cla()
+    #     plt.clf()
+
+    # def knn_generate_matrix(self, result_folder : str, n_epoch : int = 0):
+    #     folder = self.hyperparameters["dataset_folder"] + os.sep + "Evaluation" + os.sep + self.hyperparameters['dataset_scenario']
+    #     files = sorted(os.listdir(folder))
+
+    #     dists = {}
+
+    #     assert len(files) >= self.hyperparameters['q']
+    #     assert self.hyperparameters['p'] >= 0
+
+    #     print("Calculando distâncias...")
+    #     # limit = len(files)
+    #     limit = 5001
+    #     for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
+    #     # for i in tqdm(range(0, len(files))):
+            
+    #         for j in tqdm(range(i, limit)):
+    #             batch = [files[i], files[j]]
+
+    #             # prepara chaves do dicionário
+    #             ref_id = files[i]
+    #             tst_id = files[j]
+
+    #             if '_s_' in ref_id and '_s_' in tst_id:
+    #             # if not ('_s_' in ref_id and '_s_' in tst_id):
+    #                 continue
+
+    #             test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
+            
+    #             mask = self.getOutputMask(lens)
         
-        # Calculo do EER global
-        eer_global, eer_threshold_global = metrics.get_multidimensional_eer(users, global_legit, global_forgery, result_folder=comparison_folder, n_epoch=n_epoch)
+    #             mask = Variable(torch.from_numpy(mask)).cuda()
+    #             inputs = Variable(torch.from_numpy(test_batch)).cuda()
 
-        local_eer_mean = np.mean(np.array(eers))
-        local_ths = np.array(local_ths)
-        local_ths_var  = np.var(local_ths)
-        local_ths_amp  = np.max(local_ths) - np.min(local_ths)
-        
-        th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
+    #             embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+    #             refs = embeddings[:len(embeddings)-1]
+    #             sign = embeddings[-1]
 
-        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n" + local_buffer
+    #             len_refs = lengths[:len(embeddings)-1]
+    #             len_sign = lengths[-1]
 
-        # self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
+    #             distance_value = (self._dte(refs[0], sign, len_refs[0], len_sign).detach().cpu().numpy()[0])
 
-        with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
-            fw.write(buffer)
+    #             if ref_id not in dists:
+    #                 dists[ref_id] = {batch[1]: distance_value}
+    #             else:
+    #                 dists[ref_id][batch[1]] = distance_value
 
+    #             if ref_id != tst_id:
+    #                 if tst_id not in dists:
+    #                     dists[tst_id] = {batch[0]: distance_value}
+    #                 else:
+    #                     dists[tst_id][batch[0]] = distance_value
 
-        self.last_eer = eer_global
-        ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
-        if n_epoch != 0 and n_epoch != 777 and n_epoch != 888 and n_epoch < 100:
-            if eer_global < self.best_eer:
-                torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
-                self.best_eer = eer_global
-                print("EER atualizado: ")
-                print(ret_metrics)
+    #     print("Ordenando distâncias")
+    #     for key in tqdm(dists.keys()):
+    #         dists[key] = dict(sorted(dists[key].items(), key=lambda item: item[1]))
 
-        self.train(mode=True)
-
-        # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
-        if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
-        
-        return ret_metrics
+    #     # Open the file in binary mode
+    #     with open(result_folder + os.sep + "matrix_" + str(int(self.hyperparameters['p'])) + "_to_" + str(int(self.hyperparameters['q'])) + ".pickle", 'wb') as fw:
+    #         # Serialize and write the variable to the file
+    #         pickle.dump(dists, fw)
     
-    def _multidimensional_inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[Any, str, int]:
-        """
-        Args:
-            files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
-
-        Raises:
-            ValueError: "Arquivos de comparação com formato desconhecido"
-
-        Returns:
-            float, str, int: distância da assinatura, usuário, label 
-        """
-        scenario = "stylus"
-        if "finger" in files:
-            scenario = "finger"
-
-        tokens = files.split(" ")
-        files_bckp = tokens.copy()
-        user_key = tokens[0].split("_")[0]
+    # def _knn_cluster(self, dists: Dict[str, Dict[str, float]]):
+    #     from scipy.cluster.hierarchy import linkage, dendrogram
         
-        result = math.nan
-        refs = []
-        sign = ""
-        s_avg = 0
-        s_min = 0
-
-        if len(tokens) == 2:
-            a = tokens[0].split('_')[0]
-            b = tokens[1].split('_')[0]
-            result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
-        elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
-        elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
-        else: raise ValueError("Arquivos de comparação com formato desconhecido")
-
-        # if 'u0148' in refs[0] or 'u0272' in refs[0]:
-
-        test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=False, scenario=scenario)
-        users = refs.copy()
-
-        mask = self.getOutputMask(lens)
+    #     sorted_dists_by_user = {k: dists[k] for k in sorted(dists.keys())} 
+    #     dict_size = len(list(sorted_dists_by_user))
         
-        mask = Variable(torch.from_numpy(mask)).cuda()
-        inputs = Variable(torch.from_numpy(test_batch)).cuda()
+    #     ###
+    #     # dict_size = 2000
+    #     ###
 
-        embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-        refs = embeddings[:len(embeddings)-1]
-        sign = embeddings[-1]
+    #     dist_matrix = np.zeros((dict_size, dict_size))
 
-        len_refs = lengths[:len(embeddings)-1]
-        len_sign = lengths[-1]
+    #     matrix_line = 0
+    #     for key in sorted_dists_by_user:
+    #         ###
+    #         # dists_j = np.array(list(({k: dists[key][k] for k in sorted(dists[key].keys())}).values()))[:2000]
+    #         ###
 
-        dk = math.nan
-        count = 0
-        if len(refs) == 1 : dk = 1
-        else:
-            dk = torch.zeros(refs[0].shape[1]).cuda()
-            for i in range(0, len(refs)):
-                for j in range(1, len(refs)):
-                    if i < j:
-                        dk += (self._multidimensional_dte(refs[i], refs[j], len_refs[i], len_refs[j]))
-                        count += 1
+    #         dists_j = np.array(list(({k: dists[key][k] for k in sorted(dists[key].keys())}).values()))
+    #         dist_matrix[matrix_line] = dists_j
+    #         matrix_line += 1
 
-            dk = dk/(count)
+    #         # ###
+    #         # if matrix_line >= 2000: break
+    #         # ###
+
+    #     linkage_matrix = linkage(dist_matrix, method='complete')
+    #     dendrogram_leaves_order = dendrogram(linkage_matrix, no_plot=True)['leaves']
+
+    #     ###
+    #     # sorted_dists_by_user = list(sorted_dists_by_user.keys())[:2000]
+    #     # sorted_strings = [sorted_dists_by_user[i] for i in dendrogram_leaves_order]
+    #     ###
+
+    #     sorted_strings = [list(sorted_dists_by_user.keys())[i] for i in dendrogram_leaves_order]
+    #     return sorted_strings      
+
+    # def _knn_distance(self, cluster : List[str], ref : str, test : str):
+    #     """ Calculate hierarchical distance for knn
+
+    #     Args:
+    #         dists (Dict[Dict[str, float]]): dictionary containing the distances of all genuine signatures against all other signatures in the dataset
+    #         ref (str): file name of the reference signature
+    #         test (str): file name of the testing signatur
+
+    #     Returns:
+    #         float: the distance
+    #     """
+    #     return abs(cluster.index(ref) - cluster.index(test))
+
+    # def knn(self, matrix_path : str, comparison_file : str, result_folder : str, n_epoch : int = 0):
+    #     dists : Dict[str, Dict[str, float]]
+    #     with open(matrix_path, 'rb') as fr:
+    #         # Serialize and write the variable to the file
+    #         dists = pickle.load(fr)
+
+    #     cluster = self._knn_cluster(dists)
+
+    #     lines = []
+    #     with open(comparison_file, "r") as fr:
+    #         lines = fr.readlines()
+
+    #     if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+    #     file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
+    #     print("\n\tAvaliando " + file_name)
+    #     comparison_folder = result_folder + os.sep + file_name
+    #     if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
+
+    #     users = {}
+
+    #     for line in lines:
+    #         files = line.split(' ')
+
+    #         assert len(files) == 6
+
+    #         refs = files[:4]
+    #         sign = files[-2]
+    #         true_label  = int(files[-1].split('\n')[0])
+
+    #         dt = 0
+    #         dtd = len(refs)
+
+    #         """ versao anterior
+    #         for i in range(len(refs)):
+    #             dt += dists[refs[i]][sign]
+    #         dt /= dtd
+
+    #         dr = 0
+    #         drd = 0
+    #         for i in range(0, 4):
+    #             for j in range(i+1, 4):
+    #                 dr += dists[refs[i]][refs[j]]
+    #                 drd += 1
+    #         dr = dr/drd
+    #         """
+            
+    #         #""" versao com cluster
+    #         for i in range(len(refs)):
+    #             dt += self._knn_distance(cluster, refs[i], sign)
+    #         dt /= dtd
+
+    #         dr = 0
+    #         drd = 0
+    #         for i in range(len(refs)):
+    #             for j in range(i+1, len(refs)):
+    #                 dr += self._knn_distance(cluster, refs[i], refs[j])
+    #                 drd += 1
+    #         dr /= drd
+    #         #"""
+            
+    #         distance = abs(dr-dt)
+
+    #         user_id = refs[0].split('_')[0] + 'g'
+            
+    #         user_tst = sign.split('_')[0]
+    #         if '_g_' in sign: user_tst += 'g'
+    #         else: user_tst += 's'
+
+    #         if user_id not in users: 
+    #             users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
+    #         else:
+    #             users[user_id]["distances"].append(distance)
+    #             users[user_id]["true_label"].append(true_label)
+
+    #     # Nesse ponto, todos as comparações foram feitas
+    #     buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
+    #     local_buffer = ""
+    #     global_true_label = []
+    #     global_distances = []
+
+    #     eers = []
+
+    #     local_ths = []
+
+    #     # Calculo do EER local por usuário:
+    #     for user in tqdm(users, desc="Obtendo EER local..."):
+    #         global_true_label += users[user]["true_label"]
+    #         global_distances  += users[user]["distances"]
+
+    #         # if "Task" not in comparison_file:
+    #         if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
+    #             eer, eer_threshold = metrics.get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
+    #             th_range_local = np.max(np.array(users[user]["distances"])[np.array(users[user]["distances"]) < eer_threshold])
+
+    #             local_ths.append(eer_threshold)
+    #             eers.append(eer)
+    #             local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ")\n"
+
+    #     print("Obtendo EER global...")
+        
+    #     # Calculo do EER global
+    #     eer_global, eer_threshold_global = metrics.get_eer(global_true_label, global_distances, result_folder=comparison_folder, generate_graph=True, n_epoch=n_epoch)
+
+    #     local_eer_mean = np.mean(np.array(eers))
+    #     local_ths = np.array(local_ths)
+    #     local_ths_var  = np.var(local_ths)
+    #     local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+        
+    #     th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
+
+    #     buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n" + local_buffer
+
+    #     self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
+
+    #     with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
+    #         fw.write(buffer)
+
+
+    #     self.last_eer = eer_global
+    #     ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+    #     if n_epoch != 0 and n_epoch != 777 and n_epoch != 888 and n_epoch < 100:
+    #         if eer_global < self.best_eer:
+    #             torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
+    #             self.best_eer = eer_global
+    #             print("EER atualizado: ")
+    #             print(ret_metrics)
+
+    #     # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+    #     if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
+        
+    #     return ret_metrics
     
-        dk_sqrt = torch.sqrt(dk)
+    # def multidimensional_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
+    #     """ Avaliação da rede conforme o arquivo de comparação
+
+    #     Args:
+    #         comparison_file (str): path do arquivo que contém as assinaturas a serem comparadas entre si, bem como a resposta da comparação. 0 é positivo (original), 1 é negativo (falsificação).
+    #         n_epoch (int): número que indica após qual época de treinamento a avaliação está sendo realizada.
+    #         result_folder (str): path onde salvar os resultados.
+    #     """
+
+    #     self.train(mode=False)
+    #     lines = []
+    #     with open(comparison_file, "r") as fr:
+    #         lines = fr.readlines()
+
+    #     if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+    #     file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
+    #     print("\n\tAvaliando " + file_name)
+    #     comparison_folder = result_folder + os.sep + file_name
+    #     if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
+
+    #     users = {}
+
+    #     # for line in tqdm(lines, "Calculando distâncias..."):
+    #     #     distance, user_id, true_label = self._multidimensional_inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            
+    #     #     if user_id not in users: 
+    #     #         users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "legit":[], "forgery":[]}
+    #     #     else:
+    #     #         users[user_id]["distances"].append(distance)
+    #     #         users[user_id]["true_label"].append(true_label)
+    #     #         if true_label == 0: users[user_id]["legit"].append(distance)
+    #     #         else: users[user_id]["forgery"].append(distance)
+
+    #     # with open('users.pkl', 'wb') as fw: 
+    #     #     pickle.dump(users, fw)
+
+    #     with open('users.pkl', 'rb') as fr:
+    #         # Serialize and write the variable to the file
+    #         users = pickle.load(fr) 
+
+    #     # Nesse ponto, todos as comparações foram feitas
+    #     buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
+    #     local_buffer = ""
+    #     global_true_label = []
+    #     global_legit = []
+    #     global_forgery = []
+    #     global_distances = []
+
+    #     eers = []
+
+    #     local_ths = []
+
+    #     # Calculo do EER local por usuário:
+    #     for user in tqdm(users, desc="Obtendo EER local..."):
+    #         global_true_label += users[user]["true_label"]
+    #         global_legit  += users[user]["legit"]
+    #         global_forgery += users[user]["forgery"]
+    #         global_distances += users[user]["distances"]
+
+    #         # if "Task" not in comparison_file:
+    #         if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
+    #             eer, eer_threshold = (1,1)
+    #             # eer, eer_threshold = metrics.get_multidimensional_eer(legit=users[user]["legit"], forgery=users[user]["forgery"])
+                
+    #             local_ths.append(eer_threshold)
+    #             eers.append(eer)
+    #             local_buffer += user + ", " + "{:.5f}".format(eer) + "0,0,0\n"
+
+    #     print("Obtendo EER global...")
         
-        dists = torch.zeros((refs.shape[0], refs[0].shape[1])).cuda()
+    #     # Calculo do EER global
+    #     eer_global, eer_threshold_global = metrics.get_multidimensional_eer(users, global_legit, global_forgery, result_folder=comparison_folder, n_epoch=n_epoch)
 
-        for i in range(0, len(refs)):
-            dists[i] = self._multidimensional_dte(refs[i], sign, len_refs[i], len_sign)
+    #     local_eer_mean = np.mean(np.array(eers))
+    #     local_ths = np.array(local_ths)
+    #     local_ths_var  = np.var(local_ths)
+    #     local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+        
+    #     th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
 
-        dists = dists / dk_sqrt
-        s_avg = torch.mean(dists,axis=0)
-        s_min = (torch.min(dists,axis=0)).values
+    #     buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + "\n" + local_buffer
 
-        return (s_avg + s_min).detach().cpu().numpy(), user_key, result
+    #     # self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
+
+    #     with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
+    #         fw.write(buffer)
+
+
+    #     self.last_eer = eer_global
+    #     ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+    #     if n_epoch != 0 and n_epoch != 777 and n_epoch != 888 and n_epoch < 100:
+    #         if eer_global < self.best_eer:
+    #             torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
+    #             self.best_eer = eer_global
+    #             print("EER atualizado: ")
+    #             print(ret_metrics)
+
+    #     self.train(mode=True)
+
+    #     # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+    #     if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
+        
+    #     return ret_metrics
+    
+    # def _multidimensional_inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[Any, str, int]:
+    #     """
+    #     Args:
+    #         files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
+
+    #     Raises:
+    #         ValueError: "Arquivos de comparação com formato desconhecido"
+
+    #     Returns:
+    #         float, str, int: distância da assinatura, usuário, label 
+    #     """
+    #     scenario = "stylus"
+    #     if "finger" in files:
+    #         scenario = "finger"
+
+    #     tokens = files.split(" ")
+    #     files_bckp = tokens.copy()
+    #     user_key = tokens[0].split("_")[0]
+        
+    #     result = math.nan
+    #     refs = []
+    #     sign = ""
+    #     s_avg = 0
+    #     s_min = 0
+
+    #     if len(tokens) == 2:
+    #         a = tokens[0].split('_')[0]
+    #         b = tokens[1].split('_')[0]
+    #         result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
+    #     elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+    #     elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
+    #     else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+    #     # if 'u0148' in refs[0] or 'u0272' in refs[0]:
+
+    #     test_batch, lens = batches_gen.files2array(refs + [sign], z=self.z, developtment=False, scenario=scenario)
+    #     users = refs.copy()
+
+    #     mask = self.getOutputMask(lens)
+        
+    #     mask = Variable(torch.from_numpy(mask)).cuda()
+    #     inputs = Variable(torch.from_numpy(test_batch)).cuda()
+
+    #     embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+    #     refs = embeddings[:len(embeddings)-1]
+    #     sign = embeddings[-1]
+
+    #     len_refs = lengths[:len(embeddings)-1]
+    #     len_sign = lengths[-1]
+
+    #     dk = math.nan
+    #     count = 0
+    #     if len(refs) == 1 : dk = 1
+    #     else:
+    #         dk = torch.zeros(refs[0].shape[1]).cuda()
+    #         for i in range(0, len(refs)):
+    #             for j in range(1, len(refs)):
+    #                 if i < j:
+    #                     dk += (self._multidimensional_dte(refs[i], refs[j], len_refs[i], len_refs[j]))
+    #                     count += 1
+
+    #         dk = dk/(count)
+    
+    #     dk_sqrt = torch.sqrt(dk)
+        
+    #     dists = torch.zeros((refs.shape[0], refs[0].shape[1])).cuda()
+
+    #     for i in range(0, len(refs)):
+    #         dists[i] = self._multidimensional_dte(refs[i], sign, len_refs[i], len_sign)
+
+    #     dists = dists / dk_sqrt
+    #     s_avg = torch.mean(dists,axis=0)
+    #     s_min = (torch.min(dists,axis=0)).values
+
+    #     return (s_avg + s_min).detach().cpu().numpy(), user_key, result
     
     
