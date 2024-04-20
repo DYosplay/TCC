@@ -96,7 +96,7 @@ def normalize_x_and_y(x : npt.ArrayLike, y : npt.ArrayLike):
 def normalize(x):
     return (x - np.mean(x))/(np.max(x)-np.min(x))
 
-def generate_features(input_file : str, scenario : str, z : bool = False, database : Literal = UNDEFINED, hyperparameters : Dict[str, Any] = None):
+def generate_features(input_file : str, hyperparameters : Dict[str, Any], z : bool = False, database : Literal = UNDEFINED):
     df = None
     if database == MCYT:
         df = pd.read_csv(input_file, sep=' ', header=None, skiprows=1, names=["X", "Y", "TimeStamp", "Uk1", "Uk2", "P"])
@@ -110,7 +110,7 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     y = np.array(df['Y'])
 
     # Ignore when stylus is not touching the screen
-    if hyperparameters is not None and hyperparameters['suppress']:
+    if hyperparameters['suppress']:
         indexes = p!=0
         p = p[indexes]
         x = x[indexes]
@@ -124,7 +124,7 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     dx = diff(x)
     dy = diff(y)
 
-    if scenario=='finger' : p = np.ones(x.shape) #* 255
+    if hyperparameters['dataset_scenario'] =='finger' : p = np.ones(x.shape) #* 255
 
     """ s """
     x1, y1 = None, None
@@ -162,11 +162,11 @@ def generate_features(input_file : str, scenario : str, z : bool = False, databa
     
     
     """ s """
-    if scenario == 'stylus':
+    if hyperparameters['dataset_scenario'] == 'stylus':
         for f in features:
             result.append(zscore(f))
             # result.append(normalize(f))
-    elif scenario=='finger': 
+    elif hyperparameters['dataset_scenario'] == 'finger': 
         features = [v, theta, cos, sin] 
         features2 = [dv, dtheta, logCurRadius, c, totalAccel]
 
@@ -248,10 +248,10 @@ def pre_process(input_file : str, output_file : str, scenario : str, z : bool = 
     fd.write(buffer)
     fd.close()
 
-def get_database(user_id : int, scenario : str, development : bool) -> Literal:
+def get_database(user_id : int, development : bool, hyperparameters : Dict[str, Any]) -> Literal:
     database = UNDEFINED
 
-    if scenario == 'stylus':
+    if hyperparameters['dataset_scenario']:
         if development:
             if user_id >= 1009 and user_id <= 1038:
                 database = EBIOSIGN1_DS1
@@ -287,10 +287,10 @@ def get_database(user_id : int, scenario : str, development : bool) -> Literal:
 
     return database
 
-def get_features(file_name : str, scenario : str, z : bool, development : bool = True, hyperparameters : Dict[str, Any] = None):
+def get_features(file_name : str, hyperparameters : Dict[str, Any], z : bool, development : bool = True):
     user_id = int(((file_name.split(os.sep)[-1]).split("_")[0]).split("u")[-1])
-    database = get_database(user_id = user_id, scenario=scenario, development=development)
-    return generate_features(file_name, scenario, z=z, database=database, hyperparameters=hyperparameters)
+    database = get_database(user_id = user_id, development=development, hyperparameters=hyperparameters)
+    return generate_features(file_name, hyperparameters=hyperparameters, z=z, database=database)
 
 # if __name__ == '__main__':
 #     FOLDER = ["../Data/Data Investigation/dataset127/"]

@@ -19,31 +19,29 @@ def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
 
     return users
 
-def files2array(batch, z : bool, developtment : bool, scenario : str = "stylus", hyperparameters : Dict[str,Any] = None):
+def files2array(batch, hyperparameters : Dict[str,Any], z : bool, development : bool):
     data = []; lens = []
-    # scenario = None
-    # if developtment:
-    #     batch = batch[1:]
 
     for file in batch:
         file = file.replace('\\', os.sep)
         file = file.replace('/', os.sep)
+        file = file.strip()
         
-        # print(file)
-        if developtment == False and "Evaluation" in file: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + file.strip()
-        elif developtment == False: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Evaluation" + os.sep + scenario + os.sep + file.strip()
+        if hyperparameters['signature_path'] is not None:
+            file = os.path.join(hyperparameters['signature_path'], file)
+            development = 'Development' in file
+        else:
+            subset_folder = 'Development' if development else "Evaluation"
+            file_path = os.path.join(hyperparameters['dataset_folder'], subset_folder, hyperparameters['dataset_scenario'])
+            if file_path not in file: file = os.path.join(file_path, file)
         
-        # Se quiser testar usando o conjunto de treino
-        if developtment == True: file = ".." + os.sep + "Data" + os.sep + "DeepSignDB" + os.sep + "Development" + os.sep + scenario + os.sep + file
-        # scenario = "stylus" if "stylus" in file.lower() else "finger"
-
-        feat = loader.get_features(file, scenario=scenario, z=z, development=developtment, hyperparameters=hyperparameters)
+        feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
         data.append(feat)
         lens.append(len(feat[0]))
 
     max_size = max(lens)
 
-    if hyperparameters is not None and hyperparameters['pre_alignment']:
+    if hyperparameters['pre_alignment']:
         data, lens = align(data,hyperparameters=hyperparameters)
         max_size = max(lens)
 
@@ -99,7 +97,7 @@ def get_batch_from_transfer_domain_epoch(epoch, batch_size : int):
     return data, lens, epoch
 
 """DeepSign"""
-def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Dict[str,Any] = None):
+def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Dict[str,Any]):
     assert batch_size % 16 == 0
     step = batch_size // 16
 
@@ -107,7 +105,7 @@ def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Di
     for i in range(0, step):
         batch += epoch.pop()
 
-    data, lens = files2array(batch, z=z, developtment=True, hyperparameters=hyperparameters)
+    data, lens = files2array(batch, hyperparameters=hyperparameters, z=z, development=True)
 
     return data, lens, epoch
 
@@ -136,7 +134,7 @@ def generate_mixed_epoch(train_offset = [(1, 498), (1009, 1084)]):
     random.shuffle(epoch)
     return epoch
 
-def generate_epoch(dataset_folder : str, train_offset = [(1, 498), (1009, 1084)], users=None, development = True, scenario : str = 'stylus', hyperparameters = None):
+def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train_offset = [(1, 498), (1009, 1084)], users=None, development = True):
     files = get_files(dataset_folder=dataset_folder)
     files_backup = files.copy()
 
@@ -151,7 +149,7 @@ def generate_epoch(dataset_folder : str, train_offset = [(1, 498), (1009, 1084)]
     number_of_mini_baches = 0
 
     multiplier = 1
-    if hyperparameters is not None and hyperparameters['rotation']:
+    if hyperparameters['rotation']:
         multiplier = 2
 
     database = None
@@ -159,7 +157,7 @@ def generate_epoch(dataset_folder : str, train_offset = [(1, 498), (1009, 1084)]
 
     for user_id in tqdm(train_users):
         
-        database = loader.get_database(user_id=user_id, scenario=scenario, development=development)
+        database = loader.get_database(user_id=user_id, development=development, hyperparameters=hyperparameters)
 
         if database == loader.EBIOSIGN1_DS1 or database == loader.EBIOSIGN1_DS2:
             number_of_mini_baches = 1 * multiplier
