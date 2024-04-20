@@ -63,7 +63,8 @@ def parse_arguments():
 	# Prototype
 	parser.add_argument("-ef", "--extract_features", help="<Development> or <Evaluation>", default="", type=str)
 	parser.add_argument("-dev", "--development", help="load files from development folder (only inference mode)", action='store_true')
-
+	parser.add_argument("-sig", "--signature_path", help="Path of signatures to be used", default=None, type=str)
+	parser.add_argument("-cluster", "--cluster", help="find closer users", action='store_true')
 
 	parser.add_argument("-kgen", "--knn_generate_matrix", help="generate knn matrix", action='store_true')
 	parser.add_argument("-knn", "--knn", help="calculate knn", action='store_true')
