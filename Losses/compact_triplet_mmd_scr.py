@@ -71,7 +71,7 @@ class Compact_Triplet_MMD_scr(nn.Module):
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
 
-            dk = torch.sqrt(torch.mean(dist_g))
+            dk = torch.sqrt(torch.abs(torch.mean(dist_g)))
             dist_g /= dk
             dist_n /= dk
 
