@@ -178,7 +178,7 @@ def DBA_update(center, series, cost_mat, path_mat, delta_mat, tmp_delta_mat):
 if not os.path.exists("DBAs"):
     os.mkdir("DBAs")
 
-folder_path = "Extracted Features" + os.sep + "Evaluation"
+folder_path = "Investigation" + os.sep + "Extracted Features" + os.sep + "Evaluation"
 
 # List all files in the folder
 file_list = sorted(os.listdir(folder_path))
