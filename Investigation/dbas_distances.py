@@ -19,7 +19,7 @@ def dte(x, y, shape1, shape2):
 
 # Path to the folders
 dbas_folder = "DBAs"
-features_folder = "Investigation" + os.sep + "Extracted Features" + os.sep + "Evaluation"
+features_folder = "Extracted Features" + os.sep + "Evaluation"
 
 # Initialize the dictionary to store the results
 results = {}
