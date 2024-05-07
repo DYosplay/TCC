@@ -64,7 +64,7 @@ if __name__ == '__main__':
 		exit(0)
 	
 	if hyperparameters['extract_features'] != "":
-		result_folder = res_folder + os.sep + "Extracted Features " + os.sep + hyperparameters['extract_features']
+		result_folder = "Investigation" + os.sep + "Extracted Features" + os.sep + hyperparameters['extract_features']
 		f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
 		model = DsPipeline(hyperparameters=hyperparameters)
 		model.cuda()

@@ -469,7 +469,7 @@ class DsPipeline(nn.Module):
         plt.clf()
 
     def extract(self, result_folder : str):
-        if not os.path.exists(result_folder): os.mkdir(result_folder)
+        os.makedirs(result_folder, exist_ok=True)
 
         devl = "Development" in self.hyperparameters['extract_features']
         files = os.listdir(self.hyperparameters['signature_path'])
@@ -477,7 +477,7 @@ class DsPipeline(nn.Module):
         for i in tqdm(range(0, len(files), 2)):
             batch = [files[i], files[i+1]]
 	    
-            test_batch, lens = batches_gen.files2array(batch, hyperparameters=self.hyperparameters, z=self.z, developtment=devl)
+            test_batch, lens = batches_gen.files2array(batch, hyperparameters=self.hyperparameters, z=self.z, development=devl)
 
             mask = self.getOutputMask(lens)
             
