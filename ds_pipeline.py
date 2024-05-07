@@ -487,7 +487,7 @@ class DsPipeline(nn.Module):
             embeddings, lengths = self(inputs.float(), mask, 0)    
 
             for i, tensor in enumerate(embeddings):
-                torch.save(tensor, result_folder + batch[i].split('.')[0] + ".pt")
+                torch.save(tensor[:int(lengths[i])], result_folder + batch[i].split('.')[0] + ".pt")
 
     def clusterize(self, result_folder : str, comparison_file : str):
         if not os.path.exists(result_folder): os.makedirs(result_folder)
@@ -519,7 +519,7 @@ class DsPipeline(nn.Module):
                 closer_user_name = (closer_user.split(os.sep)[-1]).split("_")[0]
 
                 with open(os.path.join(result_folder, "clusters.csv"), "a") as fa:
-                    fa.write(f"{previous_user}, {closer_user_name}, {closer_user}, {distances[previous_user][closer_user]}\n")
+                    fa.write(f"{previous_user}, {closer_user_name}, {closer_user.strip()}, {distances[previous_user][closer_user]}\n")
 
                 previous_user = ref_name
                
@@ -633,67 +633,67 @@ class DsPipeline(nn.Module):
     #     plt.cla()
     #     plt.clf()
 
-    # def knn_generate_matrix(self, result_folder : str, n_epoch : int = 0):
-    #     folder = self.hyperparameters["dataset_folder"] + os.sep + "Evaluation" + os.sep + self.hyperparameters['dataset_scenario']
-    #     files = sorted(os.listdir(folder))
+    def generate_distances(self, result_folder : str, n_epoch : int = 0):
+        folder = self.hyperparameters["dataset_folder"] + os.sep + "Evaluation" + os.sep + self.hyperparameters['dataset_scenario']
+        files = sorted(os.listdir(folder))
 
-    #     dists = {}
+        dists = {}
 
-    #     assert len(files) >= self.hyperparameters['q']
-    #     assert self.hyperparameters['p'] >= 0
+        assert len(files) >= self.hyperparameters['q']
+        assert self.hyperparameters['p'] >= 0
 
-    #     print("Calculando distâncias...")
-    #     # limit = len(files)
-    #     limit = 5001
-    #     for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
-    #     # for i in tqdm(range(0, len(files))):
+        print("Calculando distâncias...")
+        # limit = len(files)
+        limit = 5001
+        for i in tqdm(range(int(self.hyperparameters['p']), int(self.hyperparameters['q']))): # index start for paralelization
+        # for i in tqdm(range(0, len(files))):
             
-    #         for j in tqdm(range(i, limit)):
-    #             batch = [files[i], files[j]]
+            for j in tqdm(range(i, limit)):
+                batch = [files[i], files[j]]
 
-    #             # prepara chaves do dicionário
-    #             ref_id = files[i]
-    #             tst_id = files[j]
+                # prepara chaves do dicionário
+                ref_id = files[i]
+                tst_id = files[j]
 
-    #             if '_s_' in ref_id and '_s_' in tst_id:
-    #             # if not ('_s_' in ref_id and '_s_' in tst_id):
-    #                 continue
+                if '_s_' in ref_id and '_s_' in tst_id:
+                # if not ('_s_' in ref_id and '_s_' in tst_id):
+                    continue
 
-    #             test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
+                test_batch, lens = batches_gen.files2array(batch, z=self.z, developtment=False, scenario=self.hyperparameters['dataset_scenario'])
             
-    #             mask = self.getOutputMask(lens)
+                mask = self.getOutputMask(lens)
         
-    #             mask = Variable(torch.from_numpy(mask)).cuda()
-    #             inputs = Variable(torch.from_numpy(test_batch)).cuda()
+                mask = Variable(torch.from_numpy(mask)).cuda()
+                inputs = Variable(torch.from_numpy(test_batch)).cuda()
 
-    #             embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-    #             refs = embeddings[:len(embeddings)-1]
-    #             sign = embeddings[-1]
+                embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+                refs = embeddings[:len(embeddings)-1]
+                sign = embeddings[-1]
 
-    #             len_refs = lengths[:len(embeddings)-1]
-    #             len_sign = lengths[-1]
+                len_refs = lengths[:len(embeddings)-1]
+                len_sign = lengths[-1]
 
-    #             distance_value = (self._dte(refs[0], sign, len_refs[0], len_sign).detach().cpu().numpy()[0])
+                distance_value = (self._dte(refs[0], sign, len_refs[0], len_sign).detach().cpu().numpy()[0])
 
-    #             if ref_id not in dists:
-    #                 dists[ref_id] = {batch[1]: distance_value}
-    #             else:
-    #                 dists[ref_id][batch[1]] = distance_value
+                if ref_id not in dists:
+                    dists[ref_id] = {batch[1]: distance_value}
+                else:
+                    dists[ref_id][batch[1]] = distance_value
 
-    #             if ref_id != tst_id:
-    #                 if tst_id not in dists:
-    #                     dists[tst_id] = {batch[0]: distance_value}
-    #                 else:
-    #                     dists[tst_id][batch[0]] = distance_value
+                if ref_id != tst_id:
+                    if tst_id not in dists:
+                        dists[tst_id] = {batch[0]: distance_value}
+                    else:
+                        dists[tst_id][batch[0]] = distance_value
 
-    #     print("Ordenando distâncias")
-    #     for key in tqdm(dists.keys()):
-    #         dists[key] = dict(sorted(dists[key].items(), key=lambda item: item[1]))
+        print("Ordenando distâncias")
+        for key in tqdm(dists.keys()):
+            dists[key] = dict(sorted(dists[key].items(), key=lambda item: item[1]))
 
-    #     # Open the file in binary mode
-    #     with open(result_folder + os.sep + "matrix_" + str(int(self.hyperparameters['p'])) + "_to_" + str(int(self.hyperparameters['q'])) + ".pickle", 'wb') as fw:
-    #         # Serialize and write the variable to the file
-    #         pickle.dump(dists, fw)
+        # Open the file in binary mode
+        with open(result_folder + os.sep + "matrix_" + str(int(self.hyperparameters['p'])) + "_to_" + str(int(self.hyperparameters['q'])) + ".pickle", 'wb') as fw:
+            # Serialize and write the variable to the file
+            pickle.dump(dists, fw)
     
     # def _knn_cluster(self, dists: Dict[str, Dict[str, float]]):
     #     from scipy.cluster.hierarchy import linkage, dendrogram
