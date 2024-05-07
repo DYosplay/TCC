@@ -186,7 +186,7 @@ file_list = sorted(os.listdir(folder_path))
 pattern = re.compile(r'u([0-9][0-9][0-9][0-9])_g.*\.txt')
 ignore_sig_type = '_s_'
 
-files = []
+files = [[None]]
 mini_files = []
 
 for file_name in file_list:
