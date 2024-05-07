@@ -29,7 +29,7 @@ for dbas_file_name in tqdm(os.listdir(dbas_folder)):
     if dbas_file_name.endswith(".pt"):
         dbas_tensor = load_tensor(os.path.join(dbas_folder, dbas_file_name))
         dbas_name = dbas_file_name.split("_")[0]
-        dbas_name = 'u' + '{:04d}'.format(int(dbas_name.split("u")[-1]) + 1)
+        # dbas_name = 'u' + '{:04d}'.format(int(dbas_name.split("u")[-1]) + 1)
         
         # Process files in generated_features folder
         for features_file_name in tqdm(os.listdir(features_folder)):
