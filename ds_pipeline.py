@@ -473,7 +473,7 @@ class DsPipeline(nn.Module):
 
         devl = "Development" in self.hyperparameters['extract_features']
         files = os.listdir(self.hyperparameters['signature_path'])
-
+        files = [file_name for file_name in files if file_name.endswith('.txt')]
         for i in tqdm(range(0, len(files), 2)):
             batch = [files[i], files[i+1]]
 	    
@@ -487,7 +487,7 @@ class DsPipeline(nn.Module):
             embeddings, lengths = self(inputs.float(), mask, 0)    
 
             for i, tensor in enumerate(embeddings):
-                torch.save(tensor[:int(lengths[i])], result_folder + batch[i].split('.')[0] + ".pt")
+                torch.save(tensor[:int(lengths[i])], result_folder + os.sep + batch[i].split('.')[0] + ".pt")
 
     def clusterize(self, result_folder : str, comparison_file : str):
         if not os.path.exists(result_folder): os.makedirs(result_folder)
