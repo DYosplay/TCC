@@ -17,6 +17,7 @@ import math
 from sklearn.metrics import roc_curve
 
 from utils.constants import *
+import torch.backends.cudnn as cudnn
 
 device = torch.device("cuda")
 dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
@@ -471,9 +472,18 @@ parser.add_argument("-lr", "--learning_rate", help="set learning rate value", de
 parser.add_argument("-dc", "--decay", help="learning rate decay value", default=1e-5, type=float)
 parser.add_argument("-es", "--eval_step", help="evaluation step during training and testing all weights", default=1, type=int)
 parser.add_argument("-stop", "--early_stop", help="minimum epoch to occur early stop", default=2, type=int)
+parser.add_argument("-seed", "--seed", help="set seed value", default=333, type=int)
 args = parser.parse_args()
 hyperparameters = vars(args)
 
+if hyperparameters['seed'] is not None:
+    random.seed(hyperparameters['seed'])
+    np.random.seed(hyperparameters['seed'])
+    torch.manual_seed(hyperparameters['seed'])
+    torch.cuda.manual_seed(hyperparameters['seed'])
+    cudnn.enabled = True
+    cudnn.benchmark = False
+    cudnn.deterministic = True
 
 model = UNET_1D(64,128,7,3) #(input_dim, hidden_layer, kernel_size, depth)
 model = model.to(device)
