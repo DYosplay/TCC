@@ -20,8 +20,8 @@ from utils.constants import *
 import torch.backends.cudnn as cudnn
 
 device = torch.device("cuda")
-dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
-# dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
+# dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
+dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
 training_guide = "training_guide.txt"
 
 def get_eer(y_true, y_scores, result_folder : str = None, generate_graph : bool = False, n_epoch : int = None):
@@ -402,7 +402,7 @@ class UNET_1D(nn.Module):
         losses = []
         plot_losses = []
 
-        for e in range(hyperparameters['epochs']):
+        for e in range(1, hyperparameters['epochs']+1):
             epoch = self._get_epoch()
             pbar = tqdm(total=(epoch_size//batch_size), position=0, leave=True, desc="Epoch " + str(e) +" PAL: " + "{:.4f}".format(avg_loss))
             
@@ -444,7 +444,7 @@ class UNET_1D(nn.Module):
                 self.evaluate(MCYT_RANDOM_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
             
             if len(plot_losses) > hyperparameters['early_stop']:
-                if avg_loss > np.min(np.array(plot_losses[-10:])):
+                if avg_loss >= np.mean(np.array(plot_losses[-10:])):
                     print("*** Early Stop! ***")
                     self.evaluate(MCYT_SKILLED_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
                     self.evaluate(MCYT_SKILLED_1VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
@@ -467,11 +467,11 @@ class UNET_1D(nn.Module):
 parser = argparse.ArgumentParser()
 # parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
 parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
-parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=3, type=int)
+parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=10000, type=int)
 parser.add_argument("-lr", "--learning_rate", help="set learning rate value", default=0.001, type=float)
 parser.add_argument("-dc", "--decay", help="learning rate decay value", default=1e-5, type=float)
-parser.add_argument("-es", "--eval_step", help="evaluation step during training and testing all weights", default=1, type=int)
-parser.add_argument("-stop", "--early_stop", help="minimum epoch to occur early stop", default=2, type=int)
+parser.add_argument("-es", "--eval_step", help="evaluation step during training and testing all weights", default=50, type=int)
+parser.add_argument("-stop", "--early_stop", help="minimum epoch to occur early stop", default=300, type=int)
 parser.add_argument("-seed", "--seed", help="set seed value", default=333, type=int)
 args = parser.parse_args()
 hyperparameters = vars(args)
