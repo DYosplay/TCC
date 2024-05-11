@@ -6,13 +6,56 @@ import os
 import random
 
 import DTW.soft_dtw_cuda as soft_dtw
+import DTW.dtw_cuda as dtw
+
 import numpy as np
 from matplotlib import pyplot as plt
 
+import utils.parse_arguments as parse_arguments
+import argparse
+import math
+from sklearn.metrics import roc_curve
+
+from utils.constants import *
+
 device = torch.device("cuda")
-# dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
-dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
+dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
+# dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
 training_guide = "training_guide.txt"
+
+def get_eer(y_true, y_scores, result_folder : str = None, generate_graph : bool = False, n_epoch : int = None):
+    fpr, tpr, threshold = roc_curve(y_true=y_true, y_score=y_scores, pos_label=1)
+    fnr = 1 - tpr
+
+    far = fpr
+    frr = fnr
+
+    eer_threshold = threshold[np.nanargmin(np.absolute((fnr - fpr)))]
+    eer = fpr[np.nanargmin(np.absolute((fnr - fpr)))]
+    # as a sanity check the value should be close to
+    eer2 = fnr[np.nanargmin(np.absolute((fnr - fpr)))]
+
+    eer = (eer + eer2)/2
+    # eer = min(eer, eer2)
+
+    if generate_graph:
+        frr_list = np.array(frr)
+        far_list = np.array(far)
+
+        plt.plot(threshold, frr_list, 'b', label="FRR")
+        plt.plot(threshold, far_list, 'r', label="FAR")
+        plt.legend(loc="upper right")
+
+        plt.xlabel("Threshold")
+        plt.ylabel("Error Rate")
+        plt.plot(eer_threshold, eer, 'ro')
+        plt.text(eer_threshold + 0.05, eer+0.05, s="EER = " + "{:.5f}".format(eer))
+        #plt.text(eer_threshold + 1.05, eer2+1.05, s="EER = " + "{:.5f}".format(eer2))
+        plt.savefig(result_folder + os.sep + "Epoch" + str(n_epoch) + ".png")
+        plt.cla()
+        plt.clf()
+
+    return eer, eer_threshold
 
 class conbr_block(nn.Module):
     def __init__(self, in_layer, out_layer, kernel_size, stride, dilation):
@@ -94,8 +137,7 @@ class UNET_1D(nn.Module):
         self.outcov = nn.Conv1d(self.layer_n, 64, kernel_size=self.kernel_size, stride=1,padding = 3)
 
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
-
-    
+        self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
         
     def down_layer(self, input_layer, out_layer, kernel, stride, depth):
         block = []
@@ -166,47 +208,206 @@ class UNET_1D(nn.Module):
         
         return batch, epoch
         
+    def _load_tensor(self, tensor_name, features_path = None):
+        if features_path is not None:
+            return torch.load(os.path.join(features_path,tensor_name))
+         
+        return torch.load(os.path.join(dataset_folder,tensor_name))
+        
     def _load_batch(self, batch):
         with torch.no_grad():
             loaded_batch = [torch.load(os.path.join(dataset_folder,batch[0][1]))]
 
             for tuple in batch:
                 query = None
-                query = torch.load(os.path.join(dataset_folder,tuple[0]))
+                query = self._load_tensor(tuple[0])
 
                 loaded_batch.append(query)
 
         return loaded_batch
 
-
     def _dtr(self,x, y, len_x, len_y):
         return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0]/(len_x + len_y)
+    
+    def _dte(self, x, y, shape1, shape2):
+        # Your dte calculation logic here
+        return self.dtw(x[None,], y[None,])[0].detach().cpu().numpy()[0] / (shape1 + shape2)
 
-    def start_train(self, n_epochs : int = 10000):
-        bckp_path = os.path.join("GenerateReference","Backup")
+
+    def _inference(self, files : str, features_path : str):
+        """ Calcula score de dissimilaridade entre um grupo de assinaturas
+
+        Args:
+            files (str): nome dos arquivos separados por espaço seguido da label (0: original, 1: falsificada)
+            distances (Dict[str, Dict[str, float]]): ex: distances[a][b] = distância entre assinatura a e b.
+                distances[a] -> dicionário em que cada chave representa a distância entre a e a chave em questão.
+                Esse dicionário contém todas as combinações possíveis entre chaves.
+                distances[a][b] == distances[b][a].
+        Raises:
+            ValueError: caso o formato dos arquivos seja diferente do 4vs1 ou 1vs1.
+
+        Returns:
+            Tuple[float, str, int]: score de dissimilaridade, usuário de referência, predição (default: math.nan)
+        """
+        tokens = files.split(" ")
+        user_key = tokens[0].split("_")[0]
+        # user_key = tokens[0]
+
+        result = math.nan
+        refs = []
+        sign = ""
+
+        if len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+        elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
+        else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+        s_avg = 0
+        s_min = 0
+        
+        dists_query = []
+        refs_dists = []
+        
+        # Obtém a distância entre todas as referências:
+        # Isto é: (r1,r2), (r1,r3), (r1,r4), (r2,r3), (r2,r4) e (r3,r4); Obs: o DTW é simétrico, dtw(a,b)==dtw(b,a)
+        with torch.no_grad():
+            query = self._load_tensor(sign.split('.')[0] + '.pt')
+            for i in range(0,len(refs)):
+                x = self._load_tensor(refs[i].split('.')[0] + '.pt', features_path).cuda()
+                x = torch.unsqueeze(x, dim=0)
+                x = self(x)
+                x = x.squeeze()
+
+                dists_query.append(self._dte(x, query, x.shape[0], query.shape[0]))
+
+                for j in range(i+1, len(refs)):
+                    y = self._load_tensor(refs[j].split('.')[0] + '.pt', features_path).cuda()
+                    y = torch.unsqueeze(y, dim=0)
+                    y = self(y)
+                    y = y.squeeze()
+
+                    refs_dists.append(self._dte(x,y,x.shape[0],y.shape[0]))
+
+        refs_dists = np.array(refs_dists)
+        dists_query = np.array(dists_query)
+        
+
+        """Cálculos de dissimilaridade a partir daqui"""
+        dk = 1
+        if len(refs_dists) > 1:
+            dk = np.mean(refs_dists)
+        dk_sqrt = dk ** (1.0/2.0) 
+
+        s_avg = np.mean(dists_query)/dk_sqrt
+        s_min = min(dists_query)/dk_sqrt
+
+        return (s_avg + s_min), user_key, result
+
+    def evaluate(self, comparison_file : str, n_epoch : int, result_folder : str, features_path : str):
+        """ Avaliação da rede conforme o arquivo de comparação
+
+        Args:
+            comparison_file (str): path do arquivo que contém as assinaturas a serem comparadas entre si, bem como a resposta da comparação. 0 é positivo (original), 1 é negativo (falsificação).
+            n_epoch (int): número que indica após qual época de treinamento a avaliação está sendo realizada.
+            result_folder (str): path onde salvar os resultados.
+        """
+        
+        self.train(mode=False)
+        lines = []
+        with open(comparison_file, "r") as fr:
+            lines = fr.readlines()
+
+        os.makedirs(result_folder, exist_ok=True)
+
+        file_name = (comparison_file.split(os.sep)[-1]).split('.')[0]
+        print("\n\tAvaliando " + file_name)
+        comparison_folder = result_folder + os.sep + file_name
+        if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
+
+        users = {}
+
+        for line in tqdm(lines, "Calculando distâncias..."):
+            distance, user_id, true_label = self._inference(line, features_path=features_path)
+            
+            if user_id not in users: 
+                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
+            else:
+                users[user_id]["distances"].append(distance)
+                users[user_id]["true_label"].append(true_label)
+
+        # Nesse ponto, todas as comparações foram feitas
+        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
+        local_buffer = ""
+        global_true_label = []
+        global_distances = []
+
+        eers = []
+
+        local_ths = []
+
+        # Calculo do EER local por usuário:
+        for user in tqdm(users, desc="Obtendo EER local..."):
+            global_true_label += users[user]["true_label"]
+            global_distances  += users[user]["distances"]
+
+            # if "Task" not in comparison_file:
+            if 0 in users[user]["true_label"] and 1 in users[user]["true_label"]:
+                eer, eer_threshold = get_eer(y_true=users[user]["true_label"], y_scores=users[user]["distances"])
+                th_range_local = np.max(np.array(users[user]["distances"])[np.array(users[user]["distances"]) < eer_threshold])
+
+                local_ths.append(eer_threshold)
+                eers.append(eer)
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ")\n"
+
+        print("Obtendo EER global...")
+        
+        # Calculo do EER global
+        eer_global, eer_threshold_global = get_eer(global_true_label, global_distances, result_folder=comparison_folder, generate_graph=True, n_epoch=n_epoch)
+
+        local_eer_mean = np.mean(np.array(eers))
+        local_ths = np.array(local_ths)
+        local_ths_var  = np.var(local_ths)
+        local_ths_amp  = np.max(local_ths) - np.min(local_ths)
+        
+        th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
+
+        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n" + local_buffer
+
+        with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
+            fw.write(buffer)
+
+        ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
+        print (ret_metrics)
+
+        self.train(mode=True)
+        return ret_metrics
+
+    def start_train(self):
+        bckp_path = os.path.join(hyperparameters['test_name'],"Backup")
         os.makedirs(bckp_path, exist_ok=True)
 
+        features_path = os.path.join(hyperparameters['test_name'],"features")
+        os.makedirs(features_path, exist_ok=True)
+
         ## Hyperparameter
-        lr = 0.001
         batch_size = 25
         epoch_size = 2500
 
         ## Build tensor data for torch
         #Build model, initial weight and optimizer
-        optimizer = torch.optim.Adam(self.parameters(), lr = lr,weight_decay=1e-5) # Using Adam optimizer
+        optimizer = torch.optim.Adam(self.parameters(), lr = hyperparameters['learning_rate'],weight_decay=hyperparameters['decay']) # Using Adam optimizer
         
         self.train()
         avg_loss = 0
         losses = []
         plot_losses = []
 
-        for e in range(n_epochs):
+        for e in range(hyperparameters['epochs']):
             epoch = self._get_epoch()
             pbar = tqdm(total=(epoch_size//batch_size), position=0, leave=True, desc="Epoch " + str(e) +" PAL: " + "{:.4f}".format(avg_loss))
             
             while epoch != []:
-                batch, epoch = self._get_batch(epoch=epoch, batch_size=batch_size)
-                batch = self._load_batch(batch)
+                batch_names, epoch = self._get_batch(epoch=epoch, batch_size=batch_size)
+                batch = self._load_batch(batch_names)
                 ref = batch[0].cuda()
 
                 loss = 0
@@ -221,6 +422,10 @@ class UNET_1D(nn.Module):
                     emd_emb = self._dtr(embedding, embedding, embedding.shape[0], embedding.shape[0])
                     ref_emb = self._dtr(ref, embedding, ref.shape[0], embedding.shape[0])
                     loss += (ref_emb - 0.5*(emd_emb+ref_ref))
+
+                    if e % hyperparameters['eval_step'] == 0:
+                        with torch.no_grad():
+                            torch.save(embedding, os.path.join(features_path, batch_names[j][0].split('.')[0] + '.pt'))
                 
                 optimizer.zero_grad()
                 loss.backward()
@@ -230,21 +435,45 @@ class UNET_1D(nn.Module):
             pbar.close()
             avg_loss = np.mean(np.array(losses))
             plot_losses.append(avg_loss)
+
+            if e % hyperparameters['eval_step'] == 0:
+                self.evaluate(MCYT_SKILLED_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                self.evaluate(MCYT_SKILLED_1VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                self.evaluate(MCYT_RANDOM_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                self.evaluate(MCYT_RANDOM_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
             
-            if len(plot_losses) > 200:
+            if len(plot_losses) > hyperparameters['early_stop']:
                 if avg_loss > np.min(np.array(plot_losses[-10:])):
-                    print("Early Stop!")
+                    print("*** Early Stop! ***")
+                    self.evaluate(MCYT_SKILLED_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                    self.evaluate(MCYT_SKILLED_1VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                    self.evaluate(MCYT_RANDOM_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                    self.evaluate(MCYT_RANDOM_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
                     break
             
-            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + + "{:.4f}".format(e) + ".pt")
+            torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + '{:04d}'.format(e) + ".pt")
 
         # Loss graph
         plt.xlabel("#Epoch")
         plt.ylabel("Loss")
-        plt.plot(list(range(0,len(plot_losses))), self.loss_variation)
-        plt.savefig("GenerateReference" + os.sep + "loss.png")
+        plt.plot(list(range(0,len(plot_losses))), plot_losses)
+        plt.savefig(hyperparameters['test_name'] + os.sep + "loss.png")
         plt.cla()
         plt.clf()
+
+
+
+parser = argparse.ArgumentParser()
+# parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
+parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
+parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=3, type=int)
+parser.add_argument("-lr", "--learning_rate", help="set learning rate value", default=0.001, type=float)
+parser.add_argument("-dc", "--decay", help="learning rate decay value", default=1e-5, type=float)
+parser.add_argument("-es", "--eval_step", help="evaluation step during training and testing all weights", default=1, type=int)
+parser.add_argument("-stop", "--early_stop", help="minimum epoch to occur early stop", default=2, type=int)
+args = parser.parse_args()
+hyperparameters = vars(args)
+
 
 model = UNET_1D(64,128,7,3) #(input_dim, hidden_layer, kernel_size, depth)
 model = model.to(device)
