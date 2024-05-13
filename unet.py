@@ -20,8 +20,8 @@ from utils.constants import *
 import torch.backends.cudnn as cudnn
 
 device = torch.device("cuda")
-dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
-# dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
+# dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
+dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
 training_guide = "training_guide.txt"
 
 def get_eer(y_true, y_scores, result_folder : str = None, generate_graph : bool = False, n_epoch : int = None):
@@ -278,7 +278,7 @@ class UNET_1D(nn.Module):
                 x = self(x)
                 x = x.squeeze()
 
-                dists_query.append(self._dte(x, query, x.shape[0], query.shape[0]))
+                dists_query.append(self._dtr(x, query, x.shape[0], query.shape[0]))
 
                 for j in range(i+1, len(refs)):
                     y = self._load_tensor(refs[j].split('.')[0] + '.pt', features_path).cuda()
