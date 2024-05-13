@@ -228,7 +228,8 @@ class UNET_1D(nn.Module):
         return loaded_batch
 
     def _dtr(self,x, y, len_x, len_y):
-        return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0]/(len_x + len_y)
+        # return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0]/(len_x + len_y)
+        return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_x + len_y)
     
     def _dte(self, x, y, shape1, shape2):
         # Your dte calculation logic here
