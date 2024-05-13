@@ -229,7 +229,12 @@ class UNET_1D(nn.Module):
 
     def _dtr(self,x, y, len_x, len_y):
         # return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0]/(len_x + len_y)
-        return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_x + len_y)
+
+        xx = self.sdtw(x[None, :int(len_x)], x[None, :int(len_x)]).detach().cpu().numpy()[0]/(len_x + len_x)
+        yy = self.sdtw(y[None, :int(len_y)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_y + len_y)
+        xy = self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_x + len_y)
+
+        return xy-0.5*(xx+yy)
     
     def _dte(self, x, y, shape1, shape2):
         # Your dte calculation logic here
@@ -287,7 +292,7 @@ class UNET_1D(nn.Module):
                     y = self(y)
                     y = y.squeeze()
 
-                    refs_dists.append(self._dte(x,y,x.shape[0],y.shape[0]))
+                    refs_dists.append(self._dtr(x,y,x.shape[0],y.shape[0]))
 
         refs_dists = np.array(refs_dists)
         dists_query = np.array(dists_query)
@@ -414,16 +419,16 @@ class UNET_1D(nn.Module):
 
                 loss = 0
 
-                # ref_ref = self._dtr(ref, ref, ref.shape[0], ref.shape[0])
+                ref_ref = self._dtr(ref, ref, ref.shape[0], ref.shape[0])
                 for j in range(len(batch[1:])):
                     embedding = batch[j].cuda()
                     embedding = torch.unsqueeze(embedding, dim=0)
                     embedding = self(embedding)
                     embedding = embedding.squeeze()
 
-                    # emd_emb = self._dtr(embedding, embedding, embedding.shape[0], embedding.shape[0])
+                    emd_emb = self._dtr(embedding, embedding, embedding.shape[0], embedding.shape[0])
                     ref_emb = self._dtr(ref, embedding, ref.shape[0], embedding.shape[0])
-                    # loss += (ref_emb - 0.5*(emd_emb+ref_ref))
+                    loss += (ref_emb - 0.5*(emd_emb+ref_ref))
                     loss += ref_emb
                     if e % hyperparameters['eval_step'] == 0:
                         with torch.no_grad():
