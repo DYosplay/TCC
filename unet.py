@@ -20,8 +20,8 @@ from utils.constants import *
 import torch.backends.cudnn as cudnn
 
 device = torch.device("cuda")
-# dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
-dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
+dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
+# dataset_folder = os.path.join("ROT_X2_", "ROT_X2_005", "generated_features")
 training_guide = "training_guide.txt"
 
 def get_eer(y_true, y_scores, result_folder : str = None, generate_graph : bool = False, n_epoch : int = None):
@@ -232,7 +232,7 @@ class UNET_1D(nn.Module):
     
     def _dte(self, x, y, shape1, shape2):
         # Your dte calculation logic here
-        return self.dtw(x[None,], y[None,])[0].detach().cpu().numpy()[0] / (shape1 + shape2)
+        return self.dtw(x[None,], y[None,])[0].detach().cpu().numpy()[0] / (64*(shape1 + shape2))
 
 
     def _inference(self, files : str, features_path : str):
@@ -413,17 +413,17 @@ class UNET_1D(nn.Module):
 
                 loss = 0
 
-                ref_ref = self._dtr(ref, ref, ref.shape[0], ref.shape[0])
+                # ref_ref = self._dtr(ref, ref, ref.shape[0], ref.shape[0])
                 for j in range(len(batch[1:])):
                     embedding = batch[j].cuda()
                     embedding = torch.unsqueeze(embedding, dim=0)
                     embedding = self(embedding)
                     embedding = embedding.squeeze()
 
-                    emd_emb = self._dtr(embedding, embedding, embedding.shape[0], embedding.shape[0])
+                    # emd_emb = self._dtr(embedding, embedding, embedding.shape[0], embedding.shape[0])
                     ref_emb = self._dtr(ref, embedding, ref.shape[0], embedding.shape[0])
-                    loss += (ref_emb - 0.5*(emd_emb+ref_ref))
-
+                    # loss += (ref_emb - 0.5*(emd_emb+ref_ref))
+                    loss += ref_emb
                     if e % hyperparameters['eval_step'] == 0:
                         with torch.no_grad():
                             torch.save(embedding, os.path.join(features_path, batch_names[j][0].split('.')[0] + '.pt'))
@@ -438,10 +438,10 @@ class UNET_1D(nn.Module):
             plot_losses.append(avg_loss)
 
             if e % hyperparameters['eval_step'] == 0:
-                self.evaluate(MCYT_SKILLED_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
                 self.evaluate(MCYT_SKILLED_1VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                self.evaluate(MCYT_SKILLED_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
                 self.evaluate(MCYT_RANDOM_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
-                self.evaluate(MCYT_RANDOM_4VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
+                self.evaluate(MCYT_RANDOM_1VS1, e, result_folder=hyperparameters['test_name'], features_path=features_path)
             
             if len(plot_losses) > hyperparameters['early_stop']:
                 if avg_loss >= np.mean(np.array(plot_losses[-10:])):
@@ -467,12 +467,14 @@ class UNET_1D(nn.Module):
 parser = argparse.ArgumentParser()
 # parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
 parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
+parser.add_argument("-w", "--weight", help="set weight name to evaluation", default="epoch2170.pt", type=str)
 parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=10000, type=int)
 parser.add_argument("-lr", "--learning_rate", help="set learning rate value", default=0.001, type=float)
 parser.add_argument("-dc", "--decay", help="learning rate decay value", default=1e-5, type=float)
 parser.add_argument("-es", "--eval_step", help="evaluation step during training and testing all weights", default=50, type=int)
 parser.add_argument("-stop", "--early_stop", help="minimum epoch to occur early stop", default=300, type=int)
 parser.add_argument("-seed", "--seed", help="set seed value", default=333, type=int)
+parser.add_argument("-ev", "--evaluate", help="eavaluate", action='store_true')
 args = parser.parse_args()
 hyperparameters = vars(args)
 
@@ -484,6 +486,18 @@ if hyperparameters['seed'] is not None:
     cudnn.enabled = True
     cudnn.benchmark = False
     cudnn.deterministic = True
+
+if hyperparameters['evaluate']:
+    model = UNET_1D(64,128,7,3) #(input_dim, hidden_layer, kernel_size, depth)
+    model = model.to(device)
+    f = hyperparameters['test_name'] + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+    features_path = os.path.join(hyperparameters['test_name'],"features")
+    model.load_state_dict(torch.load(f))
+    model.evaluate(MCYT_SKILLED_1VS1, 0, result_folder=hyperparameters['test_name'], features_path=features_path)
+    model.evaluate(MCYT_SKILLED_4VS1, 0, result_folder=hyperparameters['test_name'], features_path=features_path)
+    model.evaluate(MCYT_RANDOM_4VS1, 0, result_folder=hyperparameters['test_name'], features_path=features_path)
+    model.evaluate(MCYT_RANDOM_1VS1, 0, result_folder=hyperparameters['test_name'], features_path=features_path)
+    exit()
 
 model = UNET_1D(64,128,7,3) #(input_dim, hidden_layer, kernel_size, depth)
 model = model.to(device)
