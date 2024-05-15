@@ -285,7 +285,7 @@ class UNET_1D(nn.Module):
                 x = self(x)
                 x = x.squeeze()
 
-                dists_query.append(self._dtr(x, query, x.shape[0], query.shape[0]))
+                dists_query.append(self._dte(x, query, x.shape[0], query.shape[0]))
 
                 for j in range(i+1, len(refs)):
                     y = self._load_tensor(refs[j].split('.')[0] + '.pt', features_path).cuda()
@@ -293,7 +293,7 @@ class UNET_1D(nn.Module):
                     y = self(y)
                     y = y.squeeze()
 
-                    refs_dists.append(self._dtr(x,y,x.shape[0],y.shape[0]))
+                    refs_dists.append(self._dte(x,y,x.shape[0],y.shape[0]))
 
         refs_dists = np.array(refs_dists)
         dists_query = np.array(dists_query)
@@ -420,14 +420,18 @@ class UNET_1D(nn.Module):
 
                 loss = 0
 
+                ref_ref = self._dtr(ref, ref, ref.shape[0], ref.shape[0])
                 for j in range(len(batch[1:])):
                     embedding = batch[j].cuda()
                     embedding = torch.unsqueeze(embedding, dim=0)
                     embedding = self(embedding)
                     embedding = embedding.squeeze()
 
+                    embedding_embedding = self._dtr(embedding, embedding, embedding.shape[0], embedding.shape[0])
                     ref_emb = self._dtr(ref, embedding, ref.shape[0], embedding.shape[0])
-                    contrastive_loss = F.relu(ref_emb - hyperparameters['margin'])
+
+                    loss = ref_emb - 0.5*(ref_ref + embedding_embedding)
+                    contrastive_loss = F.relu(loss - hyperparameters['margin'])
                     
                     loss += contrastive_loss
                     loss += ref_emb
