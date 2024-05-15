@@ -18,6 +18,7 @@ from sklearn.metrics import roc_curve
 
 from utils.constants import *
 import torch.backends.cudnn as cudnn
+import torch.nn.functional as F
 
 device = torch.device("cuda")
 # dataset_folder = os.path.join("..","Resultados", "ROT_X2_", "ROT_X2_005", "generated_features")
@@ -228,13 +229,13 @@ class UNET_1D(nn.Module):
         return loaded_batch
 
     def _dtr(self,x, y, len_x, len_y):
-        # return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0]/(len_x + len_y)
+        return self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)])[0]/(len_x + len_y)
 
-        xx = self.sdtw(x[None, :int(len_x)], x[None, :int(len_x)]).detach().cpu().numpy()[0]/(len_x + len_x)
-        yy = self.sdtw(y[None, :int(len_y)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_y + len_y)
-        xy = self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_x + len_y)
+        # xx = self.sdtw(x[None, :int(len_x)], x[None, :int(len_x)]).detach().cpu().numpy()[0]/(len_x + len_x)
+        # yy = self.sdtw(y[None, :int(len_y)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_y + len_y)
+        # xy = self.sdtw(x[None, :int(len_x)], y[None, :int(len_y)]).detach().cpu().numpy()[0]/(len_x + len_y)
 
-        return xy-0.5*(xx+yy)
+        # return xy-0.5*(xx+yy)
     
     def _dte(self, x, y, shape1, shape2):
         # Your dte calculation logic here
@@ -387,7 +388,7 @@ class UNET_1D(nn.Module):
 
         self.train(mode=True)
         return ret_metrics
-
+    
     def start_train(self):
         bckp_path = os.path.join(hyperparameters['test_name'],"Backup")
         os.makedirs(bckp_path, exist_ok=True)
@@ -419,16 +420,16 @@ class UNET_1D(nn.Module):
 
                 loss = 0
 
-                ref_ref = self._dtr(ref, ref, ref.shape[0], ref.shape[0])
                 for j in range(len(batch[1:])):
                     embedding = batch[j].cuda()
                     embedding = torch.unsqueeze(embedding, dim=0)
                     embedding = self(embedding)
                     embedding = embedding.squeeze()
 
-                    emd_emb = self._dtr(embedding, embedding, embedding.shape[0], embedding.shape[0])
                     ref_emb = self._dtr(ref, embedding, ref.shape[0], embedding.shape[0])
-                    loss += (ref_emb - 0.5*(emd_emb+ref_ref))
+                    contrastive_loss = F.relu(ref_emb - hyperparameters['margin'])
+                    
+                    loss += contrastive_loss
                     loss += ref_emb
                     if e % hyperparameters['eval_step'] == 0:
                         with torch.no_grad():
@@ -476,6 +477,7 @@ parser.add_argument("-t", "--test_name", help="set test name", required=True, ty
 parser.add_argument("-w", "--weight", help="set weight name to evaluation", default="epoch2170.pt", type=str)
 parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=10000, type=int)
 parser.add_argument("-lr", "--learning_rate", help="set learning rate value", default=0.001, type=float)
+parser.add_argument("-m", "--margin", help="set margin value", default=1.0, type=float)
 parser.add_argument("-dc", "--decay", help="learning rate decay value", default=1e-5, type=float)
 parser.add_argument("-es", "--eval_step", help="evaluation step during training and testing all weights", default=50, type=int)
 parser.add_argument("-stop", "--early_stop", help="minimum epoch to occur early stop", default=300, type=int)
