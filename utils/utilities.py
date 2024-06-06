@@ -48,6 +48,8 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return compact_triplet_mmdx.Compact_Triplet_MMDX(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "compact_triplet_mmd_gaussian":
         return compact_triplet_mmd_gaussian.Compact_Triplet_MMD_gaussian(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul,mmin=margin_min, mmax=margin_max)
+    if loss_type.lower() == "double_anchor_ctm":
+        return compact_triplet_mmd.Compact_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     raise NameError("Loss function not found")
 
 def traceback(acc_cost_matrix : npt.DTypeLike):
