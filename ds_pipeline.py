@@ -270,7 +270,10 @@ class DsPipeline(nn.Module):
             for i in range(0, len(refs)):
                 for j in range(1, len(refs)):
                     if i < j:
-                        dk += (self._dte(refs[i], refs[j], len_refs[i], len_refs[j]))
+                        # dk += (self._dte(refs[i], refs[j], len_refs[i], len_refs[j]))
+                        a = refs[i]
+                        b = refs[j]
+                        dk += wdtw(a[:int(len_refs[i])].detach().cpu().numpy(), b[:int(len_refs[j])].detach().cpu().numpy())
                         count += 1
 
             dk = dk/(count)
@@ -281,7 +284,9 @@ class DsPipeline(nn.Module):
         
         dists = []
         for i in range(0, len(refs)):
-            dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
+            # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
+            a = refs[i]
+            dists.append(wdtw(a[:int(len_refs[i])].detach().cpu().numpy(), sign[:int(len_sign)].detach().cpu().numpy()))
 
         dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
@@ -632,6 +637,69 @@ class DsPipeline(nn.Module):
     #     plt.savefig(result_folder + os.sep + "loss.png")
     #     plt.cla()
     #     plt.clf()
+
+def wdtw(x, y, weight_vector = None, sakoe_chiba_band = float('inf')):
+    global alpha
+    # Compute the size of each time serie
+    # -------------------------------------------------------------------------------------------
+    n = len(x)
+    m = len(y)
+
+    # Local Cost Matrix (Dissimilarities)
+    # -------------------------------------------------------------------------------------------
+    dist = np.empty((n, m))
+    assert x.shape[1] == y.shape[1]
+    for wd in range(x.shape[1]):
+        for i in range(n):
+            for j in range(m):
+                # dist[i][j]  = ( 1 / (pow(weight_vector[j],alpha)) ) * (x[i]-y[j])**2
+                dist[i][j]  = ( abs(i-j) ) * (x[i][wd]-y[j][wd])**2
+
+        # Cost Matrix with Sakoe-Chiba Band
+        # -------------------------------------------------------------------------------------------
+        dtw_cost = np.empty((n, m))
+        dtw_cost.fill(0)
+        dtw_cost[0][0] = dist[0][0]
+        for i in range(1,n):
+            dtw_cost[i][0] = dtw_cost[i-1][0] + dist[i][0]
+        for j in range(1,m):
+            dtw_cost[0][j] = dtw_cost[0][j-1] + dist[0][j]
+        for i in range(1,n):
+            for j in range(1,m):
+                if abs(i-j) <= sakoe_chiba_band:
+                    choices = dtw_cost[i-1][j], dtw_cost[i][j-1], dtw_cost[i-1][j-1]
+                    dtw_cost[i][j] = dist[i][j] + min(choices)
+                else:
+                    dtw_cost[i][j] = float('inf')
+
+    # Compute Warping Path
+    # -------------------------------------------------------------------------------------------
+    i = n-1
+    j = m-1
+    path = np.empty((n, m))
+    path.fill(0)
+    path[n-1][m-1] = 1
+    size_warping_path = 1
+    while i > 0 or j > 0:
+        if i == 0:
+            j = j - 1
+        elif j == 0:
+            i = i - 1
+        else:
+            choices = dtw_cost[i-1][j], dtw_cost[i][j-1], dtw_cost[i-1][j-1]
+            if dtw_cost[i-1,j-1] == min(choices):
+                i = i - 1
+                j = j - 1
+            elif dtw_cost[i,j-1] == min(choices):
+                j = j - 1
+            else:
+                i = i - 1
+        path[i][j] = 1
+        size_warping_path += size_warping_path
+
+    # Return Weighted Dynamic Time Warping Distance
+    # -------------------------------------------------------------------------------------------
+    return dtw_cost[-1][-1]
 
     def generate_distances(self, result_folder : str, n_epoch : int = 0):
         folder = self.hyperparameters["dataset_folder"] + os.sep + "Evaluation" + os.sep + self.hyperparameters['dataset_scenario']
