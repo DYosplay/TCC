@@ -208,7 +208,9 @@ class DsPipeline(nn.Module):
         if self.hyperparameters['xnorm']:
             return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x))
          
-        return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
+        # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
+        v, matrix = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) 
+        return v /(64*(len_x + len_y)), matrix
 
         # return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], x[None, :int(len_x)])[0] /((len_x + len_x))) + (self.sdtw2(y[None, :int(len_y)], y[None, :int(len_y)])[0] /((len_y + len_y))))/2
 
@@ -233,7 +235,8 @@ class DsPipeline(nn.Module):
         """
         tokens = files.split(" ")
         user_key = tokens[0].split("_")[0]
-        
+    
+
         result = math.nan
         refs = []
         sign = ""
@@ -267,14 +270,32 @@ class DsPipeline(nn.Module):
         if len(refs) == 1 : dk = 1
         else:
             dk = 0
-            for i in range(0, len(refs)):
-                for j in range(1, len(refs)):
-                    if i < j:
-                        # dk += (self._dte(refs[i], refs[j], len_refs[i], len_refs[j]))
-                        a = refs[i]
-                        b = refs[j]
-                        dk += wdtw(a[:int(len_refs[i])].detach().cpu().numpy(), b[:int(len_refs[j])].detach().cpu().numpy())
-                        count += 1
+            aux = 0
+            for _ in range(self.hyperparameters['repetitions']):
+                for i in range(0, len(refs)):
+                    for j in range(1, len(refs)):
+                        if i < j:
+                            offset = self.hyperparameters['forget_points']
+
+                            #ref 1
+                            ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
+                            random_list = sorted(np.random.choice(ordered_sequence, size=offset, replace=False), reverse=True)
+                            indexes = torch.arange(int(len_refs[i]))
+                            for elem in random_list:
+                                indexes = indexes[indexes != elem]
+
+                            #ref 2
+                            ordered_sequence = np.arange(0, int(len_refs[j]) + 1)
+                            random_list = sorted(np.random.choice(ordered_sequence, size=offset, replace=False), reverse=True)
+                            indexes2 = torch.arange(int(len_refs[j]))
+                            for elem in random_list:
+                                indexes2 = indexes2[indexes2 != elem]
+
+                            r1 = refs[i]
+                            r2 = refs[j]
+                            dk_v, matrix = self._dte(r1[indexes], r2[indexes2], len_refs[i]-offset, len_refs[j]-offset)
+                            dk += dk_v
+                            count += 1
 
             dk = dk/(count)
     
@@ -283,10 +304,23 @@ class DsPipeline(nn.Module):
         dk_sqrt = math.sqrt(dk)
         
         dists = []
-        for i in range(0, len(refs)):
-            # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
-            a = refs[i]
-            dists.append(wdtw(a[:int(len_refs[i])].detach().cpu().numpy(), sign[:int(len_sign)].detach().cpu().numpy()))
+
+        aux = 0
+        for reps in range(0,self.hyperparameters['repetitions']):
+            for i in range(0, len(refs)):
+                # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
+                offset = self.hyperparameters['forget_points']
+                ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
+                random_list = sorted(np.random.choice(ordered_sequence, size=offset, replace=False), reverse=True)
+                indexes = torch.arange(int(len_refs[i]))
+                for elem in random_list:
+                    indexes = indexes[indexes != elem]
+
+                r = refs[i]
+                aux2, matrix = (self._dte(r[indexes], sign, len_refs[i]-offset, len_sign))
+                aux += aux2.detach().cpu().numpy()
+
+        dists.append(aux)    
 
         dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
@@ -653,7 +687,7 @@ def wdtw(x, y, weight_vector = None, sakoe_chiba_band = float('inf')):
         for i in range(n):
             for j in range(m):
                 # dist[i][j]  = ( 1 / (pow(weight_vector[j],alpha)) ) * (x[i]-y[j])**2
-                dist[i][j]  = ( abs(i-j) ) * (x[i][wd]-y[j][wd])**2
+                dist[i][j]  = ( abs(i-j) + 1 ) * (x[i][wd]-y[j][wd])**2
 
         # Cost Matrix with Sakoe-Chiba Band
         # -------------------------------------------------------------------------------------------
