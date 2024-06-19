@@ -150,7 +150,7 @@ def eval_db(hyperparameters : Dict[str, Any], res_folder, comparison_file : str)
 	model.eval()
 
 	model.load_state_dict(torch.load(f))
-	ret_metrics = model.new_evaluate(comparison_file, hyperparameters['epoch'], result_folder=res_folder)
+	ret_metrics = model.new_evaluate(comparison_file, hyperparameters['epochs'], result_folder=res_folder)
 	print("\n\t\tResultados")
 	print(ret_metrics)
 	# model.multidimensional_evaluate(comparison_file, 100000, result_folder=res_folder)
@@ -162,12 +162,12 @@ def evaluate(hyperparameters : Dict[str, Any], res_folder):
 	TEST_PROTOCOL = 'test_protocol.txt'
 	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_1VS1"
 	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_1VS1)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
+	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_4VS1)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_4VS1"
+	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_4VS1)
 	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_1VS1"
 	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_1VS1)
-	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
-	# eval_db(hyperparameters, res_folder, SKILLED_STYLUS_4VS1)
-	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_4VS1"
-	# eval_db(hyperparameters, res_folder, RANDOM_STYLUS_4VS1)
 	
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
 	# eval_db(hyperparameters, res_folder, TEST_PROTOCOL)
