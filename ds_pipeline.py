@@ -271,31 +271,12 @@ class DsPipeline(nn.Module):
         else:
             dk = 0
             aux = 0
-            for _ in range(self.hyperparameters['repetitions']):
-                for i in range(0, len(refs)):
-                    for j in range(1, len(refs)):
-                        if i < j:
-                            offset = self.hyperparameters['forget_points']
-
-                            #ref 1
-                            ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
-                            random_list = sorted(np.random.choice(ordered_sequence, size=offset, replace=False), reverse=True)
-                            indexes = torch.arange(int(len_refs[i]))
-                            for elem in random_list:
-                                indexes = indexes[indexes != elem]
-
-                            #ref 2
-                            ordered_sequence = np.arange(0, int(len_refs[j]) + 1)
-                            random_list = sorted(np.random.choice(ordered_sequence, size=offset, replace=False), reverse=True)
-                            indexes2 = torch.arange(int(len_refs[j]))
-                            for elem in random_list:
-                                indexes2 = indexes2[indexes2 != elem]
-
-                            r1 = refs[i]
-                            r2 = refs[j]
-                            dk_v, matrix = self._dte(r1[indexes], r2[indexes2], len_refs[i]-offset, len_refs[j]-offset)
-                            dk += dk_v
-                            count += 1
+            for i in range(0, len(refs)):
+                for j in range(1, len(refs)):
+                    if i < j:
+                        dk_v, matrix = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
+                        dk += dk_v
+                        count += 1
 
             dk = dk/(count)
     
@@ -311,7 +292,7 @@ class DsPipeline(nn.Module):
                 # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
                 offset = self.hyperparameters['forget_points']
                 ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
-                random_list = sorted(np.random.choice(ordered_sequence, size=offset, replace=False), reverse=True)
+                random_list = sorted(np.random.choice(ordered_sequence, size=int(offset * len_refs[i]), replace=False), reverse=True)
                 indexes = torch.arange(int(len_refs[i]))
                 for elem in random_list:
                     indexes = indexes[indexes != elem]
