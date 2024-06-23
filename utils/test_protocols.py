@@ -99,6 +99,7 @@ def eval_all_weights_stylus(hyperparameters : Dict[str, Any], res_folder : str):
 
 def validate(hyperparameters : Dict[str, Any], res_folder : str, comparison_file : str):
 	f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+	bckpwpn = hyperparameters['wandb_name']
 	
 	protocol_name = comparison_file.split(os.sep)[-1].split(".")[0]
 	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_VAL_" + protocol_name.upper()
@@ -115,7 +116,7 @@ def validate(hyperparameters : Dict[str, Any], res_folder : str, comparison_file
 	log = model.buffer
 
 	del model
-
+	hyperparameters['wandb_name'] = bckpwpn
 	return log
 
 def validation(hyperparameters : Dict[str, Any], res_folder : str, n_refs : str = "4vs1", mode : str = 'stylus'):
@@ -160,13 +161,14 @@ def eval_db(hyperparameters : Dict[str, Any], res_folder, comparison_file : str)
 def evaluate(hyperparameters : Dict[str, Any], res_folder):
 	LOWER_BOUND_PROTOCOL = 'updated_protocol_lower_bound.txt'
 	TEST_PROTOCOL = 'test_protocol.txt'
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_1VS1"
-	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_1VS1)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
+	bckp_name = hyperparameters['wandb_name']
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_SKILLED_STYLUS_1VS1"
 	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_4VS1)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_4VS1"
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_SKILLED_STYLUS_4VS1"
+	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_1VS1)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_4VS1"
 	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_4VS1)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_1VS1"
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_1VS1"
 	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_1VS1)
 	
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
