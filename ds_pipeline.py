@@ -304,7 +304,7 @@ class DsPipeline(nn.Module):
                     indexes2 = indexes2[indexes2 != elem]
 
                 r = refs[i]
-                aux2, matrix = (self._dte(r[indexes], sign[indexes2], int(len_refs[i]*offset), int(len_sign*offset)))
+                aux2, matrix = (self._dte(r[indexes], sign[indexes2], int(len_refs[i]*(1-offset)), int(len_sign*(1-offset))))
                 aux += aux2.detach().cpu().numpy()
 
         dists.append(aux)    
