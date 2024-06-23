@@ -286,8 +286,8 @@ class DsPipeline(nn.Module):
         
         dists = []
 
-        aux = 0
         for reps in range(0,self.hyperparameters['repetitions']):
+            aux = 0
             for i in range(0, len(refs)):
                 # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
                 offset = self.hyperparameters['forget_points']
@@ -296,18 +296,14 @@ class DsPipeline(nn.Module):
                 indexes = torch.arange(int(len_refs[i]))
                 for elem in random_list:
                     indexes = indexes[indexes != elem]
-
-                ordered_sequence = np.arange(0, int(len_sign) + 1)
-                random_list = sorted(np.random.choice(ordered_sequence, size=int(offset * len_sign), replace=False), reverse=True)
-                indexes2 = torch.arange(int(len_refs[i]))
-                for elem in random_list:
-                    indexes2 = indexes2[indexes2 != elem]
-
                 r = refs[i]
-                aux2, matrix = (self._dte(r[indexes], sign[indexes2], int(len_refs[i]*(1-offset)), int(len_sign*(1-offset))))
-                aux += aux2.detach().cpu().numpy()
 
-        dists.append(aux)    
+                aux2, matrix = (self._dte(r[indexes], sign, int(len_refs[i]*(1-offset)), len_sign))
+                aux += aux2.detach().cpu().numpy()
+            dists.append(aux)    
+        # for i in range(0, len(refs)):
+        #     aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
+        #     dists.append(aux.detach().cpu().numpy())    
 
         dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
