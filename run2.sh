@@ -1,4 +1,4 @@
 cuda="0"
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -ev -wdb -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -wpn=FGT_S1_SEARCH -ep=3030 -rep=10 -fp=0.25
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -ev -wdb -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -wpn=FGT_S1_SEARCH -ep=3231 -rep=10 -fp=0.30
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -ev -wdb -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -wpn=FGT_S1_SEARCH -ep=3032 -rep=10 -fp=0.40
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -val -wdb -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -wpn=FGT_S2_SEARCH -ep=3070 -rep=10 -fp=0.45
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -val -wdb -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -wpn=FGT_S2_SEARCH -ep=3271 -rep=10 -fp=0.50
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -val -wdb -w epoch23.pt -seed=333 -pf=ROT_X2_ -t=ROT_X2_005 -wpn=FGT_S2_SEARCH -ep=3072 -rep=10 -fp=0.60

@@ -297,8 +297,14 @@ class DsPipeline(nn.Module):
                 for elem in random_list:
                     indexes = indexes[indexes != elem]
 
+                ordered_sequence = np.arange(0, int(len_sign) + 1)
+                random_list = sorted(np.random.choice(ordered_sequence, size=int(offset * len_sign), replace=False), reverse=True)
+                indexes2 = torch.arange(int(len_refs[i]))
+                for elem in random_list:
+                    indexes2 = indexes2[indexes2 != elem]
+
                 r = refs[i]
-                aux2, matrix = (self._dte(r[indexes], sign, len_refs[i]-offset, len_sign))
+                aux2, matrix = (self._dte(r[indexes], sign[indexes2], int(len_refs[i]*offset), (len_sign*offset)))
                 aux += aux2.detach().cpu().numpy()
 
         dists.append(aux)    
