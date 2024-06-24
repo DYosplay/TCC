@@ -111,7 +111,7 @@ def validate(hyperparameters : Dict[str, Any], res_folder : str, comparison_file
 	model.train(mode=False)
 	model.eval()
 
-	model.new_evaluate(comparison_file, 0, res_folder)
+	model.new_evaluate(comparison_file, hyperparameters['epochs'], res_folder)
 
 	log = model.buffer
 
@@ -139,7 +139,7 @@ def validation(hyperparameters : Dict[str, Any], res_folder : str, n_refs : str 
 		for file in files:
 			log += validate(hyperparameters, res_folder, p + os.sep + file)
 
-	with open(res_folder + os.sep + "log_" + n_refs + "_" + mode + ".csv" , "w") as fw:
+	with open(res_folder + os.sep + "log_" + n_refs + "_" + mode + "_epoch_" + str(hyperparameters['epochs']) ".csv" , "w") as fw:
 		fw.write(log)
 
 
