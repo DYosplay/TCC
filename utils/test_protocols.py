@@ -122,7 +122,7 @@ def validate(hyperparameters : Dict[str, Any], res_folder : str, comparison_file
 def validation(hyperparameters : Dict[str, Any], res_folder : str, n_refs : str = "4vs1", mode : str = 'stylus'):
 	path = PATH + os.sep + mode
 	
-	opts = [n_refs + os.sep + "random", n_refs + os.sep + "skilled"]
+	opts = [n_refs + os.sep + "skilled", n_refs + os.sep + "random"]
 
 	if not os.path.exists(res_folder): os.mkdir(res_folder)
 
@@ -134,13 +134,13 @@ def validation(hyperparameters : Dict[str, Any], res_folder : str, n_refs : str 
 	
 	for opt in opts:
 		p = path + os.sep + opt
-		files = os.listdir(p)
+		files = sorted(os.listdir(p))
 		
 		for file in files:
-			log += validate(hyperparameters, res_folder, p + os.sep + file)
+			log = validate(hyperparameters, res_folder, p + os.sep + file)
 
-	with open(res_folder + os.sep + "log_" + n_refs + "_" + mode + "_epoch_" + str(hyperparameters['epochs']) + ".csv" , "a") as fw:
-		fw.write(log)
+			with open(res_folder + os.sep + "log_" + n_refs + "_" + mode + "_epoch_" + str(hyperparameters['epochs']) + ".csv" , "a") as fw:
+				fw.write(log)
 
 
 def eval_db(hyperparameters : Dict[str, Any], res_folder, comparison_file : str):
