@@ -139,7 +139,7 @@ def validation(hyperparameters : Dict[str, Any], res_folder : str, n_refs : str 
 		for file in files:
 			log += validate(hyperparameters, res_folder, p + os.sep + file)
 
-	with open(res_folder + os.sep + "log_" + n_refs + "_" + mode + "_epoch_" + str(hyperparameters['epochs']) ".csv" , "w") as fw:
+	with open(res_folder + os.sep + "log_" + n_refs + "_" + mode + "_epoch_" + str(hyperparameters['epochs']) + ".csv" , "a") as fw:
 		fw.write(log)
 
 
