@@ -45,8 +45,8 @@ if __name__ == '__main__':
 		exit(0)
 	
 	if hyperparameters['validate']:
-		test_protocols.validation(hyperparameters, res_folder, "4vs1", "stylus")
 		test_protocols.validation(hyperparameters, res_folder, "1vs1", "stylus")
+		test_protocols.validation(hyperparameters, res_folder, "4vs1", "stylus")
 		exit(0)
 
 	if hyperparameters['evaluate']:
