@@ -286,9 +286,10 @@ class DsPipeline(nn.Module):
         
         dists = []
 
-        for reps in range(0,self.hyperparameters['repetitions']):
+        
+        for i in range(0, len(refs)):
             aux = 0
-            for i in range(0, len(refs)):
+            for reps in range(0,self.hyperparameters['repetitions']):
                 # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
                 offset = self.hyperparameters['forget_points']
                 ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
