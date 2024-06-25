@@ -28,7 +28,7 @@ import wandb
 import warnings
 from numba.core.errors import NumbaPerformanceWarning
 warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
-
+# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 class DsPipeline(nn.Module):
     def __init__(self, hyperparameters : Dict[str, Any]):    
         super(DsPipeline, self).__init__()
@@ -287,21 +287,37 @@ class DsPipeline(nn.Module):
         dists = []
 
         
-        for i in range(0, len(refs)):
-            aux = 0
-            for reps in range(0,self.hyperparameters['repetitions']):
-                # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
-                offset = self.hyperparameters['forget_points']
-                ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
-                random_list = sorted(np.random.choice(ordered_sequence, size=int(offset * len_refs[i]), replace=False), reverse=True)
-                indexes = torch.arange(int(len_refs[i]))
-                for elem in random_list:
-                    indexes = indexes[indexes != elem]
-                r = refs[i]
+        # for i in range(0, len(refs)):
+        #     aux = 0
+        #     for reps in range(0,self.hyperparameters['repetitions']):
+        #         # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
+        #         offset = self.hyperparameters['forget_points']
+        #         ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
+        #         random_list = sorted(np.random.choice(ordered_sequence, size=int(offset * 100), replace=False), reverse=True)
+        #         indexes = torch.arange(int(len_refs[i]))
+        #         for elem in random_list:
+        #             indexes = indexes[indexes != elem]
+        #         r = refs[i]
 
-                aux2, matrix = (self._dte(r[indexes], sign, int(len_refs[i]*(1-offset)), len_sign))
-                aux += aux2.detach().cpu().numpy()
-            dists.append(aux)    
+        #         # aux2, matrix = (self._dte(r[indexes], sign, int(len_refs[i]*(1-offset)), len_sign))
+        #         aux2, matrix = (self._dte(r[indexes], sign, int(len_refs[i]*(1-offset)), len_sign))
+        #         aux += aux2.detach().cpu().numpy()
+        #     dists.append(aux)   
+
+        aux = 0
+        for i in range(0, len(refs)):
+            # for reps in range(0,self.hyperparameters['repetitions']):
+            for reps in range(0,3):
+                ordered_sequence = np.arange(0, int(len_refs[i]))
+                offset = 11
+                # Randomly sample N elements from the ordered sequence without replacement
+                random_list = sorted(np.random.choice(ordered_sequence, size=int(len_refs[i]) - offset, replace=False).tolist())
+                indexes = torch.tensor(random_list).cuda()
+                r = refs[i]
+                aux2, matrix = self._dte(r[indexes], sign,r[indexes].shape[0], len_sign)
+                aux += aux2
+            dists.append(float(aux))
+
         # for i in range(0, len(refs)):
         #     aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
         #     dists.append(aux.detach().cpu().numpy())    
