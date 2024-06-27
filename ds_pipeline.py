@@ -1,5 +1,5 @@
 from typing import List, Tuple, Dict, Any
-from utils.utilities import define_loss, dump_hyperparameters
+from utils.utilities import define_loss, dump_hyperparameters, traceback
 from utils.pre_alignment import align
 import gc
 import torch.nn.utils as nutils
@@ -29,6 +29,8 @@ import warnings
 from numba.core.errors import NumbaPerformanceWarning
 warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+
+BUFFER = ''
 class DsPipeline(nn.Module):
     def __init__(self, hyperparameters : Dict[str, Any]):    
         super(DsPipeline, self).__init__()
@@ -222,6 +224,7 @@ class DsPipeline(nn.Module):
             # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
             # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
+    
     def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
         """
         Args:
@@ -304,27 +307,47 @@ class DsPipeline(nn.Module):
         #         aux += aux2.detach().cpu().numpy()
         #     dists.append(aux)   
 
-        aux = 0
-        for i in range(0, len(refs)):
-            # for reps in range(0,self.hyperparameters['repetitions']):
-            for reps in range(0,3):
-                ordered_sequence = np.arange(0, int(len_refs[i]))
-                offset = 11
-                # Randomly sample N elements from the ordered sequence without replacement
-                random_list = sorted(np.random.choice(ordered_sequence, size=int(len_refs[i]) - offset, replace=False).tolist())
-                indexes = torch.tensor(random_list).cuda()
-                r = refs[i]
-                aux2, matrix = self._dte(r[indexes], sign,r[indexes].shape[0], len_sign)
-                aux += aux2
-            dists.append(float(aux))
-
+        # aux = 0
         # for i in range(0, len(refs)):
-        #     aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
-        #     dists.append(aux.detach().cpu().numpy())    
+        #     # for reps in range(0,self.hyperparameters['repetitions']):
+        #     for reps in range(0,3):
+        #         ordered_sequence = np.arange(0, int(len_refs[i]))
+        #         offset = 20
+        #         # Randomly sample N elements from the ordered sequence without replacement
+        #         random_list = sorted(np.random.choice(ordered_sequence, size=int(len_refs[i]) - offset, replace=False).tolist())
+        #         indexes = torch.tensor(random_list).cuda()
+        #         r = refs[i]
+        #         aux2, matrix = self._dte(r[indexes], sign,r[indexes].shape[0], len_sign)
+        #         aux += aux2
+        #     dists.append(float(aux))
+        with torch.no_grad():
+            global BUFFER
+            for i in range(0, len(refs)):
+                aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
+                ref_alignment, query_alignment, = traceback(matrix.squeeze(0).detach().cpu().numpy())
+                # dists.append(aux.detach().cpu().numpy())    
+
+            removed = (ref_alignment == query_alignment).astype(np.int64) * ref_alignment
+            ref_alignment = torch.from_numpy(np.unique(ref_alignment).astype(np.int64))
+
+            aux2 = 0
+            # for elem in np.unique(removed):
+            for elem in ref_alignment:
+                aux_alignment = ref_alignment[ref_alignment != elem]
+                r = refs[i]
+                aux3, matrix = (self._dte(r[aux_alignment], sign, r[aux_alignment].shape[0], len_sign))
+                #aux2+=aux3
+                aux2 = max(aux2,aux3)
+            # dists.append(aux2.detach().cpu().numpy()/len(ref_alignment))
+            dists.append(aux2.detach().cpu().numpy())
+
+
 
         dists = np.array(dists) / dk_sqrt
         s_avg = np.mean(dists)
         s_min = min(dists)
+
+        BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(s_avg + s_min)) + "\n"
 
         return (s_avg + s_min), user_key, result
 
@@ -418,6 +441,8 @@ class DsPipeline(nn.Module):
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
         
+        global BUFFER
+        print(BUFFER)
         return ret_metrics
 
     def start_train(self, comparison_files : List[str], result_folder : str):
