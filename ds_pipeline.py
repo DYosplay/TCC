@@ -358,12 +358,15 @@ class DsPipeline(nn.Module):
                 for j in range(1,ref_alignment.shape[0]):
                     weights[j] = matrix[ref_alignment[j]][query_alignment[j]] - matrix[ref_alignment[j-1]][query_alignment[j-1]]
 
-                weights = dict(sorted(weights.items(), key=lambda item: item[1]))
+                weights = dict(sorted(weights.items(), key=lambda item: item[1],reverse=False))
 
                 k_count = 1
                 for j in weights.keys():
                     
                     if j <= 1 or j >= max_index-1: continue
+                    if query_alignment[j] > len_sign*0.95 or ref_alignment[j] > len_refs[i]*0.95: continue
+
+
                     ms = sorted([matrix[ref_alignment[j]-1][query_alignment[j]],matrix[ref_alignment[j]][query_alignment[j]-1],matrix[ref_alignment[j]-1][query_alignment[j]]-1])
 
 
@@ -372,13 +375,26 @@ class DsPipeline(nn.Module):
                     if math.isnan(m): raise ValueError("Nan")
                     if math.isinf(m): continue
 
-                    # investigar possivel bug da warping path nao terminar no lugar certo
-                    acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(int(len_refs[i])+int(len_sign)))
+                    m = matrix[ref_alignment[j]][query_alignment[j]] - ms[0] + ms[1]
+
+                    # Versao inicial
+                    # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(int(len_refs[i])+int(len_sign)))
                     
                     
                     # idealmente eu deveria recalcular o dtw a partir do ponto m (criar um primeiro ponto ficticio em uma sequencia com 0 e na outra com o valor da raiz do ponto m (pq usa distancia euclidiana))
+                    # ja estou fazendo isso, so que os erros estao diminuindo por algum motivo
+                    r = refs[i]
+                    r = r[ref_alignment[j]:].detach().clone().cuda()
+                    s = sign[query_alignment[j]:]
+                    s = s.detach().clone().cuda()
+                    r[0] = torch.tensor(0.0)
+                    r[0][0] = torch.sqrt(torch.tensor(m))
+                    s[0] = torch.tensor(0.0)
+                    aux2, matrix2 = (self._dte(r, s, len_refs[i] - ref_alignment[j], len_sign-query_alignment[j]))
+                    matrix2 = matrix2.squeeze(0).detach().cpu().numpy()
                     # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(len_refs[i] + len_sign))
-            
+                    
+                    acc_distance[k_count] = (matrix2[-2][-2]) / (64*(len_refs[i] + len_sign))
                     
                     
                     k_count += 1
