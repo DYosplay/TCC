@@ -320,27 +320,78 @@ class DsPipeline(nn.Module):
         #         aux2, matrix = self._dte(r[indexes], sign,r[indexes].shape[0], len_sign)
         #         aux += aux2
         #     dists.append(float(aux))
+       
+        global BUFFER
+        # with torch.no_grad():
+        #     
+        #     for i in range(0, len(refs)):
+        #         aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
+        #         ref_alignment, query_alignment, = traceback(matrix.squeeze(0).detach().cpu().numpy())
+        #         # dists.append(aux.detach().cpu().numpy())    
+
+        #     removed = (ref_alignment == query_alignment).astype(np.int64) * ref_alignment
+        #     ref_alignment = torch.from_numpy(np.unique(ref_alignment).astype(np.int64))
+
+        #     aux2 = 0
+        #     # for elem in np.unique(removed):
+        #     for elem in ref_alignment:
+        #         aux_alignment = ref_alignment[ref_alignment != elem]
+        #         r = refs[i]
+        #         aux3, matrix = (self._dte(r[aux_alignment], sign, r[aux_alignment].shape[0], len_sign))
+        #         #aux2+=aux3
+        #         aux2 = max(aux2,aux3)
+        #     # dists.append(aux2.detach().cpu().numpy()/len(ref_alignment))
+        #     dists.append(aux2.detach().cpu().numpy())
+
+        k = 5
         with torch.no_grad():
-            global BUFFER
+            acc_distance = np.zeros(shape=(k))
             for i in range(0, len(refs)):
                 aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
-                ref_alignment, query_alignment, = traceback(matrix.squeeze(0).detach().cpu().numpy())
-                # dists.append(aux.detach().cpu().numpy())    
+                acc_distance[0] = aux.detach().cpu().numpy()[0]
+                matrix = matrix.squeeze(0).detach().cpu().numpy()
+                ref_alignment, query_alignment, = traceback(matrix)
+                assert ref_alignment.shape[0] == query_alignment.shape[0]
+                max_index = ref_alignment.shape[0] - 1
 
-            removed = (ref_alignment == query_alignment).astype(np.int64) * ref_alignment
-            ref_alignment = torch.from_numpy(np.unique(ref_alignment).astype(np.int64))
+                weights = {0: 0.0}
+                for j in range(1,ref_alignment.shape[0]):
+                    weights[j] = matrix[ref_alignment[j]][query_alignment[j]] - matrix[ref_alignment[j-1]][query_alignment[j-1]]
 
-            aux2 = 0
-            # for elem in np.unique(removed):
-            for elem in ref_alignment:
-                aux_alignment = ref_alignment[ref_alignment != elem]
-                r = refs[i]
-                aux3, matrix = (self._dte(r[aux_alignment], sign, r[aux_alignment].shape[0], len_sign))
-                #aux2+=aux3
-                aux2 = max(aux2,aux3)
-            # dists.append(aux2.detach().cpu().numpy()/len(ref_alignment))
-            dists.append(aux2.detach().cpu().numpy())
+                weights = dict(sorted(weights.items(), key=lambda item: item[1]))
 
+                k_count = 1
+                for j in weights.keys():
+                    
+                    if j <= 1 or j >= max_index-1: continue
+                    ms = sorted([matrix[ref_alignment[j]-1][query_alignment[j]],matrix[ref_alignment[j]][query_alignment[j]-1],matrix[ref_alignment[j]-1][query_alignment[j]]-1])
+
+
+                    m = (ms[1] - ms[0])
+
+                    if math.isnan(m): raise ValueError("Nan")
+                    if math.isinf(m): continue
+
+                    # investigar possivel bug da warping path nao terminar no lugar certo
+                    acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(int(len_refs[i])+int(len_sign)))
+                    
+                    
+                    # idealmente eu deveria recalcular o dtw a partir do ponto m (criar um primeiro ponto ficticio em uma sequencia com 0 e na outra com o valor da raiz do ponto m (pq usa distancia euclidiana))
+                    # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(len_refs[i] + len_sign))
+            
+                    
+                    
+                    k_count += 1
+
+
+
+                    if k_count == k: break
+            dists.append(np.sum(acc_distance))
+
+        """Versao original"""
+        # for i in range(0, len(refs)):
+        #     aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
+        #     dists.append(aux.detach().cpu().numpy())    
 
 
         dists = np.array(dists) / dk_sqrt
