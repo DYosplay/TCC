@@ -33,7 +33,7 @@ import pdb
 
 # ----------------------------------------------------------------------------------------------------------------------
 @cuda.jit
-def compute_dtw_cuda(D, bandwidth, max_i, max_j, inv_max_i, inv_max_j, n_passes, R, Ind):
+def compute_dtw_cuda(D, bandwidth, max_i, max_j, inv_max_i, inv_max_j, n_passes, R, Ind, optimal_choice):
     """
     :param seq_len: The length of the sequence (both inputs are assumed to be of the same size)
     :param n_passes: 2 * seq_len - 1 (The number of anti-diagonals)
@@ -69,6 +69,16 @@ def compute_dtw_cuda(D, bandwidth, max_i, max_j, inv_max_i, inv_max_j, n_passes,
                 r2 = R[b, i, j - 1]
                 
                 rmin = min(min(r0, r1), r2)
+                if not optimal_choice and ((J >= max_j - 1)):
+                    rmax = max(max(r0, r1), r2)
+                    if r0 != rmax and r0 != rmin:
+                        rmin = r0
+                    if r1 != rmax and r1 != rmin:
+                        rmin = r1
+                    if r2 != rmax and r2 != rmin:
+                        rmin = r2
+
+                # rmin = min(min(r0, r1), r2)
                 if rmin == r0:
                     Ind[b, i, j] = 0 # Diagonal
                 elif rmin == r1:
@@ -133,7 +143,7 @@ class _DTWCUDA(Function):
     """
 
     @staticmethod
-    def forward(ctx, D, bandwidth):
+    def forward(ctx, D, bandwidth, optimal_choice):
         dev = D.device
         dtype = D.dtype
         bandwidth = torch.cuda.FloatTensor([bandwidth])
@@ -157,7 +167,7 @@ class _DTWCUDA(Function):
         # Set the CUDA block size to be equal to the length of the longer sequence (equal to the size of the largest diagonal)
         compute_dtw_cuda[B, threads_per_block](cuda.as_cuda_array(D.detach()),
                                                bandwidth.item(), N, M, 1./(N-1), 1./(M-1), n_passes,
-                                               cuda.as_cuda_array(R), cuda.as_cuda_array(Ind))
+                                               cuda.as_cuda_array(R), cuda.as_cuda_array(Ind),optimal_choice)
         ctx.save_for_backward(Ind, bandwidth)
         # print(D)
         # print(R[:, 1:-1, 1:-1])
@@ -193,7 +203,7 @@ class _DTWCUDA(Function):
 
 # ----------------------------------------------------------------------------------------------------------------------
 @jit(nopython=True)
-def compute_dtw(D, bandwidth):
+def compute_dtw(D, bandwidth,optimal_choice):
     B = D.shape[0]
     N = D.shape[1]
     M = D.shape[2]
@@ -216,6 +226,17 @@ def compute_dtw(D, bandwidth):
                 r2 = R[b, i, j - 1]
                 
                 rmin = min(min(r0, r1), r2)
+
+                if not optimal_choice and ((j >= M - 1)):
+                    rmax = max(max(r0, r1), r2)
+                    if r0 != rmax and r0 != rmin:
+                        rmin = r0
+                    if r1 != rmax and r1 != rmin:
+                        rmin = r1
+                    if r2 != rmax and r2 != rmin:
+                        rmin = r2
+
+
                 if rmin == r0:
                     I[b, i, j] = 0 # Diagonal
                 elif rmin == r1:
@@ -345,7 +366,7 @@ class DTW(torch.nn.Module):
         y = y.unsqueeze(1).expand(-1, n, m, d)
         return torch.pow(x - y, 2).sum(3)
 
-    def forward(self, X, Y):
+    def forward(self, X, Y, optimal_choice):
         """
         Compute the soft-DTW value between X and Y
         :param X: One batch of examples, batch_size x seq_len x dims
@@ -366,7 +387,7 @@ class DTW(torch.nn.Module):
             return (out_xy - 1 / 2 * (out_xx + out_yy)) 
         else:
             D_xy = self._calc_distance_matrix(X, Y)
-            return func_dtw(D_xy, self.bandwidth)
+            return func_dtw(D_xy, self.bandwidth, optimal_choice)
 
 # ----------------------------------------------------------------------------------------------------------------------
 def timed_run(a, b, sdtw):
