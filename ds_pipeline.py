@@ -180,7 +180,7 @@ class DsPipeline(nn.Module):
             
         return dte_value /(len_x + len_y)
     
-    def _dte(self, x, y, len_x, len_y):
+    def _dte(self, x, y, len_x, len_y, optimal_choice = True):
         """ DTW entre assinaturas x e y normalizado pelos seus tamanhos * dimensões
 
         Args:
@@ -211,7 +211,7 @@ class DsPipeline(nn.Module):
             return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x))
          
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
-        v, matrix = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)]) 
+        v, matrix = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)], optimal_choice) 
         return v /(64*(len_x + len_y)), matrix
 
         # return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], x[None, :int(len_x)])[0] /((len_x + len_x))) + (self.sdtw2(y[None, :int(len_y)], y[None, :int(len_y)])[0] /((len_y + len_y))))/2
@@ -343,9 +343,9 @@ class DsPipeline(nn.Module):
         #     # dists.append(aux2.detach().cpu().numpy()/len(ref_alignment))
         #     dists.append(aux2.detach().cpu().numpy())
 
-        k = 5
+        k = int(self.hyperparameters['p'])
         with torch.no_grad():
-            acc_distance = np.zeros(shape=(k))
+            acc_distance = np.zeros(shape=(int(len_refs[0]) + int(len_sign)))
             for i in range(0, len(refs)):
                 aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
                 acc_distance[0] = aux.detach().cpu().numpy()[0]
@@ -358,25 +358,19 @@ class DsPipeline(nn.Module):
                 for j in range(1,ref_alignment.shape[0]):
                     weights[j] = matrix[ref_alignment[j]][query_alignment[j]] - matrix[ref_alignment[j-1]][query_alignment[j-1]]
 
-                weights = dict(sorted(weights.items(), key=lambda item: item[1],reverse=False))
+                # weights = dict(sorted(weights.items(), key=lambda item: item[1],reverse=False))
 
                 k_count = 1
                 for j in weights.keys():
                     
                     if j <= 1 or j >= max_index-1: continue
                     if query_alignment[j] > len_sign*0.95 or ref_alignment[j] > len_refs[i]*0.95: continue
+                    if query_alignment[j] < len_sign*0.05 or ref_alignment[j] < len_refs[i]*0.05: continue
 
-
-                    ms = sorted([matrix[ref_alignment[j]-1][query_alignment[j]],matrix[ref_alignment[j]][query_alignment[j]-1],matrix[ref_alignment[j]-1][query_alignment[j]]-1])
-
-
-                    m = (ms[1] - ms[0])
-
+                    # m = matrix[ref_alignment[j]][query_alignment[j]] - ms[0] + ms[1]
+                    m = ((self._dte(refs[i], sign, ref_alignment[j], query_alignment[j],False)[1]).detach().cpu().numpy().squeeze(0))[-2][-2]
                     if math.isnan(m): raise ValueError("Nan")
                     if math.isinf(m): continue
-
-                    m = matrix[ref_alignment[j]][query_alignment[j]] - ms[0] + ms[1]
-
                     # Versao inicial
                     # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(int(len_refs[i])+int(len_sign)))
                     
@@ -390,19 +384,19 @@ class DsPipeline(nn.Module):
                     r[0] = torch.tensor(0.0)
                     r[0][0] = torch.sqrt(torch.tensor(m))
                     s[0] = torch.tensor(0.0)
-                    aux2, matrix2 = (self._dte(r, s, len_refs[i] - ref_alignment[j], len_sign-query_alignment[j]))
+                    aux2, matrix2 = (self._dte(r, s, len_refs[i] - ref_alignment[j], len_sign-query_alignment[j],True))
                     matrix2 = matrix2.squeeze(0).detach().cpu().numpy()
                     # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(len_refs[i] + len_sign))
                     
-                    acc_distance[k_count] = (matrix2[-2][-2]) / (64*(len_refs[i] + len_sign))
-                    
+                    # assert aux2 >= acc_distance[0]
+                    acc_distance[k_count] = aux2
                     
                     k_count += 1
 
 
 
-                    if k_count == k: break
-            dists.append(np.sum(acc_distance))
+                    # if k_count == k: break
+            dists.append(np.sum(sorted(acc_distance[np.nonzero(acc_distance)])[:k]))
 
         """Versao original"""
         # for i in range(0, len(refs)):
