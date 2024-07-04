@@ -293,13 +293,13 @@ class _DTW(Function):
     """
 
     @staticmethod
-    def forward(ctx, D, bandwidth):
+    def forward(ctx, D, bandwidth,optimal_choice):
         dev = D.device
         dtype = D.dtype
         bandwidth = torch.Tensor([bandwidth]).to(dev).type(dtype)
         D_ = D.detach().cpu().numpy()
         b_ = bandwidth.item()
-        R, I = torch.Tensor(compute_dtw(D_, b_)).to(dev).type(dtype)
+        R, I = torch.Tensor(compute_dtw(D_, b_,optimal_choice=optimal_choice)).to(dev).type(dtype)
         ctx.save_for_backward(I, bandwidth)
         # print(D)
         # print(R[:, 1:-1, 1:-1])
