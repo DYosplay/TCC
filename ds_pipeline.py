@@ -343,12 +343,12 @@ class DsPipeline(nn.Module):
         #     # dists.append(aux2.detach().cpu().numpy()/len(ref_alignment))
         #     dists.append(aux2.detach().cpu().numpy())
 
-        k = int(self.hyperparameters['p'])
+        k = 5
         with torch.no_grad():
-            acc_distance = np.zeros(shape=(int(len_refs[0]) + int(len_sign)))
+            acc_distance = []
             for i in range(0, len(refs)):
                 aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
-                acc_distance[0] = aux.detach().cpu().numpy()[0]
+                acc_distance.append(float(aux.detach().cpu().numpy()[0]))
                 matrix = matrix.squeeze(0).detach().cpu().numpy()
                 ref_alignment, query_alignment, = traceback(matrix)
                 assert ref_alignment.shape[0] == query_alignment.shape[0]
@@ -389,14 +389,12 @@ class DsPipeline(nn.Module):
                     # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(len_refs[i] + len_sign))
                     
                     # assert aux2 >= acc_distance[0]
-                    acc_distance[k_count] = aux2
+                    acc_distance.append(float(aux2))
                     
                     k_count += 1
 
-
-
                     # if k_count == k: break
-            dists.append(np.sum(sorted(acc_distance[np.nonzero(acc_distance)])[:k]))
+            dists.append(np.sum(sorted(np.array(acc_distance))[:2]))
 
         """Versao original"""
         # for i in range(0, len(refs)):
@@ -410,7 +408,7 @@ class DsPipeline(nn.Module):
 
         BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(s_avg + s_min)) + "\n"
 
-        return (s_avg + s_min), user_key, result
+        return (s_avg + s_min), user_key, result, acc_distance
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -435,8 +433,12 @@ class DsPipeline(nn.Module):
 
         users = {}
 
+        acc_distance_dict = {}
+
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            distance, user_id, true_label, acc_distance = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+
+            acc_distance_dict[line] = acc_distance
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
@@ -496,6 +498,9 @@ class DsPipeline(nn.Module):
                 self.best_eer = eer_global
                 print("EER atualizado: ")
                 print(ret_metrics)
+
+        with open(os.path.join(comparison_folder,'acc_distance_dict.pickle'), 'wb') as fw:
+            pickle.dump(acc_distance_dict, fw)
 
         self.train(mode=True)
 
