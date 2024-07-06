@@ -137,7 +137,7 @@ def validation(hyperparameters : Dict[str, Any], res_folder : str, n_refs : str 
 		files = sorted(os.listdir(p))
 		
 		for file in files:
-			log = validate(hyperparameters, res_folder, p + os.sep + file)
+			log = validate(hyperparameters, res_folder, p + os.sep + file).split('\n')
 
 			with open(res_folder + os.sep + "log_" + n_refs + "_" + mode + "_epoch_" + str(hyperparameters['epochs']) + ".csv" , "a") as fw:
 				fw.write(log)
@@ -163,13 +163,13 @@ def evaluate(hyperparameters : Dict[str, Any], res_folder):
 	TEST_PROTOCOL = 'test_protocol.txt'
 	bckp_name = hyperparameters['wandb_name']
 	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_SKILLED_STYLUS_1VS1"
-	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_4VS1)
+	eval_db(hyperparameters, res_folder, MCYT_SKILLED_1VS1)
 	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_SKILLED_STYLUS_4VS1"
 	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_1VS1)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_4VS1"
-	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_4VS1)
-	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_1VS1"
-	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_1VS1)
+	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_4VS1"
+	# eval_db(hyperparameters, res_folder, RANDOM_STYLUS_4VS1)
+	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_1VS1"
+	# eval_db(hyperparameters, res_folder, RANDOM_STYLUS_1VS1)
 	
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_SKILLED_STYLUS_4VS1"
 	# eval_db(hyperparameters, res_folder, TEST_PROTOCOL)
