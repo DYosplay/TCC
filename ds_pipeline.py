@@ -364,8 +364,8 @@ class DsPipeline(nn.Module):
                 for j in weights.keys():
                     
                     if j <= 1 or j >= max_index-1: continue
-                    if query_alignment[j] > len_sign*0.95 or ref_alignment[j] > len_refs[i]*0.95: continue
-                    if query_alignment[j] < len_sign*0.05 or ref_alignment[j] < len_refs[i]*0.05: continue
+                    if query_alignment[j] > len_sign*0.90 or ref_alignment[j] > len_refs[i]*0.90: continue
+                    if query_alignment[j] < len_sign*0.10 or ref_alignment[j] < len_refs[i]*0.10: continue
 
                     # m = matrix[ref_alignment[j]][query_alignment[j]] - ms[0] + ms[1]
                     m = ((self._dte(refs[i], sign, ref_alignment[j], query_alignment[j],False)[1]).detach().cpu().numpy().squeeze(0))[-2][-2]
