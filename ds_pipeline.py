@@ -433,12 +433,8 @@ class DsPipeline(nn.Module):
 
         users = {}
 
-        acc_distance_dict = {}
-
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label, acc_distance = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
-
-            acc_distance_dict[line] = acc_distance
+            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
             
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
