@@ -120,6 +120,16 @@ def generate_features(input_file : str, hyperparameters : Dict[str, Any], z : bo
     x = bf(x)[:8000]
     y = bf(y)[:8000]
 
+    if hyperparameters['forget_points'] > 0:
+        final_points = int(len(p) * (1 - hyperparameters['forget_points']))
+        indexes = list(range(0,len(p)))
+        indexes = np.random.choice(indexes, final_points, replace=False)
+        indexes = sorted(indexes)
+        p = p[indexes]
+        x = x[indexes]
+        y = y[indexes]
+
+
 
     dx = diff(x)
     dy = diff(y)
@@ -290,6 +300,11 @@ def get_database(user_id : int, development : bool, hyperparameters : Dict[str, 
 def get_features(file_name : str, hyperparameters : Dict[str, Any], z : bool, development : bool = True):
     user_id = int(((file_name.split(os.sep)[-1]).split("_")[0]).split("u")[-1])
     database = get_database(user_id = user_id, development=development, hyperparameters=hyperparameters)
+
+    if 'epoch' in file_name:
+        df = pd.read_csv(file_name, sep=' ', header=None, skiprows=1)
+        return df.to_numpy().transpose()
+
     return generate_features(file_name, hyperparameters=hyperparameters, z=z, database=database)
 
 # if __name__ == '__main__':
