@@ -343,63 +343,63 @@ class DsPipeline(nn.Module):
         #     # dists.append(aux2.detach().cpu().numpy()/len(ref_alignment))
         #     dists.append(aux2.detach().cpu().numpy())
 
-        k = 5
-        with torch.no_grad():
-            acc_distance = []
-            for i in range(0, len(refs)):
-                aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
-                acc_distance.append(float(aux.detach().cpu().numpy()[0]))
-                matrix = matrix.squeeze(0).detach().cpu().numpy()
-                ref_alignment, query_alignment, = traceback(matrix)
-                assert ref_alignment.shape[0] == query_alignment.shape[0]
-                max_index = ref_alignment.shape[0] - 1
+        # k = 5
+        # with torch.no_grad():
+        #     acc_distance = []
+        #     for i in range(0, len(refs)):
+        #         aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
+        #         acc_distance.append(float(aux.detach().cpu().numpy()[0]))
+        #         matrix = matrix.squeeze(0).detach().cpu().numpy()
+        #         ref_alignment, query_alignment, = traceback(matrix)
+        #         assert ref_alignment.shape[0] == query_alignment.shape[0]
+        #         max_index = ref_alignment.shape[0] - 1
 
-                weights = {0: 0.0}
-                for j in range(1,ref_alignment.shape[0]):
-                    weights[j] = matrix[ref_alignment[j]][query_alignment[j]] - matrix[ref_alignment[j-1]][query_alignment[j-1]]
+        #         weights = {0: 0.0}
+        #         for j in range(1,ref_alignment.shape[0]):
+        #             weights[j] = matrix[ref_alignment[j]][query_alignment[j]] - matrix[ref_alignment[j-1]][query_alignment[j-1]]
 
-                # weights = dict(sorted(weights.items(), key=lambda item: item[1],reverse=False))
+        #         # weights = dict(sorted(weights.items(), key=lambda item: item[1],reverse=False))
 
-                k_count = 1
-                for j in weights.keys():
+        #         k_count = 1
+        #         for j in weights.keys():
                     
-                    if j <= 1 or j >= max_index-1: continue
-                    if query_alignment[j] > len_sign*0.90 or ref_alignment[j] > len_refs[i]*0.90: continue
-                    if query_alignment[j] < len_sign*0.10 or ref_alignment[j] < len_refs[i]*0.10: continue
+        #             if j <= 1 or j >= max_index-1: continue
+        #             if query_alignment[j] > len_sign*0.90 or ref_alignment[j] > len_refs[i]*0.90: continue
+        #             if query_alignment[j] < len_sign*0.10 or ref_alignment[j] < len_refs[i]*0.10: continue
 
-                    # m = matrix[ref_alignment[j]][query_alignment[j]] - ms[0] + ms[1]
-                    m = ((self._dte(refs[i], sign, ref_alignment[j], query_alignment[j],False)[1]).detach().cpu().numpy().squeeze(0))[-2][-2]
-                    if math.isnan(m): raise ValueError("Nan")
-                    if math.isinf(m): continue
-                    # Versao inicial
-                    # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(int(len_refs[i])+int(len_sign)))
+        #             # m = matrix[ref_alignment[j]][query_alignment[j]] - ms[0] + ms[1]
+        #             m = ((self._dte(refs[i], sign, ref_alignment[j], query_alignment[j],False)[1]).detach().cpu().numpy().squeeze(0))[-2][-2]
+        #             if math.isnan(m): raise ValueError("Nan")
+        #             if math.isinf(m): continue
+        #             # Versao inicial
+        #             # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(int(len_refs[i])+int(len_sign)))
                     
                     
-                    # idealmente eu deveria recalcular o dtw a partir do ponto m (criar um primeiro ponto ficticio em uma sequencia com 0 e na outra com o valor da raiz do ponto m (pq usa distancia euclidiana))
-                    # ja estou fazendo isso, so que os erros estao diminuindo por algum motivo
-                    r = refs[i]
-                    r = r[ref_alignment[j]:].detach().clone().cuda()
-                    s = sign[query_alignment[j]:]
-                    s = s.detach().clone().cuda()
-                    r[0] = torch.tensor(0.0)
-                    r[0][0] = torch.sqrt(torch.tensor(m))
-                    s[0] = torch.tensor(0.0)
-                    aux2, matrix2 = (self._dte(r, s, len_refs[i] - ref_alignment[j], len_sign-query_alignment[j],True))
-                    matrix2 = matrix2.squeeze(0).detach().cpu().numpy()
-                    # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(len_refs[i] + len_sign))
+        #             # idealmente eu deveria recalcular o dtw a partir do ponto m (criar um primeiro ponto ficticio em uma sequencia com 0 e na outra com o valor da raiz do ponto m (pq usa distancia euclidiana))
+        #             # ja estou fazendo isso, so que os erros estao diminuindo por algum motivo
+        #             r = refs[i]
+        #             r = r[ref_alignment[j]:].detach().clone().cuda()
+        #             s = sign[query_alignment[j]:]
+        #             s = s.detach().clone().cuda()
+        #             r[0] = torch.tensor(0.0)
+        #             r[0][0] = torch.sqrt(torch.tensor(m))
+        #             s[0] = torch.tensor(0.0)
+        #             aux2, matrix2 = (self._dte(r, s, len_refs[i] - ref_alignment[j], len_sign-query_alignment[j],True))
+        #             matrix2 = matrix2.squeeze(0).detach().cpu().numpy()
+        #             # acc_distance[k_count] = (matrix[ref_alignment[max_index]][query_alignment[max_index]] + m) / (64*(len_refs[i] + len_sign))
                     
-                    # assert aux2 >= acc_distance[0]
-                    acc_distance.append(float(aux2))
+        #             # assert aux2 >= acc_distance[0]
+        #             acc_distance.append(float(aux2))
                     
-                    k_count += 1
+        #             k_count += 1
 
-                    # if k_count == k: break
-            dists.append(np.sum(sorted(np.array(acc_distance))[:2]))
+        #             # if k_count == k: break
+        #     dists.append(np.sum(sorted(np.array(acc_distance))[:2]))
 
         """Versao original"""
-        # for i in range(0, len(refs)):
-        #     aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
-        #     dists.append(aux.detach().cpu().numpy())    
+        for i in range(0, len(refs)):
+            aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
+            dists.append(aux.detach().cpu().numpy())    
 
 
         dists = np.array(dists) / dk_sqrt
@@ -408,7 +408,7 @@ class DsPipeline(nn.Module):
 
         BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(s_avg + s_min)) + "\n"
 
-        return (s_avg + s_min), user_key, result, acc_distance
+        return (s_avg + s_min), user_key, result #, acc_distance
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -507,8 +507,8 @@ class DsPipeline(nn.Module):
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
         
-        global BUFFER
-        print(BUFFER)
+        # global BUFFER
+        # print(BUFFER)
         return ret_metrics
 
     def start_train(self, comparison_files : List[str], result_folder : str):
