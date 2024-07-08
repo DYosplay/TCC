@@ -495,8 +495,6 @@ class DsPipeline(nn.Module):
                 print("EER atualizado: ")
                 print(ret_metrics)
 
-        with open(os.path.join(comparison_folder,'acc_distance_dict.pickle'), 'wb') as fw:
-            pickle.dump(acc_distance_dict, fw)
 
         self.train(mode=True)
 
