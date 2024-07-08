@@ -71,7 +71,7 @@ def parse_arguments():
 	parser.add_argument("-kmat", "--knn_matrix", help="path to knn matrix", type=str)
 
 	parser.add_argument("-rep", "--repetitions", help="number of writers in a batch", default=10, type=int)
-	parser.add_argument("-fp", "--forget_points", help="number of writers in a batch", default=0.1, type=float)
+	parser.add_argument("-fp", "--forget_points", help="number of writers in a batch", default=0.0, type=float)
 
 	# Read arguments from command line
 	args = parser.parse_args()
