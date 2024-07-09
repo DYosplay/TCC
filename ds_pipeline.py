@@ -342,7 +342,10 @@ class DsPipeline(nn.Module):
                 dists = np.array(dists) / dk_sqrt
                 s_avg = np.mean(dists)
                 s_min = min(dists)
-                dists_dict[i] = s_avg + s_min
+                if i not in dists_dict.keys():
+                    dists_dict[i] = [s_avg + s_min]
+                else:
+                    dists_dict[i].append(s_avg + s_min)
                 acc_dist += s_avg + s_min
 
                 del dtw_temp
