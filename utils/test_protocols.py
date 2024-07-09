@@ -166,6 +166,8 @@ def evaluate(hyperparameters : Dict[str, Any], res_folder):
 	eval_db(hyperparameters, res_folder, MCYT_SKILLED_1VS1)
 	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_SKILLED_STYLUS_4VS1"
 	eval_db(hyperparameters, res_folder, SKILLED_STYLUS_1VS1)
+	if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = hyperparameters['wandb_name'] + "_EV_RANDOM_STYLUS_1VS1"
+	eval_db(hyperparameters, res_folder, RANDOM_STYLUS_1VS1)
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_4VS1"
 	# eval_db(hyperparameters, res_folder, RANDOM_STYLUS_4VS1)
 	# if hyperparameters['wandb_name'] is not None: hyperparameters['wandb_name'] = bckp_name + "_EV_RANDOM_STYLUS_1VS1"
