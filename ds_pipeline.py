@@ -229,143 +229,6 @@ class DsPipeline(nn.Module):
             # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
     
-    # def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
-    #     """
-    #     Args:
-    #         files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
-
-    #     Raises:
-    #         ValueError: "Arquivos de comparação com formato desconhecido"
-
-    #     Returns:
-    #         float, str, int: distância da assinatura, usuário, label 
-    #     """
-    #     tokens = files.split(" ")
-    #     user_key = tokens[0].split("_")[0]
-    
-
-    #     result = math.nan
-    #     refs = []
-    #     sign = ""
-    #     s_avg = 0
-    #     s_min = 0
-
-    #     if len(tokens) == 2:
-    #         a = tokens[0].split('_')[0]
-    #         b = tokens[1].split('_')[0]
-    #         result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
-    #     elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
-    #     elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
-    #     else: raise ValueError("Arquivos de comparação com formato desconhecido")
-
-    #     test_batch, lens = batches_gen.files2array(refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
-
-    #     mask = self.getOutputMask(lens)
-        
-    #     mask = Variable(torch.from_numpy(mask)).cuda()
-    #     inputs = Variable(torch.from_numpy(test_batch)).cuda()
-
-    #     embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-    #     refs = embeddings[:len(embeddings)-1]
-    #     sign = embeddings[-1]
-
-    #     len_refs = lengths[:len(embeddings)-1]
-    #     len_sign = lengths[-1]
-
-    #     dk = math.nan
-    #     count = 0
-    #     if len(refs) == 1 : dk = 1
-    #     else:
-    #         dk = 0
-    #         aux = 0
-    #         for i in range(0, len(refs)):
-    #             for j in range(1, len(refs)):
-    #                 if i < j:
-    #                     dk_v, matrix = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
-    #                     dk += dk_v
-    #                     count += 1
-
-    #         dk = dk/(count)
-    
-    #     if dk <= 0 or dk is math.nan or dk > 10000:
-    #         print("oi")
-    #     dk_sqrt = math.sqrt(dk)
-        
-    #     dists = []
-
-        
-    #     # for i in range(0, len(refs)):
-    #     #     aux = 0
-    #     #     for reps in range(0,self.hyperparameters['repetitions']):
-    #     #         # dists.append(self._dte(refs[i], sign, len_refs[i], len_sign).detach().cpu().numpy()[0])
-    #     #         offset = self.hyperparameters['forget_points']
-    #     #         ordered_sequence = np.arange(0, int(len_refs[i]) + 1)
-    #     #         random_list = sorted(np.random.choice(ordered_sequence, size=int(offset * 100), replace=False), reverse=True)
-    #     #         indexes = torch.arange(int(len_refs[i]))
-    #     #         for elem in random_list:
-    #     #             indexes = indexes[indexes != elem]
-    #     #         r = refs[i]
-
-    #     #         # aux2, matrix = (self._dte(r[indexes], sign, int(len_refs[i]*(1-offset)), len_sign))
-    #     #         aux2, matrix = (self._dte(r[indexes], sign, int(len_refs[i]*(1-offset)), len_sign))
-    #     #         aux += aux2.detach().cpu().numpy()
-    #     #     dists.append(aux)   
-
-    #     # aux = 0
-    #     # for i in range(0, len(refs)):
-    #     #     # for reps in range(0,self.hyperparameters['repetitions']):
-    #     #     for reps in range(0,3):
-    #     #         ordered_sequence = np.arange(0, int(len_refs[i]))
-    #     #         offset = 20
-    #     #         # Randomly sample N elements from the ordered sequence without replacement
-    #     #         random_list = sorted(np.random.choice(ordered_sequence, size=int(len_refs[i]) - offset, replace=False).tolist())
-    #     #         indexes = torch.tensor(random_list).cuda()
-    #     #         r = refs[i]
-    #     #         aux2, matrix = self._dte(r[indexes], sign,r[indexes].shape[0], len_sign)
-    #     #         aux += aux2
-    #     #     dists.append(float(aux))
-       
-    #     global BUFFER
-    #     dists_dict = {}
-    #     acc_dist = 0
-    #     ranges = list(np.arange(0.01,0.2,0.01)) + list(np.arange(0.2,1,0.1))
-    #     if 1.0 not in ranges: ranges.append(1.0)
-    #     with torch.no_grad():
-    #         for b in ranges:
-    #             dists = []
-    #             dtw_temp = dtw.DTW(True, normalize=False, bandwidth=b)
-            
-    #             for i in range(0, len(refs)):
-    #                 aux = (self._dte(refs[i], sign, len_refs[i], len_sign, dtw_t=dtw_temp))[0]
-    #                 dists.append(aux.detach().cpu().numpy()[0])    
-
-    #             dists = np.array(dists) / dk_sqrt
-    #             s_avg = np.mean(dists)
-    #             s_min = min(dists)
-    #             if i not in dists_dict.keys():
-    #                 dists_dict[i] = [s_avg + s_min]
-    #             else:
-    #                 dists_dict[i].append(s_avg + s_min)
-    #             acc_dist += s_avg + s_min
-
-    #             del dtw_temp
-        
-
-
-    #     # """Versao original"""
-    #     # for i in range(0, len(refs)):
-    #     #     aux, matrix = (self._dte(refs[i], sign, len_refs[i], len_sign))
-    #     #     dists.append(aux.detach().cpu().numpy())    
-
-
-    #     # dists = np.array(dists) / dk_sqrt
-    #     # s_avg = np.mean(dists)
-    #     # s_min = min(dists)
-
-    #     BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(s_avg + s_min)) + "\n"
-
-    #     return (s_avg + s_min), user_key, result, dists_dict
-
     def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
         """
         Args:
@@ -379,7 +242,8 @@ class DsPipeline(nn.Module):
         """
         tokens = files.split(" ")
         user_key = tokens[0].split("_")[0]
-        
+    
+
         result = math.nan
         refs = []
         sign = ""
@@ -416,24 +280,110 @@ class DsPipeline(nn.Module):
             for i in range(0, len(refs)):
                 for j in range(1, len(refs)):
                     if i < j:
-                        dk += (self._dte(refs[i], refs[j], len_refs[i], len_refs[j]))
+                        dk_v, matrix = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
+                        dk += dk_v
                         count += 1
 
             dk = dk/(count)
     
-        if dk <= 0 or dk is math.nan or dk > 10000:
-            print("oi")
         dk_sqrt = math.sqrt(dk)
         
         dists = []
-        for i in range(0, len(refs)):
-            dists.append(self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0])
 
-        dists = np.array(dists) / dk_sqrt
-        s_avg = np.mean(dists)
-        s_min = min(dists)
+        global BUFFER
+        dists_bands = []
+        ranges = list(np.arange(0.01,0.2,0.01)) + list(np.arange(0.2,1,0.1))
+        if 1.0 not in ranges: ranges.append(1.0)
+        with torch.no_grad():
+            for b in ranges:
+                dists = []
+                dtw_temp = dtw.DTW(True, normalize=False, bandwidth=b)
+            
+                for i in range(0, len(refs)):
+                    aux = (self._dte(refs[i], sign, len_refs[i], len_sign, dtw_t=dtw_temp))[0]
+                    dists.append(aux.detach().cpu().numpy()[0])    
 
-        return (s_avg + s_min), user_key, result
+                dists = np.array(dists) / dk_sqrt
+                s_avg = np.mean(dists)
+                s_min = min(dists)
+                dists_bands.append(s_avg + s_min)
+
+                del dtw_temp
+        
+        score = np.sum(np.array(dists_bands))
+
+        BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(score)) + "\n"
+
+        return score, user_key, result, dists_bands
+
+    # def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
+    #     """
+    #     Args:
+    #         files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
+
+    #     Raises:
+    #         ValueError: "Arquivos de comparação com formato desconhecido"
+
+    #     Returns:
+    #         float, str, int: distância da assinatura, usuário, label 
+    #     """
+    #     tokens = files.split(" ")
+    #     user_key = tokens[0].split("_")[0]
+        
+    #     result = math.nan
+    #     refs = []
+    #     sign = ""
+    #     s_avg = 0
+    #     s_min = 0
+
+    #     if len(tokens) == 2:
+    #         a = tokens[0].split('_')[0]
+    #         b = tokens[1].split('_')[0]
+    #         result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
+    #     elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+    #     elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
+    #     else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+    #     test_batch, lens = batches_gen.files2array(refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
+
+    #     mask = self.getOutputMask(lens)
+        
+    #     mask = Variable(torch.from_numpy(mask)).cuda()
+    #     inputs = Variable(torch.from_numpy(test_batch)).cuda()
+
+    #     embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+    #     refs = embeddings[:len(embeddings)-1]
+    #     sign = embeddings[-1]
+
+    #     len_refs = lengths[:len(embeddings)-1]
+    #     len_sign = lengths[-1]
+
+    #     dk = math.nan
+    #     count = 0
+    #     if len(refs) == 1 : dk = 1
+    #     else:
+    #         dk = 0
+    #         for i in range(0, len(refs)):
+    #             for j in range(1, len(refs)):
+    #                 if i < j:
+    #                     dk += (self._dte(refs[i], refs[j], len_refs[i], len_refs[j]))
+    #                     count += 1
+
+    #         dk = dk/(count)
+    
+    #     if dk <= 0 or dk is math.nan or dk > 10000:
+    #         print("oi")
+    #     dk_sqrt = math.sqrt(dk)
+        
+    #     dists = []
+    #     for i in range(0, len(refs)):
+    #         dists.append(self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0])
+
+    #     dists = np.array(dists) / dk_sqrt
+    #     s_avg = np.mean(dists)
+    #     s_min = min(dists)
+
+    #     return (s_avg + s_min), user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -457,10 +407,12 @@ class DsPipeline(nn.Module):
         if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
 
         users = {}
-
+        dists_dict = {}
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
-            
+            # distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            distance, user_id, true_label, dists_bands = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            dists_dict[line] = dists_bands
+
             if user_id not in users: 
                 users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
             else:
@@ -510,7 +462,6 @@ class DsPipeline(nn.Module):
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
 
-
         self.last_eer = eer_global
         ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if n_epoch != 0 and n_epoch != 777 and n_epoch != 888 and n_epoch < 100:
@@ -521,6 +472,9 @@ class DsPipeline(nn.Module):
                 print(ret_metrics)
 
         self.train(mode=True)
+
+        with open(os.path.join(comparison_folder,'acc_distance_dict.pickle'), 'wb') as fw:
+            pickle.dump(dists_dict, fw)
 
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
