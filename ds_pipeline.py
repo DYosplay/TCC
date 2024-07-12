@@ -66,7 +66,8 @@ class DsPipeline(nn.Module):
         self.user_err_avg = 0 
         self.dataset_folder = hyperparameters['dataset_folder']
         self.comparison_data = {}
-        self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
+        # self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
+        self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th, path100mean, path100var\n"
         self.eer = []
         self.best_eer = math.inf
         self.last_eer = math.inf
@@ -292,7 +293,9 @@ class DsPipeline(nn.Module):
 
         global BUFFER
         dists_bands = []
+        paths_bands = [] 
         ranges = list(np.arange(0.01,0.2,0.01)) + list(np.arange(0.2,1,0.1))
+        # ranges = list(np.arange(0.8,1,0.1))
         if 1.0 not in ranges: ranges.append(1.0)
         with torch.no_grad():
             for b in ranges:
@@ -300,21 +303,23 @@ class DsPipeline(nn.Module):
                 dtw_temp = dtw.DTW(True, normalize=False, bandwidth=b)
             
                 for i in range(0, len(refs)):
-                    aux = (self._dte(refs[i], sign, len_refs[i], len_sign, dtw_t=dtw_temp))[0]
+                    aux, matrix = self._dte(refs[i], sign, len_refs[i], len_sign, dtw_t=dtw_temp)
+                    path = traceback(matrix.squeeze(0))
                     dists.append(aux.detach().cpu().numpy()[0])    
+                    assert len(path[0]) == len(path[1])
+                    paths_bands.append(len(path[0]))
 
                 dists = np.array(dists) / dk_sqrt
                 s_avg = np.mean(dists)
                 s_min = min(dists)
                 dists_bands.append(s_avg + s_min)
-
                 del dtw_temp
         
         score = np.sum(np.array(dists_bands))
 
         BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(score)) + "\n"
 
-        return score, user_key, result, dists_bands
+        return score, user_key, result, dists_bands, paths_bands
 
     # def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
     #     """
@@ -408,19 +413,23 @@ class DsPipeline(nn.Module):
 
         users = {}
         dists_dict = {}
+        paths_dict = {}
         for line in tqdm(lines, "Calculando distâncias..."):
             # distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
-            distance, user_id, true_label, dists_bands = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            distance, user_id, true_label, dists_bands, paths_bands = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
             dists_dict[line] = dists_bands
+            paths_dict[line] = paths_bands
 
             if user_id not in users: 
-                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
+                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "paths_lens": [paths_bands[-1]]}
             else:
                 users[user_id]["distances"].append(distance)
                 users[user_id]["true_label"].append(true_label)
+                if true_label == 0:
+                    users[user_id]["paths_lens"].append(paths_bands[-1])
 
         # Nesse ponto, todos as comparações foram feitas
-        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range\n"
+        buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range, path100mean, path100var\n"
         local_buffer = ""
         global_true_label = []
         global_distances = []
@@ -441,7 +450,7 @@ class DsPipeline(nn.Module):
 
                 local_ths.append(eer_threshold)
                 eers.append(eer)
-                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ")\n"
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ", " + str(np.mean(np.array(users[user]["paths_lens"]))) + ", " + str(np.var(np.array(users[user]["paths_lens"]))) + ")\n"
 
         print("Obtendo EER global...")
         
@@ -455,9 +464,9 @@ class DsPipeline(nn.Module):
         
         th_range_global = np.max(np.array(global_distances)[np.array(global_distances) < eer_threshold_global])
 
-        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n" + local_buffer
+        buffer += "Global, " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + "), 0, 0" + "\n" + local_buffer
 
-        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + ")\n"
+        self.buffer += str(n_epoch) + ", " + "{:.5f}".format(local_eer_mean) + ", " + "{:.5f}".format(eer_global) + ", " + "{:.5f}".format(eer_threshold_global) + ", " + "{:.5f}".format(local_ths_var) + ", " + "{:.5f}".format(local_ths_amp) + ", " + "{:.5f}".format(eer_threshold_global -th_range_global) + " (" + "{:.5f}".format(th_range_global) + "~" + "{:.5f}".format(eer_threshold_global) + "), 0, 0" + "\n"
 
         with open(comparison_folder + os.sep + file_name + " epoch=" + str(n_epoch) + ".csv", "w") as fw:
             fw.write(buffer)
@@ -475,6 +484,9 @@ class DsPipeline(nn.Module):
 
         with open(os.path.join(comparison_folder,'acc_distance_dict.pickle'), 'wb') as fw:
             pickle.dump(dists_dict, fw)
+
+        with open(os.path.join(comparison_folder,'paths_lens_dict.pickle'), 'wb') as fw:
+            pickle.dump(paths_dict, fw)
 
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
