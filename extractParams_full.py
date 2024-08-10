@@ -66,100 +66,92 @@ def show(path1, path2):
 # users = pickle.load(open('../Data/MCYT_eva.pkl', 'rb'))
 # saveDirPrefix = "./params/mcyt_eva_full/"
 
-# users = pickle.load(open('../Data/MCYT_dev.pkl', 'rb'))
-# saveDirPrefix = "./params/mcyt_dev_full/"
-
-# users = pickle.load(open('../Data/BSID_dev.pkl', 'rb'))
-# saveDirPrefix = "./params/bsid_dev_full/"
-
-# users = pickle.load(open('../Data/Ebio1_dev.pkl', 'rb'))
-# saveDirPrefix = "./params/Ebio1_dev_full/"
-
-users = pickle.load(open('../Data/Ebio2_dev.pkl', 'rb'))
-saveDirPrefix = "./params/Ebio2_dev_full/"
+users_list = ['../data/MCYT_dev.pkl','../data/BSID_dev.pkl','../data/Ebio1_dev.pkl','../data/Ebio2_dev.pkl']
+saveDirPrefix_list = ["./params/mcyt_dev_full/", "./params/bsid_dev_full/", "./params/Ebio1_dev_full/", "./params/Ebio2_dev_full/"]
 
 
-os.makedirs(saveDirPrefix,exist_ok=True)
+for i in range(len(users_list)):
+    saveDirPrefix = saveDirPrefix_list[i]
+    users = pickle.load(open(users_list[i], 'rb'))
+    os.makedirs(saveDirPrefix,exist_ok=True)
 
-keys = list(users.keys())
-print(keys)
+    keys = list(users.keys())
+    print(keys)
 
-global SNRv; SNRv = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.float32)
-global SNRv2; SNRv2 = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.float32)
-global SNRt; SNRt = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.float32)
-global numLN; numLN = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.int32)
-global count; count = 0
+    global SNRv; SNRv = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.float32)
+    global SNRv2; SNRv2 = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.float32)
+    global SNRt; SNRt = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.float32)
+    global numLN; numLN = numpy.zeros((len(keys)*len(users[keys[0]][True])), dtype=numpy.int32)
+    global count; count = 0
 
-for key in tqdm(keys): #
-    print ("Key: ", key)
-    for idx, path in enumerate(users[key][True]):
-        if idx > 4:
-            continue
-        print ("Sample: ", idx)
-        path = functions.cubicSplineInterp(path, nfs=2)
-        time = numpy.arange(len(path), dtype=numpy.float64) * 0.005
-        P, AUC, R, vMax, targetPath, speed_x, speed_y = paramExtraction(time, path, 
-                                    lAmbda=15., 
-                                    smoothing=True, 
-                                    zeroInit=False,
-                                    saveParam=False, 
-                                    dt=0.005,
-                                    seqMode=False,
-                                    localOptim=False)
-        snrv, snrv2, snrt = computeSNR(P, time, targetPath, speed_x, speed_y)
-
-        if snrv < 15 or snrt < 12:
-            P_res, AUC_res, R, _, _, _, _ = paramExtraction(time, R, 
-                                        lAmbda=25., 
-                                        smoothing=False, 
-                                        zeroInit=True,
+    for key in tqdm(keys): #
+        print ("Key: ", key)
+        for idx, path in enumerate(users[key][True]):
+            print ("Sample: ", idx)
+            path = functions.cubicSplineInterp(path, nfs=2)
+            time = numpy.arange(len(path), dtype=numpy.float64) * 0.005
+            P, AUC, R, vMax, targetPath, speed_x, speed_y = paramExtraction(time, path, 
+                                        lAmbda=15., 
+                                        smoothing=True, 
+                                        zeroInit=False,
                                         saveParam=False, 
-                                        dt=0.005, 
-                                        vm=vMax, 
-                                        seqMode=True) 
-            P = numpy.concatenate((P, P_res), axis=0)
-            AUC = numpy.concatenate((AUC, AUC_res), axis=0)
-            AUC = AUC[numpy.argsort(P[:,1])] #ascending t0
-            P = P[numpy.argsort(P[:,1])] #ascending t0
+                                        dt=0.005,
+                                        seqMode=False,
+                                        localOptim=False)
             snrv, snrv2, snrt = computeSNR(P, time, targetPath, speed_x, speed_y)
 
-        if snrv < 18 or snrt < 18:
-            ''' Optimization of the sigma-lognormal parameters that are not good enough. 
-            It is slow, but leads to better synthesized signatures.'''
-            print ("Before optimization: ", snrv, snrv2, snrt, P.shape)
-            P_new = paramRefinement(P, AUC, time, targetPath, speed_x, speed_y, dt=0.005)
-            snrv_new, snrv2_new, snrt_new = computeSNR(P_new, time, targetPath, speed_x, speed_y)
-            if snrt_new >= snrt:
-                snrv = snrv_new; snrv2 = snrv2_new; snrt = snrt_new; P = P_new
+            if snrv < 15 or snrt < 12:
+                P_res, AUC_res, R, _, _, _, _ = paramExtraction(time, R, 
+                                            lAmbda=25., 
+                                            smoothing=False, 
+                                            zeroInit=True,
+                                            saveParam=False, 
+                                            dt=0.005, 
+                                            vm=vMax, 
+                                            seqMode=True) 
+                P = numpy.concatenate((P, P_res), axis=0)
+                AUC = numpy.concatenate((AUC, AUC_res), axis=0)
+                AUC = AUC[numpy.argsort(P[:,1])] #ascending t0
                 P = P[numpy.argsort(P[:,1])] #ascending t0
+                snrv, snrv2, snrt = computeSNR(P, time, targetPath, speed_x, speed_y)
+
+            if snrv < 18 or snrt < 18:
+                ''' Optimization of the sigma-lognormal parameters that are not good enough. 
+                It is slow, but leads to better synthesized signatures.'''
+                print ("Before optimization: ", snrv, snrv2, snrt, P.shape)
+                P_new = paramRefinement(P, AUC, time, targetPath, speed_x, speed_y, dt=0.005)
+                snrv_new, snrv2_new, snrt_new = computeSNR(P_new, time, targetPath, speed_x, speed_y)
+                if snrt_new >= snrt:
+                    snrv = snrv_new; snrv2 = snrv2_new; snrt = snrt_new; P = P_new
+                    P = P[numpy.argsort(P[:,1])] #ascending t0
+                else:
+                    print ("~~~")
+                R = getResidualPath(P, time, path, dt=0.005)
             else:
-                print ("~~~")
-            R = getResidualPath(P, time, path, dt=0.005)
-        else:
-            R = getResidualPath(P, time, path, dt=0.005)
-        
-        print ("------------", snrv, snrv2, snrt, P.shape)
+                R = getResidualPath(P, time, path, dt=0.005)
+            
+            print ("------------", snrv, snrv2, snrt, P.shape)
 
-        reconPathX, reconPathY, _, _ = paramReconstruction(P, time, dt=0.005)
-        reconPathX += R[0, 0]
-        reconPathY += R[0, 1]
-        reconPath = numpy.concatenate([reconPathX[:,None], reconPathY[:,None]], axis=1)
-        # show(reconPath, path)
+            reconPathX, reconPathY, _, _ = paramReconstruction(P, time, dt=0.005)
+            reconPathX += R[0, 0]
+            reconPathY += R[0, 1]
+            reconPath = numpy.concatenate([reconPathX[:,None], reconPathY[:,None]], axis=1)
+            # show(reconPath, path)
 
-        saveDir = os.path.join(saveDirPrefix, str(key))
-        if not os.path.exists(saveDir):
-            os.mkdir(saveDir)
-        numpy.save(os.path.join(saveDir, "Pmatrix_G%d_%d.npy"%(key, idx)), P)
-        numpy.save(os.path.join(saveDir, "residual_G%d_%d.npy"%(key, idx)), R)
+            saveDir = os.path.join(saveDirPrefix, str(key))
+            if not os.path.exists(saveDir):
+                os.mkdir(saveDir)
+            numpy.save(os.path.join(saveDir, "Pmatrix_G%d_%d.npy"%(key, idx)), P)
+            numpy.save(os.path.join(saveDir, "residual_G%d_%d.npy"%(key, idx)), R)
 
-        count += 1
+            count += 1
 
-    print (count)
+        print (count)
 
-print (numpy.mean(numLN))
-print (numpy.mean(SNRv))
-print (numpy.mean(SNRv2))
-print (numpy.mean(SNRt))
-import pdb
-pdb.set_trace()
+    print (numpy.mean(numLN))
+    print (numpy.mean(SNRv))
+    print (numpy.mean(SNRv2))
+    print (numpy.mean(SNRt))
+# import pdb
+# pdb.set_trace()
 
