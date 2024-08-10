@@ -11,6 +11,7 @@ from slbox import functions, optimization
 from slbox.extractionFirstMode import pathOps, pad
 from slbox.extractionFirstMode import paramExtraction, paramReconstruction
 from tqdm import tqdm
+import sys
 
 def getResidualPath(P, time, path, dt=0.01):
     PATH = pathOps(time, path, smoothing=False, pad=pad, zeroInit=False)
@@ -65,12 +66,15 @@ def show(path1, path2):
 
 # users = pickle.load(open('../Data/MCYT_eva.pkl', 'rb'))
 # saveDirPrefix = "./params/mcyt_eva_full/"
+def main(argv):
+    if len(argv) < 1:
+        print("parametro i nao informado")
+        exit(-1)
+    users_list = ['../data/MCYT_dev.pkl','../data/BSID_dev.pkl','../data/Ebio1_dev.pkl','../data/Ebio2_dev.pkl']
+    saveDirPrefix_list = ["./params/mcyt_dev_full/", "./params/bsid_dev_full/", "./params/Ebio1_dev_full/", "./params/Ebio2_dev_full/"]
 
-users_list = ['../data/MCYT_dev.pkl','../data/BSID_dev.pkl','../data/Ebio1_dev.pkl','../data/Ebio2_dev.pkl']
-saveDirPrefix_list = ["./params/mcyt_dev_full/", "./params/bsid_dev_full/", "./params/Ebio1_dev_full/", "./params/Ebio2_dev_full/"]
+    i = int(argv[0])
 
-
-for i in range(len(users_list)):
     saveDirPrefix = saveDirPrefix_list[i]
     users = pickle.load(open(users_list[i], 'rb'))
     os.makedirs(saveDirPrefix,exist_ok=True)
@@ -152,6 +156,8 @@ for i in range(len(users_list)):
     print (numpy.mean(SNRv))
     print (numpy.mean(SNRv2))
     print (numpy.mean(SNRt))
-# import pdb
-# pdb.set_trace()
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
 
