@@ -275,40 +275,44 @@ def off_synthesis(sigDict, slnPath, prefix, cache=True):
         pickle.dump([PATH_G, PATH_F], open("cache/%s_synFullPaths_%d_%.1f.pkl"%(prefix, numSynthesis, slnLevel), 'wb'))
     return PATH_G, PATH_F
 
-sigDict = pickle.load(open(".." + os.sep + "data" + os.sep + "MCYT_dev.pkl", "rb")) #, encoding='iso-8859-1'
-slnPath= "sigma_lognormal" + os.sep + "params" + os.sep + "mcyt_dev_full"
-prefix = "MCYT"
-# max_index = 2
-feats_orig = []
-feats_syn_g = []
-feats_syn_f = []
+signspkl = ["EBio2_dev.pkl","EBio1_dev.pkl","MCYT_dev.pkl","BSID_dev.pkl"]
+signspar = ["EBio2_dev_full","EBio1_dev_full","mcyt_dev_full","bsid_dev_full"]
 
-newKeys = list(sigDict.keys())
-N = len(feats_orig)
-numSynthesis = 10
+for s in range(len(signspkl)):
+    sigDict = pickle.load(open(".." + os.sep + ".." + os.sep + "data" + os.sep + signspkl[s], "rb")) #, encoding='iso-8859-1'
+    slnPath= ".." + os.sep +"sigma_lognormal" + os.sep + "params" + os.sep +  signspar[s]
+    prefix = (signspkl[s].split("_"))
+    # max_index = 2
+    feats_orig = []
+    feats_syn_g = []
+    feats_syn_f = []
 
-print (">>>>> Synthesizing signatures... <<<<<")
-slnPath_G, slnPath_F = off_synthesis(sigDict, slnPath, prefix)
-print (">>>>> Synthesizing pressures... <<<<<")
-slnPath_G, slnPath_F = off_synthesisPressure(sigDict, slnPath_G, slnPath_F)
-print (">>>>> Done <<<<<")
+    newKeys = list(sigDict.keys())
+    N = len(feats_orig)
+    numSynthesis = 10
 
-numGen = numpy.zeros(len(newKeys), dtype=numpy.int32)
-numSlnG = numpy.zeros(len(newKeys), dtype=numpy.int32)
-numSlnN = numpy.zeros(len(newKeys), dtype=numpy.int32)
+    print (">>>>> Synthesizing signatures... <<<<<")
+    slnPath_G, slnPath_F = off_synthesis(sigDict, slnPath, prefix)
+    print (">>>>> Synthesizing pressures... <<<<<")
+    slnPath_G, slnPath_F = off_synthesisPressure(sigDict, slnPath_G, slnPath_F)
+    print (">>>>> Done <<<<<")
 
-print (">>>>> Extracting features... <<<<<")
-for i, key in enumerate(newKeys):
-    # print (">>>>>User key:", key, "<<<<<")
-    sys.stdout.write(">>>>> User key: %d <<<<<\r"%key)
-    sys.stdout.flush()
-    featExt(sigDict[key][True], feats_orig, user=key, index=i, kind='g')
-    featExt(slnPath_G[key], feats_syn_g, user=key, index=i, kind='o')
-    featExt(slnPath_F[key], feats_syn_f, user=key, index=i, kind='s')
-    numGen[i] = len(sigDict[key][True])
-    numSlnG[i] = len(sigDict[key][True]) * numSynthesis
-    numSlnN[i] = len(sigDict[key][True]) * numSynthesis
-print (">>>>> Done <<<<<")
-numGen = numpy.concatenate((numGen, numGen))
-numSlnG = numpy.concatenate((numSlnG, numSlnG))
-numSlnN = numpy.concatenate((numSlnN, numSlnN))
+    numGen = numpy.zeros(len(newKeys), dtype=numpy.int32)
+    numSlnG = numpy.zeros(len(newKeys), dtype=numpy.int32)
+    numSlnN = numpy.zeros(len(newKeys), dtype=numpy.int32)
+
+    print (">>>>> Extracting features... <<<<<")
+    for i, key in enumerate(newKeys):
+        # print (">>>>>User key:", key, "<<<<<")
+        sys.stdout.write(">>>>> User key: %d <<<<<\r"%key)
+        sys.stdout.flush()
+        featExt(sigDict[key][True], feats_orig, user=key, index=i, kind='g')
+        featExt(slnPath_G[key], feats_syn_g, user=key, index=i, kind='o')
+        featExt(slnPath_F[key], feats_syn_f, user=key, index=i, kind='s')
+        numGen[i] = len(sigDict[key][True])
+        numSlnG[i] = len(sigDict[key][True]) * numSynthesis
+        numSlnN[i] = len(sigDict[key][True]) * numSynthesis
+    print (">>>>> Done <<<<<")
+    numGen = numpy.concatenate((numGen, numGen))
+    numSlnG = numpy.concatenate((numSlnG, numSlnG))
+    numSlnN = numpy.concatenate((numSlnN, numSlnN))
