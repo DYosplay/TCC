@@ -5,6 +5,7 @@ import DataLoader.loader as loader
 from tqdm import tqdm
 from utils.pre_alignment import align
 from typing import Dict, Any
+import re
 
 def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
     files = os.listdir(dataset_folder)
@@ -23,19 +24,26 @@ def files2array(batch, hyperparameters : Dict[str,Any], z : bool, development : 
     data = []; lens = []
 
     for file in batch:
-        file = file.replace('\\', os.sep)
-        file = file.replace('/', os.sep)
-        file = file.strip()
-        
-        if hyperparameters['signature_path'] is not None:
-            file = os.path.join(hyperparameters['signature_path'], file)
-            development = 'Development' in file
+        feat = None
+        if '_syn_' in file:
+            with open(hyperparameters['synthetic_folder'] + os.sep + file,'r') as fr:
+                lines = fr.readlines()
+                lines = lines[1:]
+                feat = np.genfromtxt(lines, delimiter=',').T
         else:
-            subset_folder = 'Development' if development else "Evaluation"
-            file_path = os.path.join(hyperparameters['dataset_folder'], subset_folder, hyperparameters['dataset_scenario'])
-            if file_path not in file: file = os.path.join(file_path, file)
-        
-        feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
+            file = file.replace('\\', os.sep)
+            file = file.replace('/', os.sep)
+            file = file.strip()
+            
+            if hyperparameters['signature_path'] is not None:
+                file = os.path.join(hyperparameters['signature_path'], file)
+                development = 'Development' in file
+            else:
+                subset_folder = 'Development' if development else "Evaluation"
+                file_path = os.path.join(hyperparameters['dataset_folder'], subset_folder, hyperparameters['dataset_scenario'])
+                if file_path not in file: file = os.path.join(file_path, file)
+            
+            feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
         data.append(feat)
         lens.append(len(feat[0]))
 
