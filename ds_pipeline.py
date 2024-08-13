@@ -65,7 +65,7 @@ class DsPipeline(nn.Module):
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
         self.dataset_folder = hyperparameters['dataset_folder']
-        self.synthetic_folder = hyperparameters['synthetic_folder']
+        # self.synthetic_folder = hyperparameters['synthetic_folder']
         self.comparison_data = {}
         # self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
         self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th, path100mean, path100var\n"
