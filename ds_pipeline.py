@@ -20,7 +20,7 @@ import DTW.dtw_cuda as dtw
 import DTW.soft_dtw_cuda as sdtw
 import utils.metrics as metrics
 
-
+import re
 import pickle
 
 import wandb
@@ -65,6 +65,7 @@ class DsPipeline(nn.Module):
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
         self.dataset_folder = hyperparameters['dataset_folder']
+        self.synthetic_folder = hyperparameters['synthetic_folder']
         self.comparison_data = {}
         # self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
         self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th, path100mean, path100var\n"
@@ -212,11 +213,26 @@ class DsPipeline(nn.Module):
             return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x))
          
         # return self.dtw(x[None, :int(len_x)], y[None, :int(len_y)])[0] /(64*(len_x + len_y))
-        if dtw_t is not None: 
-            v, matrix = dtw_t(x[None, :int(len_x)], y[None, :int(len_y)], optimal_choice) 
-            return v /(64*(len_x + len_y)), matrix
+        # if dtw_t is not None: 
+        #     v, matrix = dtw_t(x[None, :int(len_x)], y[None, :int(len_y)], optimal_choice) 
+        #     # return v /(64*(len_x + len_y)), matrix
+        #     return v, matrix
         
+        # """ Utilizando DTW independente """
+        # value = 0
+        # x = (x[None,:int(len_x)])
+        # y = (y[None,:int(len_y)])
+        # x = x.squeeze(0).transpose(0,1)
+        # y = y.squeeze(0).transpose(0,1)
+        # for i in range(0,x.shape[0]):
+        #     if dtw_t is not None: 
+        #         v, matrix = dtw_t(x[i].unsqueeze(1).unsqueeze(0), y[i].unsqueeze(1).unsqueeze(0), optimal_choice) 
+        #         value+=v
+        #         # return v /(64*(len_x + len_y)), matrix
+        # return value, matrix
+            
         v, matrix = self.dtw(x[None, :int(len_x)], y[None, :int(len_y)], optimal_choice) 
+        # return v /(64*(len_x + len_y)), matrix
         return v /(64*(len_x + len_y)), matrix
 
         # return self.sdtw2(x[None, :int(len_x)], y[None, :int(len_y)])[0] /((len_x + len_y)) - ((self.sdtw2(x[None, :int(len_x)], x[None, :int(len_x)])[0] /((len_x + len_x))) + (self.sdtw2(y[None, :int(len_y)], y[None, :int(len_y)])[0] /((len_y + len_y))))/2
@@ -230,97 +246,6 @@ class DsPipeline(nn.Module):
             # return self.dtw((x[None, :int(len_x)]-torch.mean(x))/(torch.max(x)-torch.min(x)), (y[None, :int(len_y)]-torch.mean(y))/(torch.max(y)-torch.min(y)))[0] /(64*(len_x + len_y))
 
     
-    def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
-        """
-        Args:
-            files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
-
-        Raises:
-            ValueError: "Arquivos de comparação com formato desconhecido"
-
-        Returns:
-            float, str, int: distância da assinatura, usuário, label 
-        """
-        tokens = files.split(" ")
-        user_key = tokens[0].split("_")[0]
-    
-
-        result = math.nan
-        refs = []
-        sign = ""
-        s_avg = 0
-        s_min = 0
-
-        if len(tokens) == 2:
-            a = tokens[0].split('_')[0]
-            b = tokens[1].split('_')[0]
-            result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
-        elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
-        elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
-        else: raise ValueError("Arquivos de comparação com formato desconhecido")
-
-        test_batch, lens = batches_gen.files2array(refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
-
-        mask = self.getOutputMask(lens)
-        
-        mask = Variable(torch.from_numpy(mask)).cuda()
-        inputs = Variable(torch.from_numpy(test_batch)).cuda()
-
-        embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-        refs = embeddings[:len(embeddings)-1]
-        sign = embeddings[-1]
-
-        len_refs = lengths[:len(embeddings)-1]
-        len_sign = lengths[-1]
-
-        dk = math.nan
-        count = 0
-        if len(refs) == 1 : dk = 1
-        else:
-            dk = 0
-            for i in range(0, len(refs)):
-                for j in range(1, len(refs)):
-                    if i < j:
-                        dk_v, matrix = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
-                        dk += dk_v
-                        count += 1
-
-            dk = dk/(count)
-    
-        dk_sqrt = math.sqrt(dk)
-        
-        dists = []
-
-        global BUFFER
-        dists_bands = []
-        paths_bands = [] 
-        ranges = list(np.arange(0.01,0.2,0.01)) + list(np.arange(0.2,1,0.1))
-        # ranges = list(np.arange(0.8,1,0.1))
-        if 1.0 not in ranges: ranges.append(1.0)
-        with torch.no_grad():
-            for b in ranges:
-                dists = []
-                dtw_temp = dtw.DTW(True, normalize=False, bandwidth=b)
-            
-                for i in range(0, len(refs)):
-                    aux, matrix = self._dte(refs[i], sign, len_refs[i], len_sign, dtw_t=dtw_temp)
-                    path = traceback(matrix.squeeze(0))
-                    dists.append(aux.detach().cpu().numpy()[0])    
-                    assert len(path[0]) == len(path[1])
-                    paths_bands.append(len(path[0]))
-
-                dists = np.array(dists) / dk_sqrt
-                s_avg = np.mean(dists)
-                s_min = min(dists)
-                dists_bands.append(s_avg + s_min)
-                del dtw_temp
-        
-        score = np.sum(np.array(dists_bands))
-
-        BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(score)) + "\n"
-
-        return score, user_key, result, dists_bands, paths_bands
-
     # def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
     #     """
     #     Args:
@@ -334,7 +259,8 @@ class DsPipeline(nn.Module):
     #     """
     #     tokens = files.split(" ")
     #     user_key = tokens[0].split("_")[0]
-        
+    
+
     #     result = math.nan
     #     refs = []
     #     sign = ""
@@ -349,7 +275,9 @@ class DsPipeline(nn.Module):
     #     elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
     #     else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
-    #     test_batch, lens = batches_gen.files2array(refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
+        
+        
+    #     test_batch, lens = batches_gen.files2array(synthetic_signs + refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
 
     #     mask = self.getOutputMask(lens)
         
@@ -371,24 +299,128 @@ class DsPipeline(nn.Module):
     #         for i in range(0, len(refs)):
     #             for j in range(1, len(refs)):
     #                 if i < j:
-    #                     dk += (self._dte(refs[i], refs[j], len_refs[i], len_refs[j]))
+    #                     dk_v, matrix = self._dte(refs[i], refs[j], len_refs[i], len_refs[j])
+    #                     dk += dk_v
     #                     count += 1
 
     #         dk = dk/(count)
     
-    #     if dk <= 0 or dk is math.nan or dk > 10000:
-    #         print("oi")
     #     dk_sqrt = math.sqrt(dk)
         
     #     dists = []
-    #     for i in range(0, len(refs)):
-    #         dists.append(self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0])
 
-    #     dists = np.array(dists) / dk_sqrt
-    #     s_avg = np.mean(dists)
-    #     s_min = min(dists)
+    #     global BUFFER
+    #     dists_bands = []
+    #     paths_bands = [] 
+    #     # ranges = list(np.arange(0.01,0.2,0.01)) + list(np.arange(0.2,1,0.1))
+    #     ranges = [1.0]
+    #     # ranges = list(np.arange(0.8,1,0.1))
+    #     if 1.0 not in ranges: ranges.append(1.0)
+    #     with torch.no_grad():
+    #         for b in ranges:
+    #             dists = []
+    #             dtw_temp = dtw.DTW(True, normalize=False, bandwidth=b)
+            
+    #             for i in range(0, len(refs)):
+    #                 aux, matrix = self._dte(refs[i], sign, len_refs[i], len_sign, dtw_t=dtw_temp)
+    #                 path = traceback(matrix.squeeze(0))
+    #                 dists.append(aux.detach().cpu().numpy()[0] /(64*(int(len_refs[i]) + int(len_sign) - len(path[0]))))  
+    #                 assert len(path[0]) == len(path[1])
+    #                 paths_bands.append(len(path[0]))
 
-    #     return (s_avg + s_min), user_key, result
+    #             dists = np.array(dists) / dk_sqrt
+    #             s_avg = np.mean(dists)
+    #             s_min = min(dists)
+    #             dists_bands.append(s_avg + s_min)
+    #             del dtw_temp
+        
+    #     score = np.sum(np.array(dists_bands))
+
+    #     BUFFER += tokens[0] + "\t\t" + tokens[1] + "\t\t" + str(float(score)) + "\n"
+
+    #     return score, user_key, result, dists_bands, paths_bands
+
+    def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
+        """
+        Args:
+            files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
+
+        Raises:
+            ValueError: "Arquivos de comparação com formato desconhecido"
+
+        Returns:
+            float, str, int: distância da assinatura, usuário, label 
+        """
+        tokens = files.split(" ")
+        user_key = tokens[0].split("_")[0]
+        
+        result = math.nan
+        refs = []
+        sign = ""
+        s_avg = 0
+        s_min = 0
+
+        if len(tokens) == 2:
+            a = tokens[0].split('_')[0]
+            b = tokens[1].split('_')[0]
+            result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
+        elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+        elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
+        else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+        # synthetic_files = os.listdir(self.hyperparameters['synthetic_folder'])
+        # pattern = refs[0].split("_")[0] + "_g_syn_"
+        # compiled_pattern = re.compile(pattern)
+        # synthetic_signs = list(filter(compiled_pattern.search, synthetic_files))
+        # synthetic_signs = sorted(synthetic_signs)[:3]    
+
+        test_batch, lens = batches_gen.files2array(refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
+
+        mask = self.getOutputMask(lens)
+        
+        mask = Variable(torch.from_numpy(mask)).cuda()
+        inputs = Variable(torch.from_numpy(test_batch)).cuda()
+
+        # embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+        # refs = embeddings[:len(embeddings)-1]
+        # sign = embeddings[-1]
+
+        # len_refs = lengths[:len(embeddings)-1]
+        # len_sign = lengths[-1]
+
+        refs = inputs[:len(inputs)-1]
+        sign = inputs[-1]
+
+        len_refs = lens[:len(inputs)-1]
+        len_sign = lens[-1]
+
+        dk = math.nan
+        count = 0
+        if len(refs) == 1 : dk = 1
+        else:
+            dk = 0
+            for i in range(0, len(refs)):
+                for j in range(1, len(refs)):
+                    if i < j:
+                        dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
+                        dk += dka
+                        count += 1
+
+            dk = dk/(count)
+    
+        if dk <= 0 or dk is math.nan or dk > 10000:
+            print("oi")
+        dk_sqrt = math.sqrt(dk)
+        
+        dists = []
+        for i in range(0, len(refs)):
+            dists.append(self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0])
+
+        dists = np.array(dists) / dk_sqrt
+        s_avg = np.mean(dists)
+        s_min = min(dists)
+
+        return (s_avg + s_min), user_key, result
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -415,18 +447,19 @@ class DsPipeline(nn.Module):
         dists_dict = {}
         paths_dict = {}
         for line in tqdm(lines, "Calculando distâncias..."):
-            # distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
-            distance, user_id, true_label, dists_bands, paths_bands = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
-            dists_dict[line] = dists_bands
-            paths_dict[line] = paths_bands
+            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            # distance, user_id, true_label, dists_bands, paths_bands = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            # dists_dict[line] = dists_bands
+            # paths_dict[line] = paths_bands
 
             if user_id not in users: 
-                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "paths_lens": [paths_bands[-1]]}
+                # users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": [], "paths_lens": [paths_bands[-1]]}
+                users[user_id] = {"distances": [distance], "true_label": [true_label], "predicted_label": []}
             else:
                 users[user_id]["distances"].append(distance)
                 users[user_id]["true_label"].append(true_label)
-                if true_label == 0:
-                    users[user_id]["paths_lens"].append(paths_bands[-1])
+                # if true_label == 0:
+                #     users[user_id]["paths_lens"].append(paths_bands[-1])
 
         # Nesse ponto, todos as comparações foram feitas
         buffer = "user, eer_local, threshold, mean_eer, var_th, amp_th, th_range, path100mean, path100var\n"
@@ -562,7 +595,7 @@ class DsPipeline(nn.Module):
 
             if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
 
-            if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for cf in comparison_files:
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
                     
