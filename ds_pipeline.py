@@ -444,8 +444,8 @@ class DsPipeline(nn.Module):
         if not os.path.exists(comparison_folder): os.mkdir(comparison_folder)
 
         users = {}
-        dists_dict = {}
-        paths_dict = {}
+        # dists_dict = {}
+        # paths_dict = {}
         for line in tqdm(lines, "Calculando distâncias..."):
             distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
             # distance, user_id, true_label, dists_bands, paths_bands = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
@@ -483,7 +483,7 @@ class DsPipeline(nn.Module):
 
                 local_ths.append(eer_threshold)
                 eers.append(eer)
-                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ", " + str(np.mean(np.array(users[user]["paths_lens"]))) + ", " + str(np.var(np.array(users[user]["paths_lens"]))) + ")\n"
+                local_buffer += user + ", " + "{:.5f}".format(eer) + ", " + "{:.5f}".format(eer_threshold) + ", 0, 0, 0, " + "{:.5f}".format(eer_threshold -th_range_local) + " (" + "{:.5f}".format(th_range_local) + "~" + "{:.5f}".format(eer_threshold) + ")\n"
 
         print("Obtendo EER global...")
         
@@ -515,11 +515,11 @@ class DsPipeline(nn.Module):
 
         self.train(mode=True)
 
-        with open(os.path.join(comparison_folder,'acc_distance_dict.pickle'), 'wb') as fw:
-            pickle.dump(dists_dict, fw)
+        # with open(os.path.join(comparison_folder,'acc_distance_dict.pickle'), 'wb') as fw:
+        #     pickle.dump(dists_dict, fw)
 
-        with open(os.path.join(comparison_folder,'paths_lens_dict.pickle'), 'wb') as fw:
-            pickle.dump(paths_dict, fw)
+        # with open(os.path.join(comparison_folder,'paths_lens_dict.pickle'), 'wb') as fw:
+        #     pickle.dump(paths_dict, fw)
 
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
