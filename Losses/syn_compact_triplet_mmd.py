@@ -65,12 +65,12 @@ class Syn_Compact_Triplet_MMD(nn.Module):
             syn_negatives = data[i * step + 1 + self.ng + self.sng + self.ns:i * step + 1 + self.ng + self.sng + self.ns + self.sns]
             ran_negatives = data[i * step + 1 + self.ng + self.sng + self.ns + self.sns:i * step + 1 + self.ng + self.sng + self.ns + self.sns + self.nr]
 
-            len_a = data[i * step]
-            len_p = data[i * step + 1 : i * step + 1 + self.ng]
-            len_sg = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.sng]
-            len_n = data[i * step + 1 + self.ng + self.sng :i * step + 1 + self.ng + self.sng + self.ns]
-            len_sn = data[i * step + 1 + self.ng + self.sng + self.ns:i * step + 1 + self.ng + self.sng + self.ns + self.sns]
-            len_rn = data[i * step + 1 + self.ng + self.sng + self.ns + self.sns:i * step + 1 + self.ng + self.sng + self.ns + self.sns + self.nr]
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng]
+            len_sg = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.sng]
+            len_n = lens[i * step + 1 + self.ng + self.sng :i * step + 1 + self.ng + self.sng + self.ns]
+            len_sn = lens[i * step + 1 + self.ng + self.sng + self.ns:i * step + 1 + self.ng + self.sng + self.ns + self.sns]
+            len_rn = lens[i * step + 1 + self.ng + self.sng + self.ns + self.sns:i * step + 1 + self.ng + self.sng + self.ns + self.sns + self.nr]
 
             dist_p = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_sp = torch.zeros((len(syn_positives)), dtype=data.dtype, device=data.device)
