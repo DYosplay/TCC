@@ -17,6 +17,7 @@ def parse_arguments():
 	parser.add_argument("-stop", "--early_stop", help="minimum epoch to occur early stop", default=26, type=int)
 	# results
 	parser.add_argument("-df", "--dataset_folder", help="set dataset folder", default=".." + os.sep + "Data" + os.sep + "DeepSignDB", type=str)
+	parser.add_argument("-sf", "--synthetic_folder", help="set synthetic folder", default=".." + os.sep + "Data" + os.sep + "Synthetic", type=str)
 	parser.add_argument("-t", "--test_name", help="set test name", required=True, type=str)
 	parser.add_argument("-pf", "--parent_folder", help="set folder where test will be saved.", type=str, default="Resultados")
 	parser.add_argument("-dsc", "--dataset_scenario", help="stylus, finger or mix", type=str, default="stylus")
@@ -41,6 +42,7 @@ def parse_arguments():
 	parser.add_argument("-nsl", "--number_of_slices", help="number of writers in a batch", default=0, type=int)
 	parser.add_argument("-sps", "--suppress", help="suppress zero pression on data loader", action='store_true')
 	parser.add_argument("-xnorm", "--xnorm", help="normalize only by x lenght", action='store_true')
+	parser.add_argument("-syn", "--synthetic", help="use synthetic signatures during training", action='store_true')
 	# loss hyperparameters
 	parser.add_argument("-ga", "--ga", help="turns on gradient for alpha.", action="store_true")
 	parser.add_argument("-a", "--alpha", help="set alpha value for icnn_loss or positive signatures variance for triplet loss.", default=math.nan, type=float)

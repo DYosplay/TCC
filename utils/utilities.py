@@ -1,7 +1,7 @@
     
 import numpy as np
 from numpy import typing as npt
-from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss, hard_triplet_loss_avg, hard_triplet_loss_max, triplet_distillation, tune_loss, compact_triplet_mmd2, compact_triplet_mmd_scr, compact_triplet_mmd_slice, window_loss, window_loss2,compact_triplet_mmd_random, compact_triplet_mmdx, compact_triplet_mmd_gaussian, double_anchor_ctm
+from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss, hard_triplet_loss_avg, hard_triplet_loss_max, triplet_distillation, tune_loss, compact_triplet_mmd2, compact_triplet_mmd_scr, compact_triplet_mmd_slice, window_loss, window_loss2,compact_triplet_mmd_random, compact_triplet_mmdx, compact_triplet_mmd_gaussian, double_anchor_ctm, syn_compact_triplet_mmd
 from typing import List, Tuple, Dict, Any
 import torch
 import json
@@ -14,6 +14,8 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return triplet_mmd.Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, model_lambda=model_lambda, alpha=alpha, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "compact_triplet_mmd":
         return compact_triplet_mmd.Compact_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
+    if loss_type.lower() == "syn_compact_triplet_mmd":
+        return syn_compact_triplet_mmd.Syn_Compact_Triplet_MMD(ng=4, ns=4, nr=3, sng=2, sns=2,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "clustering_triplet_mmd":
         return clustering_triplet_mmd.Clustering_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "contrastive_loss":
@@ -61,8 +63,8 @@ def traceback(acc_cost_matrix : npt.DTypeLike):
         Tuple[npt.ArrayLike, npt.ArrayLike]: coordenadas ponto a ponto referente a primeira e segunda sequência utilizada no cálculo do DTW.
     """
     rows, columns = np.shape(acc_cost_matrix)
-    rows-=3
-    columns-=3
+    rows-=2
+    columns-=2
 
     r = [rows]
     c = [columns]
@@ -72,8 +74,9 @@ def traceback(acc_cost_matrix : npt.DTypeLike):
         if rows-1 >= 0: aux[acc_cost_matrix[rows -1][columns]] = (rows - 1, columns)
         if columns-1 >= 0: aux[acc_cost_matrix[rows][columns-1]] = (rows, columns - 1)
         if rows-1 >= 0 and columns-1 >= 0: aux[acc_cost_matrix[rows -1][columns-1]] = (rows -1, columns - 1)
-        key = min(aux.keys())
-    
+        keys = list(aux.keys())
+        key = min(keys)
+
         rows, columns = aux[key]
 
         r.insert(0, rows)
