@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from slbox import synthesis
 from scipy import interpolate
 
-from utils import *
+from .utils import *
 
 def interpPressure(path, nfs=2, nPoints=None, interp="cubic"):
     assert isinstance(nfs, int)
@@ -54,9 +54,9 @@ class dataset(object):
         for idx, key in enumerate(self.trainKeys):
             sys.stdout.write(">>>>> User key: %d <<<<<\r"%key)
             sys.stdout.flush()
-            featExt(sigDict[key][True], self.feats)
-            featExt(slnPath_G[key], self.feats)
-            featExt(slnPath_F[key], self.feats)
+            featExt(sigDict[key][True], self.feats, user=key, index=idx, kind='g')
+            featExt(slnPath_G[key], self.feats, user=key, index=idx, kind='o')
+            featExt(slnPath_F[key], self.feats, user=key, index=idx, kind='s')
             self.numGen[idx] = len(sigDict[key][True])
             self.numSlnG[idx] = len(sigDict[key][True]) * numSynthesis
             self.numSlnN[idx] = len(sigDict[key][True]) * numSynthesis
@@ -120,9 +120,9 @@ class dataset(object):
             # print (">>>>>User key:", key, "<<<<<")
             sys.stdout.write(">>>>> User key: %d <<<<<\r"%key)
             sys.stdout.flush()
-            featExt(sigDict[key][True], self.feats)
-            featExt(slnPath_G[key], self.feats)
-            featExt(slnPath_F[key], self.feats)
+            featExt(sigDict[key][True], self.feats, user=key, index=i, kind='g')
+            featExt(slnPath_G[key], self.feats, user=key, index=i, kind='o')
+            featExt(slnPath_F[key], self.feats, user=key, index=i, kind='s')
             numGen[i] = len(sigDict[key][True])
             numSlnG[i] = len(sigDict[key][True]) * self.numSynthesis
             numSlnN[i] = len(sigDict[key][True]) * self.numSynthesis
@@ -227,92 +227,92 @@ def collate_fn(batch):
 
 
 
-def off_synthesisPressure(sigDict, slnPath_G, slnPath_F):
-    numSynthesis = 10
-    slnLevel = 0.1 
-    for key in list(sigDict.keys()):
-        for idx, path in enumerate(sigDict[key][True]):
-            # if idx >= max_index:                                 # @@@
-            #     continue                                        # @@@
-            pressure = path[:,2]
-            for j in range(numSynthesis):
-                synPath = slnPath_G[key][idx*numSynthesis+j]
-                synPressure = interpPressure(pressure, nPoints=synPath.shape[0]).astype("float32")
-                slnPath_G[key][idx*numSynthesis+j] = numpy.concatenate((synPath, synPressure[:,None]), axis=1)
-                synPath = slnPath_F[key][idx*numSynthesis+j]
-                synPressure = interpPressure(pressure, nPoints=synPath.shape[0]).astype("float32")
-                slnPath_F[key][idx*numSynthesis+j] = numpy.concatenate((synPath, synPressure[:,None]), axis=1)
-    return slnPath_G, slnPath_F
+# def off_synthesisPressure(sigDict, slnPath_G, slnPath_F):
+#     numSynthesis = 10
+#     slnLevel = 0.1 
+#     for key in list(sigDict.keys()):
+#         for idx, path in enumerate(sigDict[key][True]):
+#             # if idx >= max_index:                                 # @@@
+#             #     continue                                        # @@@
+#             pressure = path[:,2]
+#             for j in range(numSynthesis):
+#                 synPath = slnPath_G[key][idx*numSynthesis+j]
+#                 synPressure = interpPressure(pressure, nPoints=synPath.shape[0]).astype("float32")
+#                 slnPath_G[key][idx*numSynthesis+j] = numpy.concatenate((synPath, synPressure[:,None]), axis=1)
+#                 synPath = slnPath_F[key][idx*numSynthesis+j]
+#                 synPressure = interpPressure(pressure, nPoints=synPath.shape[0]).astype("float32")
+#                 slnPath_F[key][idx*numSynthesis+j] = numpy.concatenate((synPath, synPressure[:,None]), axis=1)
+#     return slnPath_G, slnPath_F
 
-def off_synthesis(sigDict, slnPath, prefix, cache=True):
-    numSynthesis = 10
-    slnLevel = 0.4
+# def off_synthesis(sigDict, slnPath, prefix, cache=True):
+#     numSynthesis = 10
+#     slnLevel = 0.4
 
-    # if os.path.exists("./cache/%s_synFullPaths_%d_%.1f.pkl"%(prefix, numSynthesis, slnLevel)):
-    #     PATH_G, PATH_F = pickle.load(open("./cache/%s_synFullPaths_%d_%.1f.pkl"%(prefix, numSynthesis, slnLevel), 'rb'), encoding='iso-8859-1') #, encoding='iso-8859-1'
-    # else:
-    PATH_G = defaultdict(list)
-    PATH_F = defaultdict(list)
-    for key in list(sigDict.keys()):
-        for idx in range(len(sigDict[key][True])):
-            # if idx >= max_index:                                 # @@@
-            #     continue                                        # @@@
-            Ps = numpy.load(os.path.join(slnPath, "%d"%(key) + os.sep + "Pmatrix_G%d_%d.npy"%(key, idx)))
-            Rs = numpy.load(os.path.join(slnPath, "%d"%(key) + os.sep + "residual_G%d_%d.npy"%(key, idx)))
-            if not isinstance(Ps, list): #full path
-                Ps = [Ps]
-            if not isinstance(Rs, list): #full path
-                Rs = [Rs]
-            # Generate synthesized signatures for each genuine signature
-            for i in range(numSynthesis):
-                PATH_G[key].append(synthesis.synthesis(Ps, Rs, forgery=False, dtype="float32", padPenUp=True, const=slnLevel))
-                PATH_F[key].append(synthesis.synthesis(Ps, Rs, forgery=True, dtype="float32", padPenUp=True, const=slnLevel))
-        # print ("Synthesizing user %d..."%(key))
-        sys.stdout.write("Synthesizing user %d...\r"%(key))
-        sys.stdout.flush()
-    if cache:
-        os.makedirs("cache",exist_ok=True)
-        pickle.dump([PATH_G, PATH_F], open("cache/%s_synFullPaths_%d_%.1f.pkl"%(prefix, numSynthesis, slnLevel), 'wb'))
-    return PATH_G, PATH_F
+#     # if os.path.exists("./cache/%s_synFullPaths_%d_%.1f.pkl"%(prefix, numSynthesis, slnLevel)):
+#     #     PATH_G, PATH_F = pickle.load(open("./cache/%s_synFullPaths_%d_%.1f.pkl"%(prefix, numSynthesis, slnLevel), 'rb'), encoding='iso-8859-1') #, encoding='iso-8859-1'
+#     # else:
+#     PATH_G = defaultdict(list)
+#     PATH_F = defaultdict(list)
+#     for key in list(sigDict.keys()):
+#         for idx in range(len(sigDict[key][True])):
+#             # if idx >= max_index:                                 # @@@
+#             #     continue                                        # @@@
+#             Ps = numpy.load(os.path.join(slnPath, "%d"%(key) + os.sep + "Pmatrix_G%d_%d.npy"%(key, idx)))
+#             Rs = numpy.load(os.path.join(slnPath, "%d"%(key) + os.sep + "residual_G%d_%d.npy"%(key, idx)))
+#             if not isinstance(Ps, list): #full path
+#                 Ps = [Ps]
+#             if not isinstance(Rs, list): #full path
+#                 Rs = [Rs]
+#             # Generate synthesized signatures for each genuine signature
+#             for i in range(numSynthesis):
+#                 PATH_G[key].append(synthesis.synthesis(Ps, Rs, forgery=False, dtype="float32", padPenUp=True, const=slnLevel))
+#                 PATH_F[key].append(synthesis.synthesis(Ps, Rs, forgery=True, dtype="float32", padPenUp=True, const=slnLevel))
+#         # print ("Synthesizing user %d..."%(key))
+#         sys.stdout.write("Synthesizing user %d...\r"%(key))
+#         sys.stdout.flush()
+#     if cache:
+#         os.makedirs("cache",exist_ok=True)
+#         pickle.dump([PATH_G, PATH_F], open("cache/%s_synFullPaths_%d_%.1f.pkl"%(prefix, numSynthesis, slnLevel), 'wb'))
+#     return PATH_G, PATH_F
 
-signspkl = ["EBio2_dev.pkl","EBio1_dev.pkl","MCYT_dev.pkl","BSID_dev.pkl"]
-signspar = ["EBio2_dev_full","EBio1_dev_full","mcyt_dev_full","bsid_dev_full"]
+# signspkl = ["EBio2_dev.pkl","EBio1_dev.pkl","MCYT_dev.pkl","BSID_dev.pkl"]
+# signspar = ["EBio2_dev_full","EBio1_dev_full","mcyt_dev_full","bsid_dev_full"]
 
-for s in range(len(signspkl)):
-    sigDict = pickle.load(open(".." + os.sep + ".." + os.sep + "data" + os.sep + signspkl[s], "rb")) #, encoding='iso-8859-1'
-    slnPath= ".." + os.sep +"sigma_lognormal" + os.sep + "params" + os.sep +  signspar[s]
-    prefix = (signspkl[s].split("_"))
-    # max_index = 2
-    feats_orig = []
-    feats_syn_g = []
-    feats_syn_f = []
+# for s in range(len(signspkl)):
+#     sigDict = pickle.load(open(".." + os.sep + ".." + os.sep + "data" + os.sep + signspkl[s], "rb")) #, encoding='iso-8859-1'
+#     slnPath= ".." + os.sep +"sigma_lognormal" + os.sep + "params" + os.sep +  signspar[s]
+#     prefix = (signspkl[s].split("_"))
+#     # max_index = 2
+#     feats_orig = []
+#     feats_syn_g = []
+#     feats_syn_f = []
 
-    newKeys = list(sigDict.keys())
-    N = len(feats_orig)
-    numSynthesis = 10
+#     newKeys = list(sigDict.keys())
+#     N = len(feats_orig)
+#     numSynthesis = 10
 
-    print (">>>>> Synthesizing signatures... <<<<<")
-    slnPath_G, slnPath_F = off_synthesis(sigDict, slnPath, prefix)
-    print (">>>>> Synthesizing pressures... <<<<<")
-    slnPath_G, slnPath_F = off_synthesisPressure(sigDict, slnPath_G, slnPath_F)
-    print (">>>>> Done <<<<<")
+#     print (">>>>> Synthesizing signatures... <<<<<")
+#     slnPath_G, slnPath_F = off_synthesis(sigDict, slnPath, prefix)
+#     print (">>>>> Synthesizing pressures... <<<<<")
+#     slnPath_G, slnPath_F = off_synthesisPressure(sigDict, slnPath_G, slnPath_F)
+#     print (">>>>> Done <<<<<")
 
-    numGen = numpy.zeros(len(newKeys), dtype=numpy.int32)
-    numSlnG = numpy.zeros(len(newKeys), dtype=numpy.int32)
-    numSlnN = numpy.zeros(len(newKeys), dtype=numpy.int32)
+#     numGen = numpy.zeros(len(newKeys), dtype=numpy.int32)
+#     numSlnG = numpy.zeros(len(newKeys), dtype=numpy.int32)
+#     numSlnN = numpy.zeros(len(newKeys), dtype=numpy.int32)
 
-    print (">>>>> Extracting features... <<<<<")
-    for i, key in enumerate(newKeys):
-        # print (">>>>>User key:", key, "<<<<<")
-        sys.stdout.write(">>>>> User key: %d <<<<<\r"%key)
-        sys.stdout.flush()
-        featExt(sigDict[key][True], feats_orig, user=key, index=i, kind='g')
-        featExt(slnPath_G[key], feats_syn_g, user=key, index=i, kind='o')
-        featExt(slnPath_F[key], feats_syn_f, user=key, index=i, kind='s')
-        numGen[i] = len(sigDict[key][True])
-        numSlnG[i] = len(sigDict[key][True]) * numSynthesis
-        numSlnN[i] = len(sigDict[key][True]) * numSynthesis
-    print (">>>>> Done <<<<<")
-    numGen = numpy.concatenate((numGen, numGen))
-    numSlnG = numpy.concatenate((numSlnG, numSlnG))
-    numSlnN = numpy.concatenate((numSlnN, numSlnN))
+#     print (">>>>> Extracting features... <<<<<")
+#     for i, key in enumerate(newKeys):
+#         # print (">>>>>User key:", key, "<<<<<")
+#         sys.stdout.write(">>>>> User key: %d <<<<<\r"%key)
+#         sys.stdout.flush()
+#         featExt(sigDict[key][True], feats_orig, user=key, index=i, kind='g')
+#         featExt(slnPath_G[key], feats_syn_g, user=key, index=i, kind='o')
+#         featExt(slnPath_F[key], feats_syn_f, user=key, index=i, kind='s')
+#         numGen[i] = len(sigDict[key][True])
+#         numSlnG[i] = len(sigDict[key][True]) * numSynthesis
+#         numSlnN[i] = len(sigDict[key][True]) * numSynthesis
+#     print (">>>>> Done <<<<<")
+#     numGen = numpy.concatenate((numGen, numGen))
+#     numSlnG = numpy.concatenate((numSlnG, numSlnG))
+#     numSlnN = numpy.concatenate((numSlnN, numSlnN))
