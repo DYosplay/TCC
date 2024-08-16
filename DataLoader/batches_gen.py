@@ -12,7 +12,10 @@ def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
     users = {}
     for file in files:
         tokens = file.split('_')
-        key = tokens[0] + tokens[1]
+        if 'syn' in file:
+            key = tokens[0] + "syn" + tokens[1]
+        else:
+            key = tokens[0] + tokens[1]
         if key in users:
             users[key].append(dataset_folder + os.sep + file)
         else:
@@ -25,24 +28,25 @@ def files2array(batch, hyperparameters : Dict[str,Any], z : bool, development : 
 
     for file in batch:
         feat = None
+        
+        file = file.replace('\\', os.sep)
+        file = file.replace('/', os.sep)
+        file = file.strip()
+        
+        if hyperparameters['signature_path'] is not None:
+            file = os.path.join(hyperparameters['signature_path'], file)
+            development = 'Development' in file
+        else:
+            subset_folder = 'Development' if development else "Evaluation"
+            file_path = os.path.join(hyperparameters['dataset_folder'], subset_folder, hyperparameters['dataset_scenario'])
+            if file_path not in file: file = os.path.join(file_path, file)
+        
         if '_syn_' in file:
-            with open(hyperparameters['synthetic_folder'] + os.sep + file,'r') as fr:
+            with open(file,'r') as fr:
                 lines = fr.readlines()
                 lines = lines[1:]
                 feat = np.genfromtxt(lines, delimiter=',').T
         else:
-            file = file.replace('\\', os.sep)
-            file = file.replace('/', os.sep)
-            file = file.strip()
-            
-            if hyperparameters['signature_path'] is not None:
-                file = os.path.join(hyperparameters['signature_path'], file)
-                development = 'Development' in file
-            else:
-                subset_folder = 'Development' if development else "Evaluation"
-                file_path = os.path.join(hyperparameters['dataset_folder'], subset_folder, hyperparameters['dataset_scenario'])
-                if file_path not in file: file = os.path.join(file_path, file)
-            
             feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
         data.append(feat)
         lens.append(len(feat[0]))
@@ -168,6 +172,7 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
         database = loader.get_database(user_id=user_id, development=development, hyperparameters=hyperparameters)
 
         if database == loader.EBIOSIGN1_DS1 or database == loader.EBIOSIGN1_DS2:
+            # continue
             number_of_mini_baches = 1 * multiplier
         elif database == loader.MCYT or database == loader.BIOSECURE_DS2:
             number_of_mini_baches = 4 * multiplier
@@ -179,15 +184,36 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             raise ValueError("Dataset desconhecido!")
 
         for i in range(0, number_of_mini_baches):
+            genuines = []
+            syn_genuines = []
+            s_forgeries = []
+            syn_s_forgeries = []
+            n_random = 5
+            if hyperparameters['synthetic']:
+                genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], 5)
+                files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
 
-            genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], 6)
-            files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
+                syn_genuines = random.sample(files['u' + f"{user_id:04}" + 'syng'], 2)
+                files['u' + f"{user_id:04}" + 'syng'] = list(set(files['u' + f"{user_id:04}" + 'syng']) - set(syn_genuines))
 
-            s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], 5)
-            files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
+                s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], 4)
+                files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
+
+                syn_s_forgeries = random.sample(files['u' + f"{user_id:04}" + 'syns'],2)
+                files['u' + f"{user_id:04}" + 'syns'] = list(set(files['u' + f"{user_id:04}" + 'syng']) - set(syn_s_forgeries))
+
+                n_random = 3
+            else:
+                genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'])
+                files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
+
+                s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], hyperparameters['nf']//2)
+                files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
+
+            
 
             # ids aleatórios podem ser de qualquer mini dataset
-            random_forgeries_ids = list(set(random.sample(train_users, 6)) - set([user_id]))[:5]
+            random_forgeries_ids = list(set(random.sample(train_users, 6)) - set([user_id]))[:n_random]
             # ids aleatórios apenas do mesmo dataset
             # random_forgeries_ids = get_random_ids(user_id=user_id, database=database, samples=5)
 
@@ -196,8 +222,8 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
                 random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0])
 
             a = [genuines[0]]
-            p = genuines[1:6]
-            n = s_forgeries + random_forgeries
+            p = genuines[1:] + syn_genuines
+            n = s_forgeries + syn_s_forgeries + random_forgeries
 
             mini_batch = a + p + n
 
