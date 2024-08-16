@@ -65,7 +65,7 @@ class DsPipeline(nn.Module):
         # Variáveis que lidam com as métricas/resultados
         self.user_err_avg = 0 
         self.dataset_folder = hyperparameters['dataset_folder']
-        # self.synthetic_folder = hyperparameters['synthetic_folder']
+        self.synthetic_folder = hyperparameters['synthetic_folder']
         self.comparison_data = {}
         # self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th\n"
         self.buffer = "File, epoch, mean_local_eer, global_eer, th_global, var_th, amp_th, path100mean, path100var\n"
@@ -368,31 +368,32 @@ class DsPipeline(nn.Module):
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
-        # synthetic_files = os.listdir(self.hyperparameters['synthetic_folder'])
+        synthetic_signs = []
+        # synthetic_files = os.listdir(self.hyperparameters['dataset_folder'])
         # pattern = refs[0].split("_")[0] + "_g_syn_"
         # compiled_pattern = re.compile(pattern)
         # synthetic_signs = list(filter(compiled_pattern.search, synthetic_files))
         # synthetic_signs = sorted(synthetic_signs)[:3]    
 
-        test_batch, lens = batches_gen.files2array(refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
+        test_batch, lens = batches_gen.files2array(synthetic_signs + refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
 
         mask = self.getOutputMask(lens)
         
         mask = Variable(torch.from_numpy(mask)).cuda()
         inputs = Variable(torch.from_numpy(test_batch)).cuda()
 
-        # embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-        # refs = embeddings[:len(embeddings)-1]
-        # sign = embeddings[-1]
+        embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+        refs = embeddings[:len(embeddings)-1]
+        sign = embeddings[-1]
 
-        # len_refs = lengths[:len(embeddings)-1]
-        # len_sign = lengths[-1]
+        len_refs = lengths[:len(embeddings)-1]
+        len_sign = lengths[-1]
 
-        refs = inputs[:len(inputs)-1]
-        sign = inputs[-1]
+        # refs = inputs[:len(inputs)-1]
+        # sign = inputs[-1]
 
-        len_refs = lens[:len(inputs)-1]
-        len_sign = lens[-1]
+        # len_refs = lens[:len(inputs)-1]
+        # len_sign = lens[-1]
 
         dk = math.nan
         count = 0
@@ -572,10 +573,12 @@ class DsPipeline(nn.Module):
             while epoch != []:
             # if True:
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
-                
+
                 mask = self.getOutputMask(lens)
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
+
+                # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
                 
                 outputs, length = self(inputs.float(), mask, i)
                 
