@@ -49,10 +49,10 @@ cudnn.enabled = True
 cudnn.benchmark = False
 cudnn.deterministic = True
 
-sigDict = pickle.load(open("../data/MCYT_dev.pkl", "rb")) #, encoding='iso-8859-1'
+sigDict = pickle.load(open("../data/MCYT_eva.pkl", "rb")) #, encoding='iso-8859-1'
 dset = dataset.dataset(
                 sigDict=sigDict,
-                slnPath="../sigma_lognormal/params/mcyt_dev_full",
+                slnPath="../sigma_lognormal/params/mcyt_eva_full",
                 slnLevel=0.4,
                 taskSize=n_task, 
                 taskNumGen=n_shot_g, 
@@ -62,26 +62,34 @@ dset = dataset.dataset(
             )
 del sigDict
 
-sigDict = pickle.load(open("../data/BSID_dev.pkl", "rb")) #, encoding='iso-8859-1'
+sigDict = pickle.load(open("../data/BSID_eva.pkl", "rb")) #, encoding='iso-8859-1'
 dset.addDatabase(
                 sigDict=sigDict, 
-                slnPath="../sigma_lognormal/params/bsid_dev_full",
+                slnPath="../sigma_lognormal/params/bsid_eva_full",
                 prefix="BSID"
             )
 del sigDict
 
-sigDict = pickle.load(open("../data/EBio1_dev.pkl", "rb")) #, encoding='iso-8859-1'
+sigDict = pickle.load(open("../data/BSDB2_eva.pkl", "rb")) #, encoding='iso-8859-1'
 dset.addDatabase(
                 sigDict=sigDict, 
-                slnPath="../sigma_lognormal/params/ebio1_dev_full",
+                slnPath="../sigma_lognormal/params/bsdb2_eva_full",
+                prefix="BSDB2"
+            )
+del sigDict
+
+sigDict = pickle.load(open("../data/EBio1_eva.pkl", "rb")) #, encoding='iso-8859-1'
+dset.addDatabase(
+                sigDict=sigDict, 
+                slnPath="../sigma_lognormal/params/ebio1_eva_full",
                 prefix="EBio1"
             )
 del sigDict
 
-sigDict = pickle.load(open("../data/EBio2_dev.pkl", "rb")) #, encoding='iso-8859-1'
+sigDict = pickle.load(open("../data/EBio2_eva.pkl", "rb")) #, encoding='iso-8859-1'
 dset.addDatabase(
                 sigDict=sigDict, 
-                slnPath="../sigma_lognormal/params/ebio2_dev_full",
+                slnPath="../sigma_lognormal/params/ebio2_eva_full",
                 prefix="EBio2"
             )
 del sigDict
