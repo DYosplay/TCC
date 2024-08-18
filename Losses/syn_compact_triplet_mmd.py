@@ -6,15 +6,15 @@ import DTW.soft_dtw_cuda as soft_dtw
 import numpy as np
 
 class Syn_Compact_Triplet_MMD(nn.Module):
-    def __init__(self, ng : int, ns : int, nr : int, sng : int, sns : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
+    def __init__(self, ng : int, ns : int, nr : int, nsg : int, nss : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
         """_summary_
 
         Args:
             ng (torch.nn.Parameter): number of genuine signatures inside the mini-batch
             ns (torch.nn.Parameter): number of skilled forgeries signatures inside the mini-batch
             nr (torch.nn.Parameter): number of random forgeries signatures inside the mini-batch
-            sng (torch.nn.Parameter): number of synthetic genuine signatures inside the mini-batch
-            sns (torch.nn.Parameter): number of synthetic skilled signatures inside the mini-batch
+            nsg (torch.nn.Parameter): number of synthetic genuine signatures inside the mini-batch
+            nss (torch.nn.Parameter): number of synthetic skilled signatures inside the mini-batch
             nw (torch.nn.Parameter): number of writers inside batch
             margin (torch.nn.Parameter): triplet loss margin
             model_lambda (torch.nn.Parameter): control intraclass variation
@@ -30,8 +30,8 @@ class Syn_Compact_Triplet_MMD(nn.Module):
         self.ns = ns
         self.nr = nr
         self.nw = nw
-        self.sng = sng
-        self.sns = sns
+        self.nsg = nsg
+        self.nss = nss
         self.margin = margin
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.mmd_loss = mmd.MMDLoss(kernel_num=mmd_kernel_num, kernel_mul=mmd_kernel_mul)
@@ -47,30 +47,30 @@ class Syn_Compact_Triplet_MMD(nn.Module):
         """ Loss de um batch
 
         Args:
-            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 1+ng+sng+ns+sns+nr (padrão=16) assinaturas
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 1+ng+nsg+ns+nss+nr (padrão=16) assinaturas
             lens (torch tensor (int)): tamanho de cada assinatura no batch
 
         Returns:
             torch.tensor (float): valor da loss
         """
 
-        step = (self.ng + self.sng + self.ns + self.sns + self.nr + 1)
+        step = (self.ng + self.nsg + self.ns + self.nss + self.nr + 1)
         total_loss = 0
 
         for i in range(0, self.nw):
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng]
-            syn_positives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.sng]
-            negatives = data[i * step + 1 + self.ng + self.sng :i * step + 1 + self.ng + self.sng + self.ns]
-            syn_negatives = data[i * step + 1 + self.ng + self.sng + self.ns:i * step + 1 + self.ng + self.sng + self.ns + self.sns]
-            ran_negatives = data[i * step + 1 + self.ng + self.sng + self.ns + self.sns:i * step + 1 + self.ng + self.sng + self.ns + self.sns + self.nr]
+            syn_positives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nsg]
+            negatives = data[i * step + 1 + self.ng + self.nsg :i * step + 1 + self.ng + self.nsg + self.ns]
+            syn_negatives = data[i * step + 1 + self.ng + self.nsg + self.ns:i * step + 1 + self.ng + self.nsg + self.ns + self.nss]
+            ran_negatives = data[i * step + 1 + self.ng + self.nsg + self.ns + self.nss:i * step + 1 + self.ng + self.nsg + self.ns + self.nss + self.nr]
 
             len_a = lens[i * step]
             len_p = lens[i * step + 1 : i * step + 1 + self.ng]
-            len_sg = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.sng]
-            len_n = lens[i * step + 1 + self.ng + self.sng :i * step + 1 + self.ng + self.sng + self.ns]
-            len_sn = lens[i * step + 1 + self.ng + self.sng + self.ns:i * step + 1 + self.ng + self.sng + self.ns + self.sns]
-            len_rn = lens[i * step + 1 + self.ng + self.sng + self.ns + self.sns:i * step + 1 + self.ng + self.sng + self.ns + self.sns + self.nr]
+            len_sg = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nsg]
+            len_n = lens[i * step + 1 + self.ng + self.nsg :i * step + 1 + self.ng + self.nsg + self.ns]
+            len_sn = lens[i * step + 1 + self.ng + self.nsg + self.ns:i * step + 1 + self.ng + self.nsg + self.ns + self.nss]
+            len_rn = lens[i * step + 1 + self.ng + self.nsg + self.ns + self.nss:i * step + 1 + self.ng + self.nsg + self.ns + self.nss + self.nr]
 
             dist_p = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_sp = torch.zeros((len(syn_positives)), dtype=data.dtype, device=data.device)
