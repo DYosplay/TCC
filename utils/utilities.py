@@ -7,7 +7,7 @@ import torch
 import json
 import os
 
-def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn.Parameter, model_lambda : float, alpha : torch.nn.Parameter, beta : torch.nn.Parameter, p : torch.nn.Parameter, r : torch.nn.Parameter,q : torch.nn.Parameter, mmd_kernel_num : float, mmd_kernel_mul : float, margin_max : float, margin_min : float, nsl = int):
+def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn.Parameter, model_lambda : float, alpha : torch.nn.Parameter, beta : torch.nn.Parameter, p : torch.nn.Parameter, r : torch.nn.Parameter,q : torch.nn.Parameter, mmd_kernel_num : float, mmd_kernel_mul : float, margin_max : float, margin_min : float, nsl : int, nr : int, nsg : int, nss : int):
     if loss_type.lower() == "triplet_loss":
         return triplet_loss.Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
     if loss_type.lower() == "triplet_mmd":
@@ -15,7 +15,7 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
     if loss_type.lower() == "compact_triplet_mmd":
         return compact_triplet_mmd.Compact_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "syn_compact_triplet_mmd":
-        return syn_compact_triplet_mmd.Syn_Compact_Triplet_MMD(ng=4, ns=4, nr=3, sng=2, sns=2,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
+        return syn_compact_triplet_mmd.Syn_Compact_Triplet_MMD(ng=ng, ns=nf, nr=nr, nsg=nsg, nss=nss,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "clustering_triplet_mmd":
         return clustering_triplet_mmd.Clustering_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "contrastive_loss":

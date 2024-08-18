@@ -35,6 +35,10 @@ def parse_arguments():
 	parser.add_argument("-ng", "--ng", help="number of genuine signatures in a mini-batch", default=5, type=int)
 	parser.add_argument("-nf", "--nf", help="number of forgery signatures in a mini-batch", default=10, type=int)
 	parser.add_argument("-nw", "--nw", help="number of writers in a batch", default=4, type=int)
+	parser.add_argument("-nr", "--nr", help="number of random forgeries signatures", default=3, type=int)
+	parser.add_argument("-nsg", "--nsg", help="number of synthetic genuine signatures", default=3, type=int)
+	parser.add_argument("-nss", "--nss", help="number of synthetic forgeries signatures", default=3, type=int)
+
 	parser.add_argument("-trans", "--transfer_learning", help="transfer learning method for distillation loss", action='store_true')
 	parser.add_argument("-tune", "--tune_model", help="tune model initializing it with a specific weight", action='store_true')
 	parser.add_argument("-pa", "--pre_alignment", help="use dtw pre alignment during pre processing", action='store_true')
