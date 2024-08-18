@@ -190,19 +190,19 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             syn_s_forgeries = []
             n_random = 5
             if hyperparameters['synthetic']:
-                genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], 5)
+                genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'] + 1)
                 files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
 
-                syn_genuines = random.sample(files['u' + f"{user_id:04}" + 'syng'], 2)
+                syn_genuines = random.sample(files['u' + f"{user_id:04}" + 'syno'], hyperparameters['nsg'])
                 files['u' + f"{user_id:04}" + 'syng'] = list(set(files['u' + f"{user_id:04}" + 'syng']) - set(syn_genuines))
 
-                s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], 4)
+                s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], hyperparameters['nf'])
                 files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
 
-                syn_s_forgeries = random.sample(files['u' + f"{user_id:04}" + 'syns'],2)
+                syn_s_forgeries = random.sample(files['u' + f"{user_id:04}" + 'syns'], hyperparameters['nss'])
                 files['u' + f"{user_id:04}" + 'syns'] = list(set(files['u' + f"{user_id:04}" + 'syng']) - set(syn_s_forgeries))
 
-                n_random = 3
+                n_random = hyperparameters['nr']
             else:
                 genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'])
                 files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
