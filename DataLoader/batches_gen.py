@@ -204,7 +204,7 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
 
                 n_random = hyperparameters['nr']
             else:
-                genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'])
+                genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'] + 1)
                 files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
 
                 s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], hyperparameters['nf']//2)
