@@ -1,7 +1,7 @@
     
 import numpy as np
 from numpy import typing as npt
-from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss, hard_triplet_loss_avg, hard_triplet_loss_max, triplet_distillation, tune_loss, compact_triplet_mmd2, compact_triplet_mmd_scr, compact_triplet_mmd_slice, window_loss, window_loss2,compact_triplet_mmd_random, compact_triplet_mmdx, compact_triplet_mmd_gaussian, double_anchor_ctm, syn_compact_triplet_mmd
+from Losses import triplet_loss, triplet_mmd, compact_triplet_mmd, compact_triplet_mmd_alt, clustering_triplet_mmd, contrastive_loss, triplet_loss_offset, compact_triplet_mmd_offset, clustering_triplet_loss, hard_triplet_loss_avg, hard_triplet_loss_max, triplet_distillation, tune_loss, compact_triplet_mmd2, compact_triplet_mmd_scr, compact_triplet_mmd_slice, window_loss, window_loss2,compact_triplet_mmd_random, compact_triplet_mmdx, compact_triplet_mmd_gaussian, double_anchor_ctm, syn_compact_triplet_mmd
 from typing import List, Tuple, Dict, Any
 import torch
 import json
@@ -12,6 +12,9 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return triplet_loss.Triplet_Loss(ng=ng, nf=nf, nw=nw, margin=margin, model_lambda=model_lambda)
     if loss_type.lower() == "triplet_mmd":
         return triplet_mmd.Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, model_lambda=model_lambda, alpha=alpha, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
+    if loss_type.lower() == "compact_triplet_mmd_alt":
+        return compact_triplet_mmd_alt.Compact_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
+    
     if loss_type.lower() == "compact_triplet_mmd":
         return compact_triplet_mmd.Compact_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "syn_compact_triplet_mmd":
