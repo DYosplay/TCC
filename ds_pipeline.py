@@ -369,7 +369,7 @@ class DsPipeline(nn.Module):
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
         synthetic_signs = []
-        # synthetic_files = os.listdir(self.hyperparameters['dataset_folder'])
+        # synthetic_files = os.listdir(self.hyperparameters['dataset_folder'] + os.sep + "Evaluation" + os.sep + "stylus")
         # pattern = refs[0].split("_")[0] + "_g_syn_"
         # compiled_pattern = re.compile(pattern)
         # synthetic_signs = list(filter(compiled_pattern.search, synthetic_files))
@@ -548,6 +548,8 @@ class DsPipeline(nn.Module):
         data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
 
         running_loss = 0
+        w1 = 0
+        w2 = 1
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
 
@@ -584,7 +586,8 @@ class DsPipeline(nn.Module):
                 
                 optimizer.zero_grad()
 
-                loss = self.loss_function(outputs, length)
+                # loss = self.loss_function(outputs, length)
+                loss = self.loss_function(outputs, length, w1, w2)
                 loss.backward()
 
                 optimizer.step()
@@ -599,8 +602,16 @@ class DsPipeline(nn.Module):
             if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
 
             if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
-                for cf in comparison_files:
+                for idx, cf in enumerate(comparison_files):
+                    if w1 == 0 and idx == 0: continue
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    if self.best_eer < 0.0071:
+                        w1 = 1
+                        print(" Next epoch will also use skilled forgeries!")
+                    else:
+                        w1 = 0
+                        print(" Next epoch will not use skilled forgeries!")
+
                     
             
             self.loss_variation.append(running_loss/epoch_size)
