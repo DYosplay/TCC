@@ -601,15 +601,19 @@ class DsPipeline(nn.Module):
 
             if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
 
-            if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            if (i >= 9 and i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for idx, cf in enumerate(comparison_files):
                     if w1 == 0 and idx == 0: continue
                     self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
                     if self.best_eer < 0.0071:
                         w1 = 1
+                        self.hyperparameters['nf'] = 5
+                        self.hyperparameters['nr'] = 0
                         print(" Next epoch will also use skilled forgeries!")
                     else:
                         w1 = 0
+                        self.hyperparameters['nf'] = 0
+                        self.hyperparameters['nr'] = 5
                         print(" Next epoch will not use skilled forgeries!")
 
                     
