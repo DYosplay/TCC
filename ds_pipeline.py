@@ -586,8 +586,8 @@ class DsPipeline(nn.Module):
                 
                 optimizer.zero_grad()
 
-                # loss = self.loss_function(outputs, length)
-                loss = self.loss_function(outputs, length, w1, w2)
+                loss = self.loss_function(outputs, length)
+                # loss = self.loss_function(outputs, length, w1, w2)
                 loss.backward()
 
                 optimizer.step()
