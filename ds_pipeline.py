@@ -605,7 +605,7 @@ class DsPipeline(nn.Module):
                 for idx, cf in enumerate(comparison_files):
                     if w1 == 1 and idx == 1: continue
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
-                    if ret_metrics["Global EER"] < 0.0231:
+                    if idx == 0 and ret_metrics["Global EER"] < 0.0231:
                         w1 = 0
                         self.hyperparameters['nf'] = 0
                         self.hyperparameters['nss'] = 5
