@@ -603,8 +603,8 @@ class DsPipeline(nn.Module):
 
             self.loss_variation.append(running_loss/epoch_size)
 
-            if np.var(np.array(self.loss_variation[:4])) <= 0.005:
-                # w1 = 1
+            if len(self.loss_variation) >= 6 and np.var(np.array(self.loss_variation[-4:])) <= 0.005:
+                w1 = 1
                 self.hyperparameters['nf'] = min(self.hyperparameters['nf'] + 1, 5) 
                 self.hyperparameters['nss'] = max(self.hyperparameters['nss'] - 1, 0)
                 print(" Next epoch will use " + str(self.hyperparameters['nf']) + " skilled forgeries!")
@@ -617,7 +617,11 @@ class DsPipeline(nn.Module):
             if (i >= 6 and i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for idx, cf in enumerate(comparison_files):
                     if w1 == 0 and idx == 0: continue
-                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    if idx == 1 and ret_metrics["Global EER"] < 0.007:
+                        w1 = 1
+                    else:
+                        w1 = 0
 
                     
             
