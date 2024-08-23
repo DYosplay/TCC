@@ -511,9 +511,9 @@ class DsPipeline(nn.Module):
             if eer_global < self.best_eer:
                 torch.save(self.state_dict(), result_folder + os.sep + "Backup" + os.sep + "best.pt")
                 self.best_eer = eer_global
-                print("EER atualizado: ")
-                print(ret_metrics)
 
+        print("\n\t Resultados:")
+        print(ret_metrics)
         self.train(mode=True)
 
         # with open(os.path.join(comparison_folder,'acc_distance_dict.pickle'), 'wb') as fw:
