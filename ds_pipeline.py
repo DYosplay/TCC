@@ -548,8 +548,8 @@ class DsPipeline(nn.Module):
         data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
 
         running_loss = 0
-        w1 = 1
-        w2 = 0
+        w1 = 0
+        w2 = 1
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
 
@@ -601,24 +601,27 @@ class DsPipeline(nn.Module):
 
             if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
 
-            if (i >= 9 and i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            self.loss_variation.append(running_loss/epoch_size)
+
+            if np.var(np.array(self.loss_variation[:4])) <= 0.005:
+                # w1 = 1
+                self.hyperparameters['nf'] = min(self.hyperparameters['nf'] + 1, 5) 
+                self.hyperparameters['nss'] = max(self.hyperparameters['nss'] - 1, 0)
+                print(" Next epoch will use " + str(self.hyperparameters['nf']) + " skilled forgeries!")
+            # else:
+            #     w1 = 0
+            #     self.hyperparameters['nf'] = min(self.hyperparameters['nf'] + 1, 5) 
+            #     self.hyperparameters['nss'] = max(self.hyperparameters['nss'] - 1, 0)
+            #     print(" Next epoch will use " + str(self.hyperparameters['nf']) + " skilled forgeries!")
+
+            if (i >= 6 and i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for idx, cf in enumerate(comparison_files):
-                    if w1 == 1 and idx == 1: continue
-                    ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
-                    if ret_metrics["Global EER"] < 0.0231:
-                        w1 = 0
-                        self.hyperparameters['nf'] = 0
-                        self.hyperparameters['nss'] = 5
-                        print(" Next epoch will not use skilled forgeries!")
-                    else:
-                        w1 = 1
-                        self.hyperparameters['nf'] = 5
-                        self.hyperparameters['nss'] = 0
-                        print(" Next epoch will use skilled forgeries!")
+                    if w1 == 0 and idx == 0: continue
+                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
 
                     
             
-            self.loss_variation.append(running_loss/epoch_size)
+            
             
             lr_scheduler.step()
 
