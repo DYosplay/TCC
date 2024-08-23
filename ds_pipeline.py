@@ -548,8 +548,8 @@ class DsPipeline(nn.Module):
         data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
 
         running_loss = 0
-        w1 = 0
-        w2 = 1
+        w1 = 1
+        w2 = 0
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
 
@@ -603,18 +603,18 @@ class DsPipeline(nn.Module):
 
             if (i >= 9 and i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for idx, cf in enumerate(comparison_files):
-                    if w1 == 0 and idx == 0: continue
-                    self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
-                    if self.best_eer < 0.0071:
-                        w1 = 1
-                        self.hyperparameters['nf'] = 5
-                        self.hyperparameters['nr'] = 0
-                        print(" Next epoch will also use skilled forgeries!")
-                    else:
+                    if w1 == 1 and idx == 1: continue
+                    ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)
+                    if ret_metrics["Global EER"] < 0.0231:
                         w1 = 0
                         self.hyperparameters['nf'] = 0
-                        self.hyperparameters['nr'] = 5
+                        self.hyperparameters['nss'] = 5
                         print(" Next epoch will not use skilled forgeries!")
+                    else:
+                        w1 = 1
+                        self.hyperparameters['nf'] = 5
+                        self.hyperparameters['nss'] = 0
+                        print(" Next epoch will use skilled forgeries!")
 
                     
             
