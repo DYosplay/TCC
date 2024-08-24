@@ -603,12 +603,12 @@ class DsPipeline(nn.Module):
 
             self.loss_variation.append(running_loss/epoch_size)
             last = np.array(self.loss_variation[-4:])
-            if len(self.loss_variation) >= 6 and np.array(self.loss_variation[-4:] < 0.002:
+            if len(self.loss_variation) >= 6 and np.mean(last - np.mean(last)) < 0.002:
                 w1 = 1
                 self.hyperparameters['nf'] = min(self.hyperparameters['nf'] + 1, 5) 
                 self.hyperparameters['nss'] = max(self.hyperparameters['nss'] - 1, 0)
                 print("Vetor:" + str(self.loss_variation[-4:]))
-                print("Como variou: " + np.array(self.loss_variation[-4:]))
+                print("Var: " + str(np.mean(last - np.mean(last))))
 
                 print(" Next epoch will use " + str(self.hyperparameters['nf']) + " skilled forgeries!")
             # else:
