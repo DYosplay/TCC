@@ -37,7 +37,7 @@ class Compact_Triplet_MMD(nn.Module):
 
         self.siz = np.sum(np.array(list(range(1,self.nw+1))))
 
-    def forward(self, data, lens, w1, w2):
+    def forward(self, data, lens):
         """ Loss de um batch
 
         Args:
