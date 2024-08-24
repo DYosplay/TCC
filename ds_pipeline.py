@@ -602,13 +602,13 @@ class DsPipeline(nn.Module):
             if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
 
             self.loss_variation.append(running_loss/epoch_size)
-
-            if len(self.loss_variation) >= 6 and np.var(np.array(self.loss_variation[-4:])) <= 0.00001:
+            last = np.array(self.loss_variation[-4:])
+            if len(self.loss_variation) >= 6 and np.array(self.loss_variation[-4:] < 0.002:
                 w1 = 1
                 self.hyperparameters['nf'] = min(self.hyperparameters['nf'] + 1, 5) 
                 self.hyperparameters['nss'] = max(self.hyperparameters['nss'] - 1, 0)
                 print("Vetor:" + str(self.loss_variation[-4:]))
-                print("Var: " + str(np.var(np.array(self.loss_variation[-4:]))))
+                print("Como variou: " + np.array(self.loss_variation[-4:]))
 
                 print(" Next epoch will use " + str(self.hyperparameters['nf']) + " skilled forgeries!")
             # else:
