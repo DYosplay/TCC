@@ -1,5 +1,3 @@
 cuda="0"
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=syn_compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=61 -es=3 -bs=64 -seed=333 -t=RND_S1_001 -pf=RND_S1_ -wpn=RND_S1 -wdb -ng=5 -nf=0 -nss=5 -nr=5 -nsg=0 -syn
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=syn_compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=61 -es=3 -bs=64 -seed=333 -t=RND_S1_002 -pf=RND_S1_ -wpn=RND_S1 -wdb -ng=5 -nf=0 -nss=5 -nr=5 -nsg=0 -syn
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=syn_compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=61 -es=3 -bs=64 -seed=333 -t=RND_S1_003 -pf=RND_S1_ -wpn=RND_S1 -wdb -ng=5 -nf=0 -nss=5 -nr=5 -nsg=0 -syn
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=syn_compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=61 -es=3 -bs=64 -seed=333 -t=RND_S1_004 -pf=RND_S1_ -wpn=RND_S1 -wdb -ng=5 -nf=0 -nss=5 -nr=5 -nsg=0 -syn
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -ev -w best.pt -seed=333 -t=ROT_X2_005 -pf=ROT_X2_ -wdb
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -ev -w epoch23.pt -seed=333 -t=ROT_X2_005 -pf=ROT_X2_ -wdb
