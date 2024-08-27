@@ -54,7 +54,7 @@ def new_evaluate(comparison_file : str, n_epoch : int, result_folder : str, dist
     total = len(lines)
     
     for i in tqdm(range(0, len(distances_r)), "Calculando EER..."):
-        for j in tqdm(range(0, len(distances_s))):
+        for j in range(0, len(distances_s)):
             total_true = 0
             total_false = 0
 
@@ -105,6 +105,24 @@ path_r = "dists_r_skilled.pickle"
 dists_r = None
 dists_s = None
 comparison_file = SKILLED_STYLUS_4VS1
+result_folder = "DoubleTH"
+
+with open(path_s, 'rb') as fr:
+    dists_s = pickle.load(fr)
+
+with open(path_r, 'rb') as fr:
+    dists_r = pickle.load(fr)
+
+new_evaluate(comparison_file, 0, result_folder, dists_s, dists_r)
+
+print()
+
+path_s = "dists_s_random.pickle"
+path_r = "dists_r_random.pickle"
+
+dists_r = None
+dists_s = None
+comparison_file = RANDOM_STYLUS_4VS1
 result_folder = "DoubleTH"
 
 with open(path_s, 'rb') as fr:
