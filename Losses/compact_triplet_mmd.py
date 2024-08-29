@@ -48,6 +48,7 @@ class Compact_Triplet_MMD(nn.Module):
         Returns:
             torch.tensor (float): valor da loss
         """
+        non_zero_random = 0
 
         step = (self.ng + self.nf + 1)
         total_loss = 0
@@ -82,6 +83,8 @@ class Compact_Triplet_MMD(nn.Module):
 
             lv = (torch.sum(lk_skilled) + torch.sum(lk_random)) / (lk_skilled.data.nonzero(as_tuple=False).size(0) + lk_random.data.nonzero(as_tuple=False).size(0) + 1)
 
+            non_zero_random += lk_random.data.nonzero(as_tuple=False).size(0)
+
             user_loss = lv + intra_loss * self.p + inter_loss * self.r
 
             total_loss += user_loss
@@ -99,4 +102,4 @@ class Compact_Triplet_MMD(nn.Module):
 
         mmd1 = torch.max(mmds) * self.alpha
 
-        return total_loss + mmd1
+        return total_loss + mmd1, non_zero_random
