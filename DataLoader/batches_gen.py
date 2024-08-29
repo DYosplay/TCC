@@ -239,7 +239,7 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
                     v, _ = batch_dtw(x[None, :int(len_x)], y[None, :int(len_y)], True) 
                     random_dict[potential_forgery] = v.item()
             
-            random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1], reverse=True)).keys())[:n_random]
+            random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1])).keys())[:n_random]
 
             a = [genuines[0]]
             p = genuines[1:] + syn_genuines
