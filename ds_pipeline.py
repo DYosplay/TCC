@@ -59,6 +59,8 @@ class DsPipeline(nn.Module):
         self.scores = []
         self.labels = []
 
+        self.non_zero_random = 0
+
         self.dumped_users = {}
         self.knn_matrix = np.zeros((443,443)) - 1
 
@@ -571,6 +573,9 @@ class DsPipeline(nn.Module):
 
             running_loss = 0
             #PAL = Previous Accumulated Loss
+            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * 5 * epoch_size)
+            print("Non zero random %:\t\t" + str(nonzero_random))
+
             while epoch != []:
             # if True:
                 batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
@@ -585,7 +590,8 @@ class DsPipeline(nn.Module):
                 
                 optimizer.zero_grad()
 
-                loss = self.loss_function(outputs, length)
+                loss, nonzero = self.loss_function(outputs, length)
+                self.non_zero_random += nonzero
                 # loss = self.loss_function(outputs, length, w1, w2)
                 loss.backward()
 
