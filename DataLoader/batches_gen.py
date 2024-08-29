@@ -6,6 +6,8 @@ from tqdm import tqdm
 from utils.pre_alignment import align
 from typing import Dict, Any
 import re
+import DTW.dtw_cuda as dtw
+import torch
 
 def get_files(dataset_folder : str = "../Data/DeepSignDB/Development/stylus"):
     files = os.listdir(dataset_folder)
@@ -164,7 +166,10 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
     if hyperparameters['rotation']:
         multiplier = 2
 
+    batch_dtw = dtw.DTW(True, normalize=False, bandwidth=1)
+
     database = None
+
     print("Gererating new epoch")
 
     for user_id in tqdm(train_users):
@@ -213,13 +218,28 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             
 
             # ids aleatórios podem ser de qualquer mini dataset
-            random_forgeries_ids = list(set(random.sample(train_users, 6)) - set([user_id]))[:n_random]
+            random_forgeries_ids = list(set(random.sample(train_users, hyperparameters['minining_forgeries']+1)) - set([user_id]))[:hyperparameters['minining_forgeries']]
             # ids aleatórios apenas do mesmo dataset
             # random_forgeries_ids = get_random_ids(user_id=user_id, database=database, samples=5)
 
-            random_forgeries = []
-            for id in random_forgeries_ids:
-                random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0])
+            random_dict = {}
+
+            with torch.no_grad():
+                anchor = genuines[0]
+                random_forgeries = []
+                x = loader.get_features(anchor, hyperparameters=hyperparameters, z=hyperparameters['zscore'], development=development)
+                x = torch.from_numpy(x).cuda().transpose(0,1)
+                len_x = len(x[0])
+                for id in random_forgeries_ids:
+                    potential_forgery = random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0]
+
+                    y = loader.get_features(potential_forgery, hyperparameters=hyperparameters, z=hyperparameters['zscore'], development=development)
+                    len_y = len(y[0])
+                    y = torch.from_numpy(y).cuda().transpose(0,1)
+                    v, _ = batch_dtw(x[None, :int(len_x)], y[None, :int(len_y)], True) 
+                    random_dict[potential_forgery] = v.item()
+            
+            random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1], reverse=True)).keys())[:n_random]
 
             a = [genuines[0]]
             p = genuines[1:] + syn_genuines
