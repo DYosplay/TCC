@@ -38,6 +38,7 @@ def parse_arguments():
 	parser.add_argument("-nr", "--nr", help="number of random forgeries signatures", default=3, type=int)
 	parser.add_argument("-nsg", "--nsg", help="number of synthetic genuine signatures", default=3, type=int)
 	parser.add_argument("-nss", "--nss", help="number of synthetic forgeries signatures", default=3, type=int)
+	parser.add_argument("-mf", "--minining_forgeries", help="number of random forgeries to mine", default=30, type=int)
 
 	parser.add_argument("-trans", "--transfer_learning", help="transfer learning method for distillation loss", action='store_true')
 	parser.add_argument("-tune", "--tune_model", help="tune model initializing it with a specific weight", action='store_true')
