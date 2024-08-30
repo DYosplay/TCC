@@ -166,7 +166,7 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
     if hyperparameters['rotation']:
         multiplier = 2
 
-    batch_dtw = dtw.DTW(True, normalize=False, bandwidth=1)
+    batch_dtw = dtw.DTW(True, normalize=False, bandwidth=0.07)
 
     database = None
 
@@ -248,6 +248,8 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             mini_batch = a + p + n
 
             epoch.append(mini_batch)
+    
+    del batch_dtw
     
     random.shuffle(epoch)
     return epoch
