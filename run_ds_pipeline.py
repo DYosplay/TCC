@@ -135,5 +135,5 @@ if __name__ == '__main__':
 	model.cuda()
 	model.train(mode=True)
 	# model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
-	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1, RANDOM_STYLUS_4VS1], result_folder=res_folder)
+	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
 	del model
