@@ -154,9 +154,10 @@ class DsPipeline(nn.Module):
         h = h * mask.unsqueeze(2)
 
         h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
-        if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
-        elif len(x) > 2: h, _ = self.rnn(h, self.h1)
-        else: h, _ = self.rnn(h, self.h2)
+        self.h0 = Variable(torch.zeros(self.n_layers, self.batch_size, self.n_hidden).cuda(), requires_grad=False)
+        # if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
+        # elif len(x) > 2: h, _ = self.rnn(h, self.h1)
+        # else: h, _ = self.rnn(h, self.h2)
         
         h, length = nutils.rnn.pad_packed_sequence(h, batch_first=True) 
         length = Variable(length).cuda()
@@ -550,6 +551,8 @@ class DsPipeline(nn.Module):
         data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
 
         running_loss = 0
+
+        mini_batch_size = self.hyperparameters['ng'] + self.hyperparameters['nf'] + self.hyperparameters['nr'] + 1
         
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
@@ -569,7 +572,7 @@ class DsPipeline(nn.Module):
                 print("\n\nEarly stop!")
                 break
 
-            pbar = tqdm(total=(epoch_size//(self.batch_size//16)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.4f}".format(self.loss_value))
+            pbar = tqdm(total=(epoch_size//(self.batch_size//mini_batch_size)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.4f}".format(self.loss_value))
 
             running_loss = 0
             #PAL = Previous Accumulated Loss
@@ -610,12 +613,13 @@ class DsPipeline(nn.Module):
 
             if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for idx, cf in enumerate(comparison_files):
-                    if idx == 0: continue
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
             
             lr_scheduler.step()
 
             torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+
+            self.non_zero_random = 0
 
         # Loss graph
         plt.xlabel("#Epoch")
