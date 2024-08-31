@@ -576,8 +576,6 @@ class DsPipeline(nn.Module):
 
             running_loss = 0
             #PAL = Previous Accumulated Loss
-            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * 5 * epoch_size)
-            print("Non zero random %:\t\t" + str(nonzero_random))
 
             while epoch != []:
             # if True:
@@ -618,6 +616,9 @@ class DsPipeline(nn.Module):
             lr_scheduler.step()
 
             torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+
+            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * 5 * epoch_size)
+            print("Non zero random %:\t\t" + str(nonzero_random))
 
             self.non_zero_random = 0
 
