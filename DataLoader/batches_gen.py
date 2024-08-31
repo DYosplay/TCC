@@ -123,15 +123,15 @@ def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Di
 
     return data, lens, epoch
 
-def get_random_ids(user_id, database, samples = 5):
+def get_random_ids(user_id, database, hyperparameters, samples = 5):
     if database == loader.EBIOSIGN1_DS1:
-        return list(set(random.sample(list(range(1009,1039)), samples+1)) - set([user_id]))[:5]
+        return list(set(random.sample(list(range(1009,1039)), samples+1)) - set([user_id]))[:hyperparameters['nr']]
     elif database == loader.EBIOSIGN1_DS2:
-        return list(set(random.sample(list(range(1039,1085)), samples+1)) - set([user_id]))[:5]
+        return list(set(random.sample(list(range(1039,1085)), samples+1)) - set([user_id]))[:hyperparameters['nr']]
     elif database == loader.MCYT:
-        return list(set(random.sample(list(range(1,231)), samples+1)) - set([user_id]))[:5]
+        return list(set(random.sample(list(range(1,231)), samples+1)) - set([user_id]))[:hyperparameters['nr']]
     elif database == loader.BIOSECUR_ID:
-        return list(set(random.sample(list(range(231,499)), samples+1)) - set([user_id]))[:5]
+        return list(set(random.sample(list(range(231,499)), samples+1)) - set([user_id]))[:hyperparameters['nr']]
     
     raise ValueError("Dataset desconhecido")
 
@@ -148,7 +148,7 @@ def generate_mixed_epoch(train_offset = [(1, 498), (1009, 1084)]):
     random.shuffle(epoch)
     return epoch
 
-def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train_offset = [(1, 498), (1009, 1084)], users=None, development = True):
+def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train_offset = [(1, 498), (1009, 1084)], users=None, development = True, model = None):
     files = get_files(dataset_folder=dataset_folder)
     files_backup = files.copy()
 
@@ -193,7 +193,7 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             syn_genuines = []
             s_forgeries = []
             syn_s_forgeries = []
-            n_random = 5
+            
             if hyperparameters['synthetic']:
                 genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'] + 1)
                 files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
@@ -205,41 +205,28 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
                 files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
 
                 syn_s_forgeries = random.sample(files['u' + f"{user_id:04}" + 'syns'], hyperparameters['nss'])
-                files['u' + f"{user_id:04}" + 'syns'] = list(set(files['u' + f"{user_id:04}" + 'syng']) - set(syn_s_forgeries))
-
-                n_random = hyperparameters['nr']
+                files['u' + f"{user_id:04}" + 'syns'] = list(set(files['u' + f"{user_id:04}" + 'syng']) - set(syn_s_forgeries))   
             else:
                 genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'] + 1)
                 files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
 
-                s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], hyperparameters['nf']//2)
+                s_forgeries = random.sample(files['u' + f"{user_id:04}" + 's'], hyperparameters['nf'])
                 files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
+
 
             
 
             # ids aleatórios podem ser de qualquer mini dataset
-            random_forgeries_ids = list(set(random.sample(train_users, hyperparameters['minining_forgeries']+1)) - set([user_id]))[:hyperparameters['minining_forgeries']]
+            # random_forgeries_ids = list(set(random.sample(train_users, hyperparameters['nr']+1)) - set([user_id]))[:hyperparameters['nr']]
             # ids aleatórios apenas do mesmo dataset
-            # random_forgeries_ids = get_random_ids(user_id=user_id, database=database, samples=5)
+            random_forgeries_ids = get_random_ids(user_id=user_id, database=database, hyperparameters=hyperparameters, samples=hyperparameters['nr'])
 
-            random_dict = {}
-
-            with torch.no_grad():
-                anchor = genuines[0]
-                random_forgeries = []
-                x = loader.get_features(anchor, hyperparameters=hyperparameters, z=hyperparameters['zscore'], development=development)
-                x = torch.from_numpy(x).cuda().transpose(0,1)
-                len_x = len(x[0])
-                for id in random_forgeries_ids:
-                    potential_forgery = random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0]
-
-                    y = loader.get_features(potential_forgery, hyperparameters=hyperparameters, z=hyperparameters['zscore'], development=development)
-                    len_y = len(y[0])
-                    y = torch.from_numpy(y).cuda().transpose(0,1)
-                    v, _ = batch_dtw(x[None, :int(len_x)], y[None, :int(len_y)], True) 
-                    random_dict[potential_forgery] = v.item()
+            # random_dict = {}
+            # random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1])).keys())[:hyperparameters['nr']]
             
-            random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1])).keys())[:n_random]
+            random_forgeries = []
+            for id in random_forgeries_ids:
+                random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0])
 
             a = [genuines[0]]
             p = genuines[1:] + syn_genuines
