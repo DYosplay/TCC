@@ -16,7 +16,7 @@ def define_loss(loss_type : str, ng : int, nf : int, nw : int, margin : torch.nn
         return compact_triplet_mmd_alt.Compact_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     
     if loss_type.lower() == "compact_triplet_mmd":
-        return compact_triplet_mmd.Compact_Triplet_MMD(ng=ng,nf=nf,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
+        return compact_triplet_mmd.Compact_Triplet_MMD(ng=ng,nf=nf, nr=nr,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "syn_compact_triplet_mmd":
         return syn_compact_triplet_mmd.Syn_Compact_Triplet_MMD(ng=ng, ns=nf, nr=nr, nsg=nsg, nss=nss,nw=nw,margin=margin, alpha=alpha, beta=beta, p=p, r=r, mmd_kernel_num=mmd_kernel_num, mmd_kernel_mul=mmd_kernel_mul)
     if loss_type.lower() == "clustering_triplet_mmd":
