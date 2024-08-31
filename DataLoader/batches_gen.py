@@ -112,8 +112,8 @@ def get_batch_from_transfer_domain_epoch(epoch, batch_size : int):
 
 """DeepSign"""
 def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Dict[str,Any]):
-    assert batch_size % 16 == 0
-    step = batch_size // 16
+    assert batch_size % (hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + 1) == 0
+    step = batch_size // (hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + 1)
 
     batch = []
     for i in range(0, step):
