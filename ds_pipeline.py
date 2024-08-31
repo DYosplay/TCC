@@ -617,7 +617,7 @@ class DsPipeline(nn.Module):
 
             torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
 
-            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * 5 * epoch_size)
+            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * self.hyperparameters['nr'] * epoch_size)
             print("Non zero random %:\t\t" + str(nonzero_random))
 
             self.non_zero_random = 0
