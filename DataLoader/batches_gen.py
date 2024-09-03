@@ -217,9 +217,9 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             
 
             # ids aleatórios podem ser de qualquer mini dataset
-            # random_forgeries_ids = list(set(random.sample(train_users, hyperparameters['nr']+1)) - set([user_id]))[:hyperparameters['nr']]
+            random_forgeries_ids = list(set(random.sample(train_users, hyperparameters['nr']+1)) - set([user_id]))[:hyperparameters['nr']]
             # ids aleatórios apenas do mesmo dataset
-            random_forgeries_ids = get_random_ids(user_id=user_id, database=database, hyperparameters=hyperparameters, samples=hyperparameters['nr'])
+            # random_forgeries_ids = get_random_ids(user_id=user_id, database=database, hyperparameters=hyperparameters, samples=hyperparameters['nr'])
 
             # random_dict = {}
             # random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1])).keys())[:hyperparameters['nr']]
