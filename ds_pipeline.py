@@ -613,7 +613,11 @@ class DsPipeline(nn.Module):
 
             self.loss_variation.append(running_loss/epoch_size)
 
-            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * self.hyperparameters['nr'] * epoch_size)
+            triples_per_mini_batch = self.hyperparameters['ng'] * self.hyperparameters['nr']
+            triples_in_batch = triples_per_mini_batch * self.hyperparameters['nw']
+            triples_in_epoch = triples_in_batch * epoch_size
+
+            nonzero_random = self.non_zero_random / triples_in_epoch
             print("Non zero random %:\t\t" + str(nonzero_random * 100))
 
             self.non_zero_random = 0
