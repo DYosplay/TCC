@@ -153,8 +153,8 @@ class DsPipeline(nn.Module):
         h = h.transpose(1,2)
         h = h * mask.unsqueeze(2)
 
+        self.h0 = Variable(torch.zeros(self.n_layers, h.shape[0], self.n_hidden).cuda(), requires_grad=False)
         h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
-        self.h0 = Variable(torch.zeros(self.n_layers, self.batch_size, self.n_hidden).cuda(), requires_grad=False)
         self.rnn(h, self.h0)
         # if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
         # elif len(x) > 2: h, _ = self.rnn(h, self.h1)
