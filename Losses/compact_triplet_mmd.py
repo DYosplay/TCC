@@ -6,7 +6,7 @@ import DTW.soft_dtw_cuda as soft_dtw
 import numpy as np
 
 class Compact_Triplet_MMD(nn.Module):
-    def __init__(self, ng : int, nf : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
+    def __init__(self, ng : int, nf : int, nr : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
         """_summary_
 
         Args:
@@ -26,6 +26,7 @@ class Compact_Triplet_MMD(nn.Module):
         self.ng = ng
         self.nf = nf
         self.nw = nw
+        self.nr = nr
         self.margin = margin
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.mmd_loss = mmd.MMDLoss(kernel_num=mmd_kernel_num, kernel_mul=mmd_kernel_mul)
@@ -56,11 +57,11 @@ class Compact_Triplet_MMD(nn.Module):
         for i in range(0, self.nw):
             anchor    = data[i * step]
             positives = data[i * step + 1 : i * step + 1 + self.ng]
-            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf + self.nr]
 
             len_a = lens[i * step]
             len_p = lens[i * step + 1 : i * step + 1 + self.ng]
-            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf]
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf + self.nr]
 
             dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
@@ -72,11 +73,11 @@ class Compact_Triplet_MMD(nn.Module):
             for j in range(len(negatives)):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
 
-            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:5].unsqueeze(0))
-            lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[5:].unsqueeze(0))
+            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0))
+            lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[self.nf:].unsqueeze(0))
 
             ca = torch.mean(dist_g)
-            cb = torch.mean(dist_n[:5])
+            cb = torch.mean(dist_n[:self.nw])
             intra_loss = torch.sum(dist_g - ca)
             inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
             # inter_loss = torch.sum(F.relu(self.beta - torch.abs(ca-cb)))
@@ -91,13 +92,15 @@ class Compact_Triplet_MMD(nn.Module):
 
         total_loss /= self.nw
 
+        # total_loss += var
+
         ctr = 0
         mmds = torch.zeros(self.siz, dtype=data.dtype, device=data.device)
         
         for i in range(0, self.nw):
             for j in range(1, self.nw):
                 if i != j:
-                    mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - 5], data[step*j: step*(j+1) - 5]) #* self.alpha
+                    mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - self.nr], data[step*j: step*(j+1) - self.nr]) #* self.alpha
                     ctr+=1
 
         mmd1 = torch.max(mmds) * self.alpha
