@@ -622,7 +622,7 @@ class DsPipeline(nn.Module):
             if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for idx, cf in enumerate(comparison_files):
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
-            
+                    if ret_metrics['Global EER'] > 0.023: break # se skilled estiver ruim, nem testa random
             lr_scheduler.step()
 
             torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
