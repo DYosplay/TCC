@@ -550,6 +550,9 @@ class DsPipeline(nn.Module):
 
         data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
 
+        self.non_zero_random = 0
+        nonzero = 0
+
         running_loss = 0
 
         mini_batch_size = self.hyperparameters['ng'] + self.hyperparameters['nf'] + self.hyperparameters['nr'] + 1
@@ -609,6 +612,12 @@ class DsPipeline(nn.Module):
 
             self.loss_variation.append(running_loss/epoch_size)
 
+            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * self.hyperparameters['nr'] * epoch_size)
+            print("Non zero random %:\t\t" + str(nonzero_random * 100))
+
+            self.non_zero_random = 0
+            nonzero = 0
+
             if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
                 for idx, cf in enumerate(comparison_files):
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
@@ -616,11 +625,6 @@ class DsPipeline(nn.Module):
             lr_scheduler.step()
 
             torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
-
-            nonzero_random = self.non_zero_random / (self.hyperparameters['nw'] * self.hyperparameters['nr'] * epoch_size)
-            print("Non zero random %:\t\t" + str(nonzero_random))
-
-            self.non_zero_random = 0
 
         # Loss graph
         plt.xlabel("#Epoch")
