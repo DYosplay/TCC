@@ -1,4 +1,6 @@
 cuda="1"
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -t=CTL_FP_004 -pf=CTL_FP_ -wpn=CTL_FP_ -wdb -fp=0.07
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -t=CTL_FP_005 -pf=CTL_FP_ -wpn=CTL_FP_ -wdb -fp=0.20
-PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -t=CTL_FP_006 -pf=CTL_FP_ -wpn=CTL_FP_ -wdb -fp=0.30
+for i in {001..010}
+do
+	result="ROT_R12_"
+	PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=25 -stop=26 -es=3 -bs=64 -seed=333 -wdb -pf=$result -wpn=$result -t=$result$i --rotation -ng=5 -nf=5 -r=5
+done
