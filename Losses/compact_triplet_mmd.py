@@ -51,7 +51,7 @@ class Compact_Triplet_MMD(nn.Module):
         """
         non_zero_random = 0
 
-        step = (self.ng + self.nf + 1)
+        step = (self.ng + self.nf + self.nr+ 1)
         total_loss = 0
 
         for i in range(0, self.nw):
