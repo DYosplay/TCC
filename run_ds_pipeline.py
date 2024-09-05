@@ -119,7 +119,7 @@ if __name__ == '__main__':
 			'learning_rate': {
 				'distribution': 'uniform',
 				'min': 0.001,
-				'max': 0.02
+				'max': 0.01
 			},
 			'decay': {
 				'distribution': 'uniform',
