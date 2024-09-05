@@ -8,6 +8,16 @@ import random
 import numpy as np
 import utils.baysean_search as baysean_search
 import utils.parse_arguments as parse_arguments
+import wandb
+
+def sweep_train():
+	model = DsPipeline(hyperparameters=hyperparameters)
+	print(test_protocols.count_parameters(model))
+	model.cuda()
+	model.train(mode=True)
+	# model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
+	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
+	del model
 
 
 if __name__ == '__main__':
@@ -89,6 +99,49 @@ if __name__ == '__main__':
 		exit(0)
 	
 	"""Experimental"""
+
+	if hyperparameters['sweep']:
+		sweep_config = {
+			'method': 'bayes',
+			"early_terminate": {
+				"type": "hyperband",
+				"min_iter": 3,
+				"eta": 3,
+			}
+		}
+		metric = {
+		'name': 'Global EER',
+		'goal': 'minimize'   
+		}
+		sweep_config['metric'] = metric
+
+		parameters_dict = {
+			'learning_rate': {
+				'distribution': 'uniform',
+				'min': 0.001,
+				'max': 0.02
+			},
+			'decay': {
+				'distribution': 'uniform',
+				'min': 0.5,
+				'max': 0.99
+			},
+			'momentum': {
+				'distribution': 'uniform',
+				'min': 0.5,
+				'max': 0.99
+			},
+		}
+		sweep_config['parameters'] = parameters_dict
+
+		sweep_id = wandb.sweep(sweep_config, project=hyperparameters['wandb_project_name'])
+
+		if hyperparameters['sweep_id'] == "":
+			wandb.agent(sweep_id, sweep_train, count=hyperparameters['wandb_number_of_tests'])
+		else:
+			wandb.agent(hyperparameters['sweep_id'], sweep_train, count=hyperparameters['wandb_number_of_tests'])
+		exit(0)
+
 	# if hyperparameters['knn_generate_matrix']:
 	# 	f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
 	# 	model = DsPipeline(hyperparameters=hyperparameters)

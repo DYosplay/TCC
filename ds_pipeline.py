@@ -30,6 +30,7 @@ from numba.core.errors import NumbaPerformanceWarning
 warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
 # os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
+
 BUFFER = ''
 class DsPipeline(nn.Module):
     def __init__(self, hyperparameters : Dict[str, Any]):    
@@ -111,6 +112,7 @@ class DsPipeline(nn.Module):
 
         # Wandb
         run = None
+
         if self.hyperparameters['wandb_name'] is not None:
             # wandb.login()
 
@@ -539,9 +541,14 @@ class DsPipeline(nn.Module):
             comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
             result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
         """
+        if self.hyperparameters['sweep']:
+            self.hyperparameters['learning_rate'] = wandb.config.learning_rate 
+            self.hyperparameters['momentum'] = wandb.config.momentum
+            self.hyperparameters['decay'] = wandb.config.decay
+
         dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
 
-        optimizer = optim.SGD(self.parameters(), lr=self.lr, momentum=self.hyperparameters['momentum'])
+        optimizer = optim.SGD(self.parameters(), lr=self.hyperparameters['learning_rate'], momentum=self.hyperparameters['momentum'])
         lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.hyperparameters['decay']) 
             
         if not os.path.exists(result_folder): os.mkdir(result_folder)
@@ -620,10 +627,11 @@ class DsPipeline(nn.Module):
             nonzero_random = self.non_zero_random / triples_in_epoch
             print("Non zero random %:\t\t" + str(nonzero_random * 100))
 
-            self.non_zero_random = 0
+            self.non_zero_raendom = 0
             nonzero = 0
 
-            if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            # if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            if i > (self.hyperparameters['epochs'] - 3):
                 for idx, cf in enumerate(comparison_files):
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
                     if ret_metrics['Global EER'] > 0.023: break # se skilled estiver ruim, nem testa random
