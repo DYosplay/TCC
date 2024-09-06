@@ -62,6 +62,7 @@ def parse_arguments():
 	parser.add_argument("-mkm", "--mmd_kernel_mul", help="MMD Kernel Mul", default=2, type=float)
 	parser.add_argument("-lbd", "--model_lambda", help="triplet loss model lambda", default=0.01, type=float)
 	parser.add_argument("-tm", "--margin", help="triplet loss margin", default=1.0, type=float)
+	parser.add_argument("-tmr", "--random_margin", help="triplet loss random margin", default=1.0, type=float)
 	parser.add_argument("-mmax", "--margin_max", help="set max margin value for distillation loss", default=1.0, type=float)
 	parser.add_argument("-mmin", "--margin_min", help="set min margin value for distillation loss", default=0.5, type=float)
 	# Testing
