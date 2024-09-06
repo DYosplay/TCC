@@ -553,8 +553,9 @@ class DsPipeline(nn.Module):
             timestamp = current_time.strftime("%Y%m%d_%H%M%S")
 
             # Create the final string
-            self.hyperparameters['test_name'] = f"{self.hyperparameters['parent_folder']}_{timestamp}.txt"
-            print(self.hyperparameters['test_name'])
+            self.hyperparameters['test_name'] = f"{self.hyperparameters['parent_folder']}_{timestamp}"
+            result_folder = os.join(self.hyperparameters['parent_folder'], f"{self.hyperparameters['parent_folder']}_{timestamp}")
+            print(result_folder)
 
         dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
 
