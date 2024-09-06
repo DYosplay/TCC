@@ -6,7 +6,7 @@ import DTW.soft_dtw_cuda as soft_dtw
 import numpy as np
 
 class Compact_Triplet_MMD(nn.Module):
-    def __init__(self, ng : int, nf : int, nr : int, nw : int, margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
+    def __init__(self, ng : int, nf : int, nr : int, nw : int, margin : float, random_margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
         """_summary_
 
         Args:
@@ -28,6 +28,7 @@ class Compact_Triplet_MMD(nn.Module):
         self.nw = nw
         self.nr = nr
         self.margin = margin
+        self.random_margin = random_margin
         self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
         self.mmd_loss = mmd.MMDLoss(kernel_num=mmd_kernel_num, kernel_mul=mmd_kernel_mul)
         self.alpha = alpha
@@ -74,7 +75,7 @@ class Compact_Triplet_MMD(nn.Module):
                 dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
 
             lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0))
-            lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[self.nf:].unsqueeze(0))
+            lk_random = F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_n[self.nf:].unsqueeze(0))
 
             ca = torch.mean(dist_g)
             cb = torch.mean(dist_n[:self.nw])
