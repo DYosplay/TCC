@@ -554,7 +554,8 @@ class DsPipeline(nn.Module):
 
             # Create the final string
             self.hyperparameters['test_name'] = f"{self.hyperparameters['parent_folder']}_{timestamp}"
-            result_folder = os.join(self.hyperparameters['parent_folder'], f"{self.hyperparameters['parent_folder']}_{timestamp}")
+            result_folder = os.path.join(self.hyperparameters['parent_folder'], f"{self.hyperparameters['parent_folder']}_{timestamp}")
+            os.makedirs(result_folder, exist_ok=True)
             print(result_folder)
 
         dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
