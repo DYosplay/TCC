@@ -546,6 +546,7 @@ class DsPipeline(nn.Module):
             self.hyperparameters['learning_rate'] = wandb.config.learning_rate 
             self.hyperparameters['momentum'] = wandb.config.momentum
             self.hyperparameters['decay'] = wandb.config.decay
+            self.hyperparameters['random_margin'] = wandb.config.random_margin
             # Get the current timestamp
             current_time = datetime.datetime.now()
 
