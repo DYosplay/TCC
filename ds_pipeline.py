@@ -542,9 +542,19 @@ class DsPipeline(nn.Module):
             result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
         """
         if self.hyperparameters['sweep']:
+            import datetime
             self.hyperparameters['learning_rate'] = wandb.config.learning_rate 
             self.hyperparameters['momentum'] = wandb.config.momentum
             self.hyperparameters['decay'] = wandb.config.decay
+            # Get the current timestamp
+            current_time = datetime.datetime.now()
+
+            # Format the timestamp as a string: YearMonthDay_HourMinuteSecond
+            timestamp = current_time.strftime("%Y%m%d_%H%M%S")
+
+            # Create the final string
+            self.hyperparameters['test_name'] = f"{self.hyperparameters['parent_folder']}_{timestamp}.txt"
+            print(self.hyperparameters['test_name'])
 
         dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
 
