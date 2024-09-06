@@ -106,7 +106,7 @@ class DsPipeline(nn.Module):
         nn.init.zeros_(self.cran[0].bias)
         nn.init.zeros_(self.cran[3].bias)
 
-        self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, q=self.q, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'], margin_max=hyperparameters['margin_max'], margin_min=hyperparameters['margin_min'], nsl=hyperparameters['number_of_slices'], nr=hyperparameters['nr'], nss=hyperparameters['nss'], nsg=hyperparameters['nsg'])
+        self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, random_margin=hyperparameters['random_margin'], model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, q=self.q, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'], margin_max=hyperparameters['margin_max'], margin_min=hyperparameters['margin_min'], nsl=hyperparameters['number_of_slices'], nr=hyperparameters['nr'], nss=hyperparameters['nss'], nsg=hyperparameters['nsg'])
         
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
@@ -579,7 +579,7 @@ class DsPipeline(nn.Module):
             epoch_size = len(epoch)
             self.loss_value = running_loss/epoch_size
 
-            if (self.best_eer > 0.04 and i >= self.hyperparameters['early_stop']):
+            if (self.best_eer > 0.025 and i > self.hyperparameters['early_stop']):
                 print("\n\nEarly stop!")
                 break
 

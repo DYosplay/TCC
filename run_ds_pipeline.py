@@ -118,18 +118,23 @@ if __name__ == '__main__':
 		parameters_dict = {
 			'learning_rate': {
 				'distribution': 'uniform',
-				'min': 0.001,
-				'max': 0.01
+				'min': 0.3,
+				'max': 0.012
 			},
 			'decay': {
 				'distribution': 'uniform',
-				'min': 0.5,
+				'min': 0.6,
 				'max': 0.99
 			},
 			'momentum': {
 				'distribution': 'uniform',
-				'min': 0.5,
+				'min': 0.6,
 				'max': 0.99
+			},
+			'random_margin': {
+				'distribution': 'uniform',
+				'min': 1.2,
+				'max': 4
 			},
 		}
 		sweep_config['parameters'] = parameters_dict
