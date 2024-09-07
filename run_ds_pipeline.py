@@ -9,14 +9,31 @@ import numpy as np
 import utils.baysean_search as baysean_search
 import utils.parse_arguments as parse_arguments
 import wandb
+import datetime
 
-def sweep_train():
+def sweep_train():	
+	hyperparameters['learning_rate'] = wandb.config.learning_rate 
+	hyperparameters['momentum'] = wandb.config.momentum
+	hyperparameters['decay'] = wandb.config.decay
+	hyperparameters['random_margin'] = wandb.config.random_margin
+	# Get the current timestamp
+	current_time = datetime.datetime.now()
+
+	# Format the timestamp as a string: YearMonthDay_HourMinuteSecond
+	timestamp = current_time.strftime("%Y%m%d_%H%M%S")
+
+	# Create the final string
+	hyperparameters['test_name'] = f"{hyperparameters['parent_folder']}_{timestamp}"
+	result_folder = os.path.join(hyperparameters['parent_folder'], f"{hyperparameters['parent_folder']}_{timestamp}")
+	os.makedirs(result_folder, exist_ok=True)
+	print(result_folder)
+
 	model = DsPipeline(hyperparameters=hyperparameters)
 	print(test_protocols.count_parameters(model))
 	model.cuda()
 	model.train(mode=True)
 	# model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
-	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
+	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=result_folder)
 	del model
 
 
@@ -118,7 +135,7 @@ if __name__ == '__main__':
 		parameters_dict = {
 			'learning_rate': {
 				'distribution': 'uniform',
-				'min': 0.3,
+				'min': 0.003,
 				'max': 0.012
 			},
 			'decay': {
