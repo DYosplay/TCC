@@ -9,32 +9,18 @@ import numpy as np
 import utils.baysean_search as baysean_search
 import utils.parse_arguments as parse_arguments
 import wandb
-import datetime
 
-def sweep_train():	
-	hyperparameters['learning_rate'] = wandb.config.learning_rate 
-	hyperparameters['momentum'] = wandb.config.momentum
-	hyperparameters['decay'] = wandb.config.decay
-	hyperparameters['random_margin'] = wandb.config.random_margin
-	# Get the current timestamp
-	current_time = datetime.datetime.now()
-
-	# Format the timestamp as a string: YearMonthDay_HourMinuteSecond
-	timestamp = current_time.strftime("%Y%m%d_%H%M%S")
-
-	# Create the final string
-	hyperparameters['test_name'] = f"{hyperparameters['parent_folder']}_{timestamp}"
-	result_folder = os.path.join(hyperparameters['parent_folder'], f"{hyperparameters['parent_folder']}_{timestamp}")
-	os.makedirs(result_folder, exist_ok=True)
-	print(result_folder)
-
+def sweep_train():
+	global id
+	hyperparameters['wandb_name'] = hyperparameters["test_name"] + ("%03d" % id)
 	model = DsPipeline(hyperparameters=hyperparameters)
 	print(test_protocols.count_parameters(model))
 	model.cuda()
 	model.train(mode=True)
 	# model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
-	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=result_folder)
+	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
 	del model
+	id += 1
 
 
 if __name__ == '__main__':
@@ -157,7 +143,7 @@ if __name__ == '__main__':
 		sweep_config['parameters'] = parameters_dict
 
 		sweep_id = wandb.sweep(sweep_config, project=hyperparameters['wandb_project_name'])
-
+		id = 1
 		if hyperparameters['sweep_id'] == "":
 			wandb.agent(sweep_id, sweep_train, count=hyperparameters['wandb_number_of_tests'])
 		else:
