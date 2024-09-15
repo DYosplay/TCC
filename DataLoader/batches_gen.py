@@ -115,13 +115,19 @@ def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Di
     assert batch_size % (hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + 1) == 0
     step = batch_size // (hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + 1)
 
+    users = []
     batch = []
     for i in range(0, step):
-        batch += epoch.pop()
+        b = epoch.pop()
+        batch += b
+        for j in range(0, len(b)):
+            id = int(b[j].split(os.sep)[-1].split('_')[0].split('u')[1])
+            if '_s_' in b[j]: id += 1148 # falsificacao profissional
+            users.append(id)
 
     data, lens = files2array(batch, hyperparameters=hyperparameters, z=z, development=True)
 
-    return data, lens, epoch
+    return data, lens, epoch, users
 
 def get_random_ids(user_id, database, hyperparameters, samples = 5):
     if database == loader.EBIOSIGN1_DS1:
