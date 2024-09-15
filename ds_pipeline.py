@@ -32,6 +32,41 @@ warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
 
 
 BUFFER = ''
+
+
+
+class selectivePooling(nn.Module):
+    def __init__(self, in_dim, head_dim, num_heads, tau=1.0):
+        super(selectivePooling, self).__init__()
+        self.keys = nn.Parameter(torch.Tensor(num_heads, head_dim), requires_grad=True)
+        self.w_q = nn.Conv1d(in_dim, head_dim * num_heads, kernel_size=1)
+        self.norm = 1 / head_dim**0.5
+        self.head_dim = head_dim
+        self.num_heads = num_heads
+        self.count = 0
+        nn.init.orthogonal_(self.keys, gain=1)
+        # nn.init.kaiming_normal_(self.keys, a=1)
+        nn.init.kaiming_normal_(self.w_q.weight, a=1)
+        nn.init.zeros_(self.w_q.bias)
+
+    def forward(self, x, mask, save=False):
+        N = x.shape[0]; T = x.shape[2]
+        queries = values = self.w_q(x).transpose(1, 2).view(N, T, self.num_heads, self.head_dim) #(N, T, num_heads, head_dim)
+        atten = F.softmax(torch.sum(queries * self.keys, dim=-1) * self.norm - (1.-mask).unsqueeze(2)*1000, dim=1) #(N, T, num_heads)  
+        head = torch.sum(values * atten.unsqueeze(3), dim=1).view(N, -1) #(N, num_heads * head_dim)
+        # if save: numpy.save("./expScripts/attenWeight_bsid/atten%d.npy"%self.count, atten.detach().cpu().numpy()); self.count += 1
+        return head
+
+    def orthoNorm(self):
+        keys = F.normalize(self.keys, dim=1)
+        corr = torch.mm(keys, keys.transpose(0, 1))
+        return torch.sum(torch.triu(corr, 1).abs_())
+
+
+
+
+
+
 class DsPipeline(nn.Module):
     def __init__(self, hyperparameters : Dict[str, Any]):    
         super(DsPipeline, self).__init__()
@@ -47,7 +82,7 @@ class DsPipeline(nn.Module):
         self.r = torch.nn.Parameter(torch.tensor(hyperparameters['r']), requires_grad=False)
         # self.q = torch.nn.Parameter(torch.tensor(hyperparameters['q']), requires_grad=False)
         self.q =hyperparameters['q']
-        
+
         # variáveis de controle
         self.z = hyperparameters['zscore']
         self.use_fdtw = hyperparameters['use_fdtw']
@@ -59,6 +94,7 @@ class DsPipeline(nn.Module):
         self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
+        self.n_classes = 1148 * 2
 
         self.non_zero_random = 0
 
@@ -99,6 +135,7 @@ class DsPipeline(nn.Module):
             eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
+        self.cls = nn.Linear(64, self.n_classes, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
@@ -112,6 +149,15 @@ class DsPipeline(nn.Module):
 
         # Wandb
         run = None
+
+        ####################################
+        self.Upsample = nn.Upsample(scale_factor=2)
+        self.convNet2_1x1 = nn.Conv1d(128, 256, kernel_size=1, padding=0, stride=1, dilation=1)
+        self.cls = nn.Linear(512, self.n_classes, bias=False)
+        self.bn = nn.BatchNorm1d(64, affine=False, momentum=0.001)
+        self.sp2 = selectivePooling(64, head_dim=32, num_heads=16)
+        self.sp3 = selectivePooling(256, head_dim=32, num_heads=16)
+        ####################################
 
         if self.hyperparameters['wandb_name'] is not None:
             # wandb.login()
@@ -145,6 +191,42 @@ class DsPipeline(nn.Module):
             mask[i, 0:lens[i]] = 1.0
         return mask
     
+    # def forward(self, x, mask, n_epoch):
+    #     length = torch.sum(mask, dim=1)
+    #     length, indices = torch.sort(length, descending=True)
+    #     x = torch.index_select(x, 0, indices)
+    #     mask = torch.index_select(mask, 0, indices)
+
+    #     h = self.cran(x)
+    #     h = h.transpose(1,2)
+    #     h = h * mask.unsqueeze(2)
+
+    #     self.h0 = Variable(torch.zeros(self.n_layers, h.shape[0], self.n_hidden).cuda(), requires_grad=False)
+    #     h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
+    #     self.rnn(h, self.h0)
+    #     # if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
+    #     # elif len(x) > 2: h, _ = self.rnn(h, self.h1)
+    #     # else: h, _ = self.rnn(h, self.h2)
+        
+    #     h, length = nutils.rnn.pad_packed_sequence(h, batch_first=True) 
+    #     length = Variable(length).cuda()
+
+    #     '''Recover the original order'''
+    #     _, indices = torch.sort(indices, descending=False)
+    #     h = torch.index_select(h, 0, indices)
+    #     length = torch.index_select(length, 0, indices)
+    #     mask = torch.index_select(mask, 0, indices)
+        
+    #     h = self.linear(h)
+
+    #     if self.training:
+    #         hd = F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1)
+    #         new_mask = (torch.arange(max(length//2)).cuda()).expand(hd.shape[0], hd.shape[1]) < (length//2).unsqueeze(1)
+    #         h1 = self.cls(hd * new_mask.unsqueeze(2)) 
+    #         return hd, length//2, h1, new_mask
+
+    #     return h * mask.unsqueeze(2), length.float()
+
     def forward(self, x, mask, n_epoch):
         length = torch.sum(mask, dim=1)
         length, indices = torch.sort(length, descending=True)
@@ -171,12 +253,17 @@ class DsPipeline(nn.Module):
         length = torch.index_select(length, 0, indices)
         mask = torch.index_select(mask, 0, indices)
         
+        h * mask.unsqueeze(2)
         h = self.linear(h)
 
+        # output2 = F.selu(self.Upsample(h)[:,:,:output2.shape[2]] + self.convNet2_1x1(output2), inplace=True) 
         if self.training:
-            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float()
+            feat2 = self.sp2(h.permute(0,2,1), torch.squeeze(mask))
+            feat2 = self.bn(feat2.transpose(0,1))
+            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), length//2, self.cls(feat2.transpose(0,1))
 
         return h * mask.unsqueeze(2), length.float()
+
 
     def _multidimensional_dte(self, x, y, len_x, len_y):
         assert x.shape[1] == y.shape[1]
@@ -533,6 +620,12 @@ class DsPipeline(nn.Module):
         
         return ret_metrics
 
+    def smoothCEloss(self, logit, target, eps=0.1):
+        n_class = logit.size(1)
+        one_hot = torch.zeros_like(logit.long()).scatter(1, target.long().view(-1, 1), 1)
+        one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
+        log_prb = F.log_softmax(logit, dim=1)
+        return -(one_hot * log_prb).sum(dim=1).mean(dim=0)
 
     def start_train(self, comparison_files : List[str], result_folder : str):
         """ Loop de treinamento
@@ -577,12 +670,17 @@ class DsPipeline(nn.Module):
         nonzero = 0
 
         running_loss = 0
+        lce_acc = 0
+        tm_acc = 0
+
 
         mini_batch_size = self.hyperparameters['ng'] + self.hyperparameters['nf'] + self.hyperparameters['nr'] + 1
         
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
-
+            print("Lce: " + str(lce_acc) + "\tTriplet Loss " + str(tm_acc))
+            lce_acc = 0
+            tm_acc = 0
 
             if self.hyperparameters['dataset_scenario'] == "mix":
                 epoch = batches_gen.generate_mixed_epoch()
@@ -605,27 +703,31 @@ class DsPipeline(nn.Module):
 
             while epoch != []:
             # if True:
-                batch, lens, epoch = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
+                optimizer.zero_grad()
+                batch, lens, epoch, targets = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
 
                 mask = self.getOutputMask(lens)
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
-
+                targets = torch.tensor(targets).cuda()
                 # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
                 
-                outputs, length = self(inputs.float(), mask, i)
+                outputs, length, output2 = self(inputs.float(), mask, i)
+                # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
+                # Lce = F.cross_entropy(output2, targets)
+                Lce = self.smoothCEloss(output2, targets, eps=0.10)
                 
-                optimizer.zero_grad()
-
                 loss, nonzero = self.loss_function(outputs, length)
                 self.non_zero_random += nonzero
                 # loss = self.loss_function(outputs, length, w1, w2)
-                loss.backward()
+                (loss + Lce).backward()
 
                 optimizer.step()
                 if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
 
-                running_loss += loss.item()
+                lce_acc += Lce.item()
+                tm_acc += loss.item()
+                running_loss += loss.item() + Lce.item()
             
                 pbar.update(1)
 
@@ -645,7 +747,7 @@ class DsPipeline(nn.Module):
             self.non_zero_raendom = 0
             nonzero = 0
 
-            if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
             # if i > (self.hyperparameters['epochs'] - 3):
                 for idx, cf in enumerate(comparison_files):
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
