@@ -1,6 +1,5 @@
-cuda="0"
-for i in {001..010}
-do
-	result="LCE_S01_"
-	PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=$cuda python run_ds_pipeline.py -lt=compact_triplet_mmd -a 0.96 -b 1.8 -p 0.809 -r 0.297 -lr 0.01 -ep=40 -stop=26 -es=5 -bs=64 -seed=333 -wdb -pf=$result -wpn=$result -t=$result$i --rotation -ng=5 -nf=5 -nr=5
-done
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -ev -wdb -w best.pt -seed=333 -pf=ROT_B3_ -t=ROT_B3__20240914_081133 -wpn=ROT_B3_EV
+
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -ev -wdb -w best.pt -seed=333 -pf=ROT_B3_ -t=ROT_B3__20240917_081218 -wpn=ROT_B3_EV
+
+PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:32 CUDA_VISIBLE_DEVICES=0 python run_ds_pipeline.py -ev -wdb -w best.pt -seed=333 -pf=ROT_B3_ -t=ROT_B3__20240915_002713 -wpn=ROT_B3_EV
