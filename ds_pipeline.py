@@ -94,7 +94,7 @@ class DsPipeline(nn.Module):
         self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
-        self.n_classes = 1148 * 2
+        self.n_classes = 1148
 
         self.non_zero_random = 0
 
@@ -135,7 +135,7 @@ class DsPipeline(nn.Module):
             eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
-        self.cls = nn.Linear(64, self.n_classes, bias=False)
+        # self.cls = nn.Linear(64, self.n_classes, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1) 
         nn.init.kaiming_normal_(self.cran[0].weight, a=0)
@@ -151,12 +151,12 @@ class DsPipeline(nn.Module):
         run = None
 
         ####################################
-        self.Upsample = nn.Upsample(scale_factor=2)
-        self.convNet2_1x1 = nn.Conv1d(128, 256, kernel_size=1, padding=0, stride=1, dilation=1)
-        self.cls = nn.Linear(512, self.n_classes, bias=False)
-        self.bn = nn.BatchNorm1d(64, affine=False, momentum=0.001)
-        self.sp2 = selectivePooling(64, head_dim=32, num_heads=16)
-        self.sp3 = selectivePooling(256, head_dim=32, num_heads=16)
+        # self.Upsample = nn.Upsample(scale_factor=2)
+        # self.convNet2_1x1 = nn.Conv1d(128, 256, kernel_size=1, padding=0, stride=1, dilation=1)
+        # # self.cls = nn.Linear(512, self.n_classes, bias=False)
+        # self.bn = nn.BatchNorm1d(64, affine=False, momentum=0.001)
+        # self.sp2 = selectivePooling(64, head_dim=32, num_heads=16)
+        # self.sp3 = selectivePooling(256, head_dim=32, num_heads=16)
         ####################################
 
         if self.hyperparameters['wandb_name'] is not None:
@@ -256,11 +256,8 @@ class DsPipeline(nn.Module):
         h * mask.unsqueeze(2)
         h = self.linear(h)
 
-        # output2 = F.selu(self.Upsample(h)[:,:,:output2.shape[2]] + self.convNet2_1x1(output2), inplace=True) 
         if self.training:
-            feat2 = self.sp2(h.permute(0,2,1), torch.squeeze(mask))
-            feat2 = self.bn(feat2.transpose(0,1))
-            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), length//2, self.cls(feat2.transpose(0,1))
+            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), length//2
 
         return h * mask.unsqueeze(2), length.float()
 
@@ -709,25 +706,22 @@ class DsPipeline(nn.Module):
                 mask = self.getOutputMask(lens)
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
-                targets = torch.tensor(targets).cuda()
+                # targets = torch.tensor(targets).cuda()
                 # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
                 
-                outputs, length, output2 = self(inputs.float(), mask, i)
+                outputs, length = self(inputs.float(), mask, i)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
-                # Lce = F.cross_entropy(output2, targets)
-                Lce = self.smoothCEloss(output2, targets, eps=0.10)
                 
-                loss, nonzero = self.loss_function(outputs, length)
+                loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
                 self.non_zero_random += nonzero
                 # loss = self.loss_function(outputs, length, w1, w2)
-                (loss + Lce).backward()
+                loss.backward()
 
                 optimizer.step()
                 if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
 
-                lce_acc += Lce.item()
                 tm_acc += loss.item()
-                running_loss += loss.item() + Lce.item()
+                running_loss += loss.item()
             
                 pbar.update(1)
 
@@ -762,7 +756,7 @@ class DsPipeline(nn.Module):
         plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
-        plt.clf()
+        # plt.clf()
 
     def extract(self, result_folder : str):
         os.makedirs(result_folder, exist_ok=True)
