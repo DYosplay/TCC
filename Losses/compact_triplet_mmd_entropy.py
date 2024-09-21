@@ -35,8 +35,9 @@ class Compact_Triplet_MMD_Entropy(nn.Module):
         self.beta = beta
         self.p = p
         self.r = r
-        self.soft_min = torch.nn.Softmin(dim=0)
-        self.cross_entropy_loss = torch.nn.CrossEntropyLoss(reduction="none")
+        self.soft_min = torch.nn.Softmin(dim=0).cuda()
+        self.cross_entropy_loss = torch.nn.CrossEntropyLoss()
+        self.bce = torch.nn.BCELoss()
 
         self.siz = np.sum(np.array(list(range(1,self.nw+1))))
 
@@ -96,18 +97,25 @@ class Compact_Triplet_MMD_Entropy(nn.Module):
             # c_pos_id = torch.argmax(dist_g)
             dist_r   = dist_n[self.nf:]
 
-            labels = torch.full((n_classes,),float('inf'), requires_grad=True).cuda()
-            labels[targets[0]] = torch.max(dist_g)
-            labels[torch.tensor(targets[1:])] = dist_r
-            sm = self.soft_min(labels.double())
-            # sms[i] = sm
-            ground = torch.full((n_classes,),0.0, requires_grad=True).cuda()
-            ground[targets[0]] = 1.0
-            cross_entropy = torch.nn.functional.cross_entropy(sm, ground)
+            labels = torch.tensor([1.0] * self.ng + [0.0] * self.nr).cuda()
+            values = torch.cat((dist_g, dist_r), dim=0)
+            sm = self.soft_min(values)
+            sig = torch.nn.functional.sigmoid(sm)
+            bce = self.bce(sig,labels)
+
+            user_loss += bce
+            # labels = torch.full((n_classes,),float('inf'), requires_grad=True).cuda()
+            # labels[targets[0]] = torch.max(dist_g)
+            # labels[torch.tensor(targets[1:])] = dist_r
+            # sm = self.soft_min(labels.double())
+            # # sms[i] = sm
+            # ground = torch.full((n_classes,),0.0, requires_grad=True).cuda()
+            # ground[targets[0]] = 1.0
+            # cross_entropy = torch.nn.functional.cross_entropy(sm, ground)
             # cross_entropy = torch.nn.functional.cross_entropy(sm, torch.tensor(targets[0]).cuda())
             # cross_entropy = self.cross_entropy_loss(sm, torch.tensor(targets[0]).cuda())
 
-            user_loss += cross_entropy
+            
 
             total_loss += user_loss
 
