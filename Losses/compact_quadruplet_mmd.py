@@ -1,0 +1,120 @@
+import torch
+import torch.nn.functional as F
+import torch.nn as nn
+from Losses import mmd_loss as mmd
+import DTW.soft_dtw_cuda as soft_dtw
+import numpy as np
+
+class Compact_Quadruplet_MMD(nn.Module):
+    def __init__(self, ng : int, nf : int, nr : int, nw : int, margin : float, random_margin : float, alpha : float, beta : float, p : float, r : float, mmd_kernel_num : float, mmd_kernel_mul : float):
+        """_summary_
+
+        Args:
+            ng (torch.nn.Parameter): number of genuine signatures inside the mini-batch
+            nf (torch.nn.Parameter): number of forgeries signatures inside the mini-batch
+            nw (torch.nn.Parameter): number of mini-batches (writers) inside a batch
+            margin (torch.nn.Parameter): Quadruplet loss margin
+            model_lambda (torch.nn.Parameter): control intraclass variation
+            alpha (torch.nn.Parameter): weighting factor for MMD
+            p (torch.nn.Parameter): weighting factor for skilled (p) and random (1-p) forgeries
+            q (torch.nn.Parameter): weighting factor for variance of genuines signatures inside the batch
+            mmd_kernel_num (torch.nn.Parameter): number of kernels for MMD
+            mmd_kernel_mul (torch.nn.Parameter): multipler for MMD
+        """
+        super(Compact_Quadruplet_MMD, self).__init__()
+        # Hyperparameters
+        self.ng = ng
+        self.nf = nf
+        self.nw = nw
+        self.nr = nr
+        self.margin = margin
+        self.random_margin = random_margin
+        self.sdtw = soft_dtw.SoftDTW(True, gamma=5, normalize=False, bandwidth=0.1)
+        self.mmd_loss = mmd.MMDLoss(kernel_num=mmd_kernel_num, kernel_mul=mmd_kernel_mul)
+        self.alpha = alpha
+        self.beta = beta
+        self.p = p
+        self.r = r
+
+
+        self.siz = np.sum(np.array(list(range(1,self.nw+1))))
+
+    def forward(self, data, lens):
+        """ Loss de um batch
+
+        Args:
+            data (torch tensor): Batch composto por mini self.nw mini-batches. Cada mini-batch é composto por 1+ng+nf (padrão=16) assinaturas e se refere a um único usuário e é (no padrão) disposto da seguinte forma:
+            [0]: âncora; [1:ng+1]: amostras positivas; [ng+1:ng+1+nf//2]: falsificações profissionais; [ng+1+nf//2:]: aleatórias 
+            lens (torch tensor (int)): tamanho de cada assinatura no batch
+
+        Returns:
+            torch.tensor (float): valor da loss
+        """
+        non_zero_random = 0
+
+        step = (self.ng + self.nf + self.nr+ 1)
+        total_loss = 0
+
+        for i in range(0, self.nw):
+            anchor    = data[i * step]
+            positives = data[i * step + 1 : i * step + 1 + self.ng]
+            negatives = data[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf + self.nr]
+
+            len_a = lens[i * step]
+            len_p = lens[i * step + 1 : i * step + 1 + self.ng]
+            len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf + self.nr]
+
+            dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
+            dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
+            dist_nn = torch.zeros((self.nr), dtype=data.dtype, device=data.device)
+
+            '''Average_Pooling_2,4,6'''
+            for j in range(len(positives)):
+                dist_g[j] = self.sdtw(anchor[None, :int(len_a)], positives[j:j+1, :int(len_p[j])])[0] / (len_a + len_p[j])
+
+            for j in range(len(negatives)):
+                dist_n[j] = self.sdtw(anchor[None, :int(len_a)], negatives[j:j+1, :int(len_n[j])])[0] / (len_a + len_n[j])
+
+            random = negatives[self.nf:]
+            len_r = len_n[self.nf:]
+            for j in range(self.nr - 1):
+                dist_nn[j] = self.sdtw(random[j:j+1, :int(len_r[j])], random[j+1:j+2, :int(len_r[j+1])])[0] / (len_r[j] + len_r[j+1])
+            dist_nn[self.nr-1] = self.sdtw(random[self.nr-1:self.nr, :int(len_r[self.nr-1])], random[0:1, :int(len_r[0])])[0] / (len_r[self.nr-1] + len_r[0])
+                
+
+            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0)) 
+            lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[self.nf:].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0))
+            # lk_random_nn = F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0))
+            # lk_skilled += lk_random_nn
+            # lk_random += lk_random_nn
+
+            ca = torch.mean(dist_g)
+            cb = torch.mean(dist_n[:self.nf])
+            intra_loss = torch.sum(dist_g - ca)
+            inter_loss = torch.sum(F.relu(self.beta - ((ca - cb).norm(dim=0, p=2))))
+            # inter_loss = torch.sum(F.relu(self.beta - torch.abs(ca-cb)))
+
+            lv = (torch.sum(lk_skilled) + torch.sum(lk_random)) / (lk_skilled.data.nonzero(as_tuple=False).size(0) + lk_random.data.nonzero(as_tuple=False).size(0) + 1)
+
+            non_zero_random += lk_random.data.nonzero(as_tuple=False).size(0)
+
+            user_loss = lv + intra_loss * self.p + inter_loss * self.r
+
+            total_loss += user_loss
+
+        total_loss /= self.nw
+
+        # total_loss += var
+
+        ctr = 0
+        mmds = torch.zeros(self.siz, dtype=data.dtype, device=data.device)
+        
+        for i in range(0, self.nw):
+            for j in range(1, self.nw):
+                if i != j:
+                    mmds[ctr] = self.mmd_loss(data[step*i:step*(i+1) - self.nr], data[step*j: step*(j+1) - self.nr]) #* self.alpha
+                    ctr+=1
+
+        mmd1 = torch.max(mmds) * self.alpha
+
+        return total_loss + mmd1, non_zero_random
