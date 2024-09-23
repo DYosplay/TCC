@@ -25,6 +25,7 @@ def sweep_train():
 
 if __name__ == '__main__':
 	# inicializa o parser
+	torch.autograd.set_detect_anomaly(True)
 	hyperparameters = parse_arguments.parse_arguments()
 
 	print(hyperparameters['test_name'])
@@ -48,6 +49,7 @@ if __name__ == '__main__':
 		np.random.seed(hyperparameters['seed'])
 		torch.manual_seed(hyperparameters['seed'])
 		torch.cuda.manual_seed(hyperparameters['seed'])
+		print("Using seed " + str(hyperparameters['seed']))
 	
 	cudnn.enabled = True
 	cudnn.benchmark = False

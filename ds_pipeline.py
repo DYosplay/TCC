@@ -702,7 +702,7 @@ class DsPipeline(nn.Module):
             # if True:
                 optimizer.zero_grad()
                 batch, lens, epoch, targets = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
-
+                print("\n",targets[0], targets[16], targets[32], targets[48])
                 mask = self.getOutputMask(lens)
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
@@ -712,7 +712,8 @@ class DsPipeline(nn.Module):
                 outputs, length = self(inputs.float(), mask, i)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
                 
-                loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
+                loss, nonzero = self.loss_function(outputs, length)
+                # loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
                 self.non_zero_random += nonzero
                 # loss = self.loss_function(outputs, length, w1, w2)
                 loss.backward()
