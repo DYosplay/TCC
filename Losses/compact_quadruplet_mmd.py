@@ -82,7 +82,7 @@ class Compact_Quadruplet_MMD(nn.Module):
             dist_nn[self.nr-1] = self.sdtw(random[self.nr-1:self.nr, :int(len_r[self.nr-1])], random[0:1, :int(len_r[0])])[0] / (len_r[self.nr-1] + len_r[0])
                 
 
-            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0)) 
+            lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0)) #+ F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0)) 
             lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[self.nf:].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0))
             # lk_random_nn = F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0))
             # lk_skilled += lk_random_nn
