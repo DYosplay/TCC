@@ -675,7 +675,7 @@ class DsPipeline(nn.Module):
         
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
-            print("Lce: " + str(lce_acc) + "\tTriplet Loss " + str(tm_acc))
+            # print("Lce: " + str(lce_acc) + "\tTriplet Loss " + str(tm_acc))
             lce_acc = 0
             tm_acc = 0
 
