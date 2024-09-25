@@ -66,7 +66,7 @@ class Triple_Triplet_Loss(nn.Module):
 
             dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
-            dist_nn = torch.zeros((self.nf,self.nr), dtype=data.dtype, device=data.device)
+            dist_nn = torch.zeros((self.nr), dtype=data.dtype, device=data.device)
 
             '''Average_Pooling_2,4,6'''
             for j in range(len(positives)):
@@ -79,14 +79,10 @@ class Triple_Triplet_Loss(nn.Module):
             random = negatives[self.nf:]
             len_r = len_n[self.nf:]
             for j in range(self.nf):
-                for k in range(j, self.nr):
-                    dist_nn[j][k] = self.sdtw(skilled[j:j+1, :int(len_n[j])], random[k:k+1, :int(len_r[k])])[0] / (len_r[k] + len_n[j])
-                    dist_nn[k][j] = dist_nn[j][k]
+                dist_nn[j] = self.sdtw(skilled[j:j+1, :int(len_n[j])], random[j:j+1, :int(len_r[j])])[0] / (len_r[j] + len_n[j])
 
-            lk = 0
-            for j in range(self.nf):
-                lk += F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[self.nf:].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.margin - dist_nn[j].unsqueeze(0))
-
+            lk = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[self.nf:].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.margin - dist_nn.unsqueeze(0))
+            
             # lk_skilled = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[:self.nf].unsqueeze(0)) #+ F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0)) 
             # lk_random = F.relu(dist_g.unsqueeze(1) + self.margin - dist_n[self.nf:].unsqueeze(0)) + F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0))
             # lk_random_nn = F.relu(dist_g.unsqueeze(1) + self.random_margin - dist_nn.unsqueeze(0))
@@ -104,6 +100,9 @@ class Triple_Triplet_Loss(nn.Module):
             non_zero_random += lk.data.nonzero(as_tuple=False).size(0)
 
             user_loss = lv + intra_loss * self.p + inter_loss * self.r
+
+            if user_loss > 10:
+                print(user_loss)
 
             total_loss += user_loss
 
