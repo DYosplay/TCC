@@ -2,11 +2,6 @@
 import numpy
 from scipy import signal
 
-import numpy.typing as npt
-import numpy as np
-import os
-from typing import Dict, Any
-
 def pathDrop(path, low=0.05, high=0.075):
     l = path.shape[0]
     r = (high - low) * numpy.random.random_sample() + low
@@ -62,58 +57,13 @@ class butterLPFilter(object):
 
 bf = butterLPFilter(15, 100)
 
-def centroid(arr : npt.ArrayLike):
-    length = arr.shape[0]
-    sum_x = np.sum(arr[:, 0])
-    sum_y = np.sum(arr[:, 1])
-    return sum_x/length, sum_y/length
-
-def normalize_x_and_y(x : npt.ArrayLike, y : npt.ArrayLike):
-    """ Normaliza as coordenadas x e y de acordo com o centróide
-
-    Args:
-        x (npt.ArrayLike): vetor com as coordenadas x
-        y (npt.ArrayLike): vetor com as coordenadas y
-
-    Raises:
-        ValueError: caso os tamanhos de x e y sejam diferentes
-
-    Returns:
-        Tuple[npt.ArrayLike, npt.ArrayLike]: novas coordenadas x, novas coordenadas y
-    """
-    if(len(x) != len(y)):
-        raise ValueError("Tamanhos de x e y diferentes!")
-
-    coord = np.array( list( zip(x, y) ))
-    xg, yg = centroid(coord)
-
-    x_hat = np.zeros(len(x))
-    x_den = np.max(x) - np.min(x)
-
-    y_hat = np.zeros(len(y))
-    y_den = np.max(y) - np.min(y)
-
-    for i in range(0, len(x)):
-        x_hat[i] = (x[i] - xg)/x_den
-
-        y_hat[i] = (y[i] - yg)/y_den
-
-    return x_hat, y_hat
-
-def featExt(pathList, feats, gpnoise=None, dim=2, transform=False, user="", index=0, kind=''):
-    count = 0
+def featExt(pathList, feats, gpnoise=None, dim=2, transform=False):
     for path in pathList:
         p = path[:,dim]
         path = path[:, 0:dim] #(x,y,p)
         path[:,0] = bf(path[:,0])
         path[:,1] = bf(path[:,1])
         # sinusoidalTransform(path)
-
-        ##############################################
-        x1, y1 = normalize_x_and_y(path[:, 0], path[:, 1])
-
-        ##############################################
-
         dx = diff(path[:, 0]); dy = diff(path[:, 1])
         v = numpy.sqrt(dx**2+dy**2)
         theta = numpy.arctan2(dy, dx)
@@ -127,36 +77,10 @@ def featExt(pathList, feats, gpnoise=None, dim=2, transform=False, user="", inde
         # ddx = diff(dx); ddy = diff(dy)
         # dtotalAccel = diff(totalAccel)
         # dlogCurRadius = diff(logCurRadius)
-        # feat = numpy.concatenate((dx[:,None], dy[:,None], v[:,None], cos[:,None], sin[:,None], theta[:,None], 
-        #                           logCurRadius[:,None], totalAccel[:,None], dv[:,None], dv2[:,None], dtheta[:,None], p[:,None]), axis=1).astype(numpy.float32) 
-        # feat = (feat - numpy.mean(feat, axis=0)) / numpy.std(feat, axis=0)
-        """"""
-        #feat = numpy.concatenate((v[:,None], cos[:,None], sin[:,None], theta[:,None], 
-        #                          logCurRadius[:,None], totalAccel[:,None], dv[:,None], dv2[:,None], dtheta[:,None], p[:,None]), axis=1).astype(numpy.float32) 
-        #feat = (feat - numpy.mean(feat, axis=0)) / numpy.std(feat, axis=0)
-        #feat = numpy.concatenate((x1[:,None], y1[:,None],feat), axis=1).astype(numpy.float32) 
-        """"""
-        feat = numpy.concatenate((v[:,None], cos[:,None], sin[:,None], theta[:,None], 
+        feat = numpy.concatenate((dx[:,None], dy[:,None], v[:,None], cos[:,None], sin[:,None], theta[:,None], 
                                   logCurRadius[:,None], totalAccel[:,None], dv[:,None], dv2[:,None], dtheta[:,None], p[:,None]), axis=1).astype(numpy.float32) 
         feat = (feat - numpy.mean(feat, axis=0)) / numpy.std(feat, axis=0)
-        feat = numpy.concatenate((x1[:,None], y1[:,None],feat), axis=1).astype(numpy.float32) 
-
-
-        """"""
         ### For finger scenario
         # feat[:,:-1] = (feat[:,:-1] - numpy.mean(feat[:,:-1], axis=0)) / numpy.std(feat[:,:-1], axis=0)
-        feat = feat.transpose().astype(numpy.float32)
-        os.makedirs("Synthetic", exist_ok=True)
-        with open("Synthetic" + os.sep + f'u{user:04d}_{kind}_syn_{index:04d}v_{count:02d}.txt', 'w') as fw:
-            buffer = (f'{feat.shape[1]}\n')
-    
-            # Write each of the following feat.shape[1] lines with the 12 elements separated by ','
-            for i in range(feat.shape[1]):
-                buffer += ','.join(map(str, feat[:, i])) + '\n'
-            fw.write(buffer)
-        count += 1
-
-        feats.append(feat)
-
-
+        feats.append(feat.astype(numpy.float32))
     return feats
