@@ -243,10 +243,6 @@ class DsPipeline(nn.Module):
         h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
         h, hidden = self.rnn(h, self.h0)
 
-        hidden2 = torch.flatten(hidden.transpose(0,1), 1)
-        mask_hidden = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=hidden2.device)
-        hidden2 = hidden2[mask_hidden]
-        hidden2 = self.linear2(hidden2)
         # if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
         # elif len(x) > 2: h, _ = self.rnn(h, self.h1)
         # else: h, _ = self.rnn(h, self.h2)
@@ -264,10 +260,14 @@ class DsPipeline(nn.Module):
         h = self.linear(h)
 
         if self.training:
+            hidden2 = torch.flatten(hidden.transpose(0,1), 1)
+            mask_hidden = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=hidden2.device)
+            hidden2 = hidden2[mask_hidden]
+            hidden2 = self.linear2(hidden2)
             return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), length//2, hidden2
 
         h = h * mask.unsqueeze(2)
-        return h * mask.unsqueeze(2), length.float(), hidden2
+        return h * mask.unsqueeze(2), length.float()
 
 
     def _multidimensional_dte(self, x, y, len_x, len_y):
