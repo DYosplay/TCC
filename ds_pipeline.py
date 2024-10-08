@@ -719,14 +719,14 @@ class DsPipeline(nn.Module):
                 mask_target = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=targets.device)
                 targets = targets[mask_target]
                 # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
-                
+                assert torch.max(targets) <= 574
                 # outputs, length = self(inputs.float(), mask, i)
                 outputs, length, predict = self(inputs.float(), mask, i)
-                loss, nonzero = self.loss_function(outputs, length)
+                
                 prob = self.soft_min(predict)
                 loss2 = torch.nn.functional.cross_entropy(prob, targets)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
-                
+                loss, nonzero = self.loss_function(outputs, length)
                 
                 # loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
                 self.non_zero_random += nonzero
