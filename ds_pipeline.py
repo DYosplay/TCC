@@ -724,8 +724,8 @@ class DsPipeline(nn.Module):
                 # loss2 = self.cross_entropy_loss(predict, targets)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
                 
-                loss, nonzero = self.loss_function(outputs, length)
-                # loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
+                # loss, nonzero = self.loss_function(outputs, length)
+                loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
                 self.non_zero_random += nonzero
                 # loss = self.loss_function(outputs, length, w1, w2)
                 loss.backward()
