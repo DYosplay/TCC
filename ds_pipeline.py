@@ -135,7 +135,7 @@ class DsPipeline(nn.Module):
             eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
-        self.linear2 = nn.Linear(self.n_hidden*self.n_layers, self.n_classes, bias=True)
+        self.linear2 = nn.Linear(self.n_hidden, self.n_classes, bias=True)
         # self.cls = nn.Linear(64, self.n_classes, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1) 
@@ -254,6 +254,7 @@ class DsPipeline(nn.Module):
         '''Recover the original order'''
         _, indices = torch.sort(indices, descending=False)
         h = torch.index_select(h, 0, indices)
+        hidden = torch.index_select(hidden.transpose(0,1), 0, indices) ###
         length = torch.index_select(length, 0, indices)
         mask = torch.index_select(mask, 0, indices)
         
@@ -261,7 +262,8 @@ class DsPipeline(nn.Module):
         h = self.linear(h)
 
         if self.training:
-            hidden2 = torch.flatten(hidden.transpose(0,1), 1)
+            # hidden2 = torch.flatten(hidden.transpose(0,1), 1)
+            hidden2 = hidden.transpose(0,1)[-1]
             mask_hidden = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=hidden2.device)
             hidden2 = hidden2[mask_hidden]
             hidden2 = self.linear2(hidden2)
