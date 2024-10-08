@@ -94,7 +94,7 @@ class DsPipeline(nn.Module):
         self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
-        self.n_classes = 574 
+        self.n_classes = 574+1 
 
         self.non_zero_random = 0
 
@@ -722,11 +722,12 @@ class DsPipeline(nn.Module):
                 
                 # outputs, length = self(inputs.float(), mask, i)
                 outputs, length, predict = self(inputs.float(), mask, i)
+                loss, nonzero = self.loss_function(outputs, length)
                 prob = self.soft_min(predict)
                 loss2 = torch.nn.functional.cross_entropy(prob, targets)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
                 
-                loss, nonzero = self.loss_function(outputs, length)
+                
                 # loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
                 self.non_zero_random += nonzero
                 # loss = self.loss_function(outputs, length, w1, w2)
