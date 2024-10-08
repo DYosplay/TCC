@@ -94,7 +94,7 @@ class DsPipeline(nn.Module):
         self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
-        self.n_classes = 574+1 
+        self.n_classes = 574
 
         self.non_zero_random = 0
 
@@ -145,8 +145,9 @@ class DsPipeline(nn.Module):
         nn.init.zeros_(self.cran[3].bias)
 
         self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, random_margin=hyperparameters['random_margin'], model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, q=self.q, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'], margin_max=hyperparameters['margin_max'], margin_min=hyperparameters['margin_min'], nsl=hyperparameters['number_of_slices'], nr=hyperparameters['nr'], nss=hyperparameters['nss'], nsg=hyperparameters['nsg'])
-        self.soft_min = torch.nn.Softmin(dim=0).cuda()
-        # self.cross_entropy_loss = torch.nn.CrossEntropyLoss()
+        # self.soft_min = torch.nn.Softmin(dim=0).cuda()
+        # self.soft_max = torch.nn.Softmax(dim=0).cuda()
+        self.cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
@@ -725,8 +726,9 @@ class DsPipeline(nn.Module):
                 # outputs, length = self(inputs.float(), mask, i)
                 outputs, length, predict = self(inputs.float(), mask, i)
                 
-                prob = self.soft_min(predict)
-                loss2 = torch.nn.functional.cross_entropy(prob, targets)
+                # prob = self.soft_min(predict)
+                loss2 = self.cross_entropy_loss(predict, targets)
+                # loss2 = torch.nn.functional.cross_entropy(prob, targets)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
                 loss, nonzero = self.loss_function(outputs, length)
                 
