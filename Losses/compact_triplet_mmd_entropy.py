@@ -40,6 +40,7 @@ class Compact_Triplet_MMD_Entropy(nn.Module):
         self.bce = torch.nn.BCELoss()
 
         self.siz = np.sum(np.array(list(range(1,self.nw+1))))
+        # self.linear = nn.Linear(1, 64, bias=False)
 
     def forward(self, data, lens,target,n_classes):
         """ Loss de um batch
@@ -67,7 +68,7 @@ class Compact_Triplet_MMD_Entropy(nn.Module):
             len_p = lens[i * step + 1 : i * step + 1 + self.ng]
             len_n = lens[i * step + 1 + self.ng : i * step + 1 + self.ng + self.nf + self.nr]
 
-            targets = [target[i * step]] + target[i * step + 1 + self.ng + self.nf: i * step + self.ng + self.nf + self.nr + 1]
+            # targets = [target[i * step]] + target[i * step + 1 + self.ng + self.nf: i * step + self.ng + self.nf + self.nr + 1]
 
             dist_g = torch.zeros((len(positives)), dtype=data.dtype, device=data.device)
             dist_n = torch.zeros((len(negatives)), dtype=data.dtype, device=data.device)
@@ -98,12 +99,27 @@ class Compact_Triplet_MMD_Entropy(nn.Module):
             dist_r   = dist_n[self.nf:]
 
             labels = torch.tensor([1.0] * self.ng + [0.0] * self.nr).cuda()
-            values = torch.cat((dist_g, dist_r), dim=0)
-            sm = self.soft_min(values)
-            sig = torch.nn.functional.sigmoid(sm)
-            bce = self.bce(sig,labels)
+            # values = torch.cat((dist_g, dist_r), dim=0)
+            # sm = self.soft_min(values)
+            # sig = torch.nn.functional.sigmoid(sm)
+            # bce = self.bce(sig,labels)
 
-            user_loss += bce
+            # user_loss += bce
+
+
+            bce = 0
+            for j in range(0, self.nr):
+                sm = self.soft_min(torch.cat((dist_g[0:1], dist_r[j:j+1])))
+                # sig = torch.nn.functional.sigmoid(sm)
+                bce = bce + self.bce(sm,torch.cat((labels[0:1], labels[self.nr + j: self.nr + j+1])))
+            bce = bce / self.nr
+            # sm = self.soft_min(values)
+            # sig = torch.nn.functional.sigmoid(sm)
+            # bce = self.bce(sig,labels)
+
+            user_loss = bce + user_loss
+
+
             # labels = torch.full((n_classes,),float('inf'), requires_grad=True).cuda()
             # labels[targets[0]] = torch.max(dist_g)
             # labels[torch.tensor(targets[1:])] = dist_r
