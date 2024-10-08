@@ -121,7 +121,7 @@ def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Di
         b = epoch.pop()
         batch += b
         for j in range(0, len(b)):
-            id = int(b[j].split(os.sep)[-1].split('_')[0].split('u')[1])
+            id = int(b[j].split(os.sep)[-1].split('_')[0].split('u')[1]) - 1
             if id >= 1009: id -= 510
             if '_s_' in b[j]: id += 574 # falsificacao profissional
             users.append(id)
