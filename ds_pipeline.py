@@ -94,7 +94,7 @@ class DsPipeline(nn.Module):
         self.n_hidden = hyperparameters["nhidden"]
         self.scores = []
         self.labels = []
-        self.n_classes = 1148 
+        self.n_classes = 574 
 
         self.non_zero_random = 0
 
@@ -135,7 +135,7 @@ class DsPipeline(nn.Module):
             eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
-        # self.linear2 = nn.Linear(self.n_hidden*self.n_layers, self.n_classes, bias=False)
+        self.linear2 = nn.Linear(self.n_hidden*self.n_layers, self.n_classes, bias=True)
         # self.cls = nn.Linear(64, self.n_classes, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1) 
@@ -145,7 +145,8 @@ class DsPipeline(nn.Module):
         nn.init.zeros_(self.cran[3].bias)
 
         self.loss_function = define_loss(loss_type=hyperparameters['loss_type'], ng=hyperparameters['ng'], nf=hyperparameters['nf'], nw=hyperparameters['nw'], margin=self.margin, random_margin=hyperparameters['random_margin'], model_lambda=hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, q=self.q, mmd_kernel_num=hyperparameters['mmd_kernel_num'], mmd_kernel_mul=hyperparameters['mmd_kernel_mul'], margin_max=hyperparameters['margin_max'], margin_min=hyperparameters['margin_min'], nsl=hyperparameters['number_of_slices'], nr=hyperparameters['nr'], nss=hyperparameters['nss'], nsg=hyperparameters['nsg'])
-        self.cross_entropy_loss = torch.nn.CrossEntropyLoss()
+        self.soft_min = torch.nn.Softmin(dim=0).cuda()
+        # self.cross_entropy_loss = torch.nn.CrossEntropyLoss()
 
         self.dtw = dtw.DTW(True, normalize=False, bandwidth=1)
 
@@ -260,11 +261,11 @@ class DsPipeline(nn.Module):
         h = self.linear(h)
 
         if self.training:
-            # hidden2 = torch.flatten(hidden.transpose(0,1), 1)
-            # mask_hidden = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=hidden2.device)
-            # hidden2 = hidden2[mask_hidden]
-            # hidden2 = self.linear2(hidden2)
-            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), length//2 #, hidden2
+            hidden2 = torch.flatten(hidden.transpose(0,1), 1)
+            mask_hidden = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=hidden2.device)
+            hidden2 = hidden2[mask_hidden]
+            hidden2 = self.linear2(hidden2)
+            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), length//2, hidden2
 
         h = h * mask.unsqueeze(2)
         return h * mask.unsqueeze(2), length.float()
@@ -683,7 +684,7 @@ class DsPipeline(nn.Module):
         
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
-            # print("Lce: " + str(lce_acc) + "\tTriplet Loss " + str(tm_acc))
+            print("Lce: " + str(lce_acc) + "\tTriplet Loss " + str(tm_acc))
             lce_acc = 0
             tm_acc = 0
 
@@ -719,21 +720,23 @@ class DsPipeline(nn.Module):
                 targets = targets[mask_target]
                 # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
                 
-                outputs, length = self(inputs.float(), mask, i)
-                # outputs, length, predict = self(inputs.float(), mask, i)
-                # loss2 = self.cross_entropy_loss(predict, targets)
+                # outputs, length = self(inputs.float(), mask, i)
+                outputs, length, predict = self(inputs.float(), mask, i)
+                prob = self.soft_min(predict)
+                loss2 = torch.nn.functional.cross_entropy(prob, targets)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
                 
-                # loss, nonzero = self.loss_function(outputs, length)
-                loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
+                loss, nonzero = self.loss_function(outputs, length)
+                # loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
                 self.non_zero_random += nonzero
                 # loss = self.loss_function(outputs, length, w1, w2)
-                loss.backward()
-                # (loss + loss2).backward()
+                # loss.backward()
+                (loss + loss2).backward()
 
                 optimizer.step()
                 if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
 
+                lce_acc += loss2.item()
                 tm_acc += loss.item()
                 running_loss += loss.item()
             
