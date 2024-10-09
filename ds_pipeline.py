@@ -722,7 +722,8 @@ class DsPipeline(nn.Module):
                 mask_target = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=targets.device)
                 targets = targets[mask_target]
                 # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
-                assert torch.max(targets) <= 574
+                assert torch.max(targets) <= 573
+                # if not torch.max(targets) > 573: print(torch.max(targets))
                 # outputs, length = self(inputs.float(), mask, i)
                 outputs, length, predict = self(inputs.float(), mask, i)
                 
@@ -749,8 +750,7 @@ class DsPipeline(nn.Module):
 
             pbar.close()
 
-            if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss': running_loss/epoch_size}) 
-
+            if self.hyperparameters['wandb_name'] is not None: wandb.log({'triplet loss': running_loss/epoch_size, 'lce loss': lce_acc/epoch_size, 'total_loss': (running_loss + lce_acc)/epoch_size}) 
             self.loss_variation.append(running_loss/epoch_size)
 
             triples_per_mini_batch = self.hyperparameters['ng'] * self.hyperparameters['nr']
