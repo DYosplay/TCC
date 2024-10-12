@@ -730,9 +730,9 @@ class DsPipeline(nn.Module):
                 # prob = self.soft_min(predict)
                 loss2 = self.cross_entropy_loss(predict, targets)
                 # loss2.backward(retain_graph=True)
-                loss2.backward()
+                # loss2.backward()
                 
-                loss = loss2         # apenas uma gambiarra
+                # loss = loss2         # apenas uma gambiarra
                 # loss2 = torch.nn.functional.cross_entropy(prob, targets)
                 # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
                 
@@ -741,9 +741,9 @@ class DsPipeline(nn.Module):
                 # loss = self.loss_function(outputs, length, w1, w2)
 
                 """Essa eh a versao que eu uso junto com lce e que funciona sozinha"""
-                # loss, nonzero = self.loss_function(outputs, length)
-                # self.non_zero_random += nonzero
-                # loss.backward()
+                loss, nonzero = self.loss_function(outputs, length)
+                self.non_zero_random += nonzero
+                (loss + loss2).backward()
                 
 
                 optimizer.step()
@@ -753,8 +753,8 @@ class DsPipeline(nn.Module):
                 tm_acc += loss.item()
                 running_loss += loss.item()
 
-                del loss
-                del loss2
+                # del loss
+                # del loss2
             
                 pbar.update(1)
 
