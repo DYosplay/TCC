@@ -11,11 +11,13 @@ import torch.optim as optim
 
 from matplotlib import pyplot as plt
 import os
+import sys
 import math
 from tqdm import tqdm
 import numpy as np
 
 import DataLoader.batches_gen as batches_gen
+import DataLoader.loader as loader
 import DTW.dtw_cuda as dtw
 import DTW.soft_dtw_cuda as sdtw
 import utils.metrics as metrics
@@ -135,7 +137,7 @@ class DsPipeline(nn.Module):
             eval("self.rnn.bias_ih_l%d"%i)[self.n_hidden:2*self.n_hidden].data.fill_(-1e10) #Initial update gate bias
     
         self.linear = nn.Linear(self.n_hidden, 64, bias=False)
-        self.linear2 = nn.Linear(self.n_hidden, self.n_classes, bias=True)
+        # self.linear2 = nn.Linear(self.n_hidden, self.n_classes, bias=True)
         # self.cls = nn.Linear(64, self.n_classes, bias=False)
 
         nn.init.kaiming_normal_(self.linear.weight, a=1) 
@@ -244,10 +246,6 @@ class DsPipeline(nn.Module):
         self.h0 = Variable(torch.zeros(self.n_layers, h.shape[0], self.n_hidden).cuda(), requires_grad=False)
         h = nutils.rnn.pack_padded_sequence(h, list(length.cpu().numpy()), batch_first=True)
         h, hidden = self.rnn(h, self.h0)
-
-        # if len(x) == self.batch_size: h, _ = self.rnn(h, self.h0)
-        # elif len(x) > 2: h, _ = self.rnn(h, self.h1)
-        # else: h, _ = self.rnn(h, self.h2)
         
         h, length = nutils.rnn.pad_packed_sequence(h, batch_first=True) 
         length = Variable(length).cuda()
@@ -264,13 +262,13 @@ class DsPipeline(nn.Module):
 
         if self.training:
             # hidden2 = torch.flatten(hidden.transpose(0,1), 1)
-            hidden2 = hidden.transpose(0,1)[-1]
-            mask_hidden = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=hidden2.device)
-            hidden2 = hidden2[mask_hidden]
-            hidden2 = self.linear2(hidden2)
-            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), length//2, hidden2
+            # hidden2 = hidden.transpose(0,1)[-1]
+            # mask_hidden = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=hidden2.device)
+            # hidden2 = hidden2[mask_hidden]
+            # hidden2 = self.linear2(hidden2)
+            return F.avg_pool1d(h.permute(0,2,1),2,2,ceil_mode=False).permute(0,2,1), (length//2).float() #, hidden2
 
-        h = h * mask.unsqueeze(2)
+        # h = h * mask.unsqueeze(2)
         return h * mask.unsqueeze(2), length.float()
 
 
@@ -635,6 +633,49 @@ class DsPipeline(nn.Module):
         one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
         log_prb = F.log_softmax(logit, dim=1)
         return -(one_hot * log_prb).sum(dim=1).mean(dim=0)
+    
+    def generate_signatures(self): 
+        signs_dev = None
+        signs_eva = None
+
+        data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])       
+        if os.path.exists(data_path + os.sep + "signs_dev.pickle"):
+            with open(data_path + os.sep + "signs_dev.pickle", 'rb') as file:
+                signs_dev = pickle.load(file)
+        
+        if signs_dev is None:
+            files = sorted(os.listdir(data_path))
+            signs_dev = {}
+            for f in tqdm(files, desc="Generating Training Signatures"):
+                path = os.path.join(data_path, f)
+                feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=True)
+                signs_dev[f] = feat
+
+            with open(data_path + os.sep + "signs_dev.pickle", 'wb') as file:
+                pickle.dump(signs_dev, file)
+
+            print("signs_dev.pickle generated. Size: " + str(sys.getsizeof(signs_dev)))
+
+
+        data_path = os.path.join(self.hyperparameters['dataset_folder'], "Evaluation", self.hyperparameters['dataset_scenario'])       
+        if os.path.exists(data_path + os.sep + "signs_eva.pickle"):
+            with open(data_path + os.sep + "signs_eva.pickle", 'rb') as file:
+                signs_eva = pickle.load(file)
+
+        if signs_eva is None:
+            files = sorted(os.listdir(data_path))
+            signs_eva = {}
+            for f in tqdm(files, "Generating Testing Signatures"):
+                path = os.path.join(data_path, f)
+                feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=False)
+                signs_eva[f] = feat
+
+            with open(data_path + os.sep + "signs_eva.pickle", 'wb') as file:
+                pickle.dump(signs_eva, file)
+
+            print("signs_eva.pickle generated. Size: " + str(sys.getsizeof(signs_eva)))
+    
+        return signs_dev, signs_eva
 
     def start_train(self, comparison_files : List[str], result_folder : str):
         """ Loop de treinamento
@@ -675,9 +716,11 @@ class DsPipeline(nn.Module):
 
         data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
 
-        self.non_zero_random = 0
-        nonzero = 0
+        if self.hyperparameters['cache']:
+            self.hyperparameters['signs_dev'], self.hyperparameters['signs_eva'] = self.generate_signatures()
 
+        non_zero_random = 0
+        nonzero = 0
         running_loss = 0
         lce_acc = 0
         tm_acc = 0
@@ -708,67 +751,47 @@ class DsPipeline(nn.Module):
             pbar = tqdm(total=(epoch_size//(self.batch_size//mini_batch_size)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.4f}".format(self.loss_value))
 
             running_loss = 0
+            nonzero = 0
+            non_zero_random = 0
             #PAL = Previous Accumulated Loss
-
             while epoch != []:
             # if True:
                 optimizer.zero_grad()
                 batch, lens, epoch, targets = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
-                # print("\n",targets[0], targets[16], targets[32], targets[48])
+
                 mask = self.getOutputMask(lens)
                 mask = Variable(torch.from_numpy(mask)).cuda()
                 inputs = Variable(torch.from_numpy(batch)).cuda()
-                targets = torch.tensor(targets).cuda()
-                mask_target = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=targets.device)
-                targets = targets[mask_target]
-                # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
-                assert torch.max(targets) <= 573
-                # if not torch.max(targets) > 573: print(torch.max(targets))
-                # outputs, length = self(inputs.float(), mask, i)
-                outputs, length, predict = self(inputs.float(), mask, i)
-                
-                # prob = self.soft_min(predict)
-                loss2 = self.cross_entropy_loss(predict, targets)
-                # loss2.backward(retain_graph=True)
-                # loss2.backward()
-                
-                # loss = loss2         # apenas uma gambiarra
-                # loss2 = torch.nn.functional.cross_entropy(prob, targets)
-                # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
-                
-                
-                # loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
-                # loss = self.loss_function(outputs, length, w1, w2)
+
+                outputs, length = self(inputs.float(), mask, i)
 
                 """Essa eh a versao que eu uso junto com lce e que funciona sozinha"""
                 loss, nonzero = self.loss_function(outputs, length)
-                self.non_zero_random += nonzero
-                (loss + loss2).backward()
+                non_zero_random += nonzero
+                loss.backward()
                 
-
                 optimizer.step()
                 if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
 
-                lce_acc += loss2.item()
-                tm_acc += loss.item()
                 running_loss += loss.item()
 
-                # del loss
-                # del loss2
+                if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss per batch': loss}) 
             
                 pbar.update(1)
 
             pbar.close()
 
-            if self.hyperparameters['wandb_name'] is not None: wandb.log({'triplet loss': running_loss/epoch_size, 'lce loss': lce_acc/epoch_size, 'total_loss': (running_loss + lce_acc)/epoch_size}) 
-            self.loss_variation.append(running_loss/epoch_size)
-
             triples_per_mini_batch = self.hyperparameters['ng'] * self.hyperparameters['nr']
             triples_in_batch = triples_per_mini_batch * self.hyperparameters['nw']
             triples_in_epoch = triples_in_batch * epoch_size
 
-            nonzero_random = self.non_zero_random / triples_in_epoch
+            nonzero_random = non_zero_random / triples_in_epoch
             print("Non zero random %:\t\t" + str(nonzero_random * 100))
+
+            if self.hyperparameters['wandb_name'] is not None: wandb.log({'triplet loss': running_loss/epoch_size, 'lce loss': lce_acc/epoch_size, 'total_loss': (running_loss + lce_acc)/epoch_size, 'non_zero': nonzero_random}) 
+            self.loss_variation.append(running_loss/epoch_size)
+
+            
 
             self.non_zero_raendom = 0
             nonzero = 0
@@ -789,6 +812,163 @@ class DsPipeline(nn.Module):
         plt.savefig(result_folder + os.sep + "loss.png")
         plt.cla()
         # plt.clf()
+
+    # def start_train(self, comparison_files : List[str], result_folder : str):
+    #     """ Loop de treinamento
+
+    #     Args:
+    #         comparison_files (List[str]): Lista com as paths dos arquivos de comparação a serem avaliados durante o treinamento.
+    #         result_folder (str): Path de onde os resultados de avaliação e o backup dos pesos devem ser armazenados.
+    #     """
+    #     if self.hyperparameters['sweep']:
+    #         import datetime
+    #         self.hyperparameters['learning_rate'] = wandb.config.learning_rate 
+    #         self.hyperparameters['momentum'] = wandb.config.momentum
+    #         self.hyperparameters['decay'] = wandb.config.decay
+    #         self.hyperparameters['random_margin'] = wandb.config.random_margin
+    #         # Get the current timestamp
+    #         current_time = datetime.datetime.now()
+
+    #         # Format the timestamp as a string: YearMonthDay_HourMinuteSecond
+    #         timestamp = current_time.strftime("%Y%m%d_%H%M%S")
+
+    #         # Create the final string
+    #         self.hyperparameters['test_name'] = f"{self.hyperparameters['parent_folder']}_{timestamp}"
+    #         result_folder = os.path.join(self.hyperparameters['parent_folder'], f"{self.hyperparameters['parent_folder']}_{timestamp}")
+    #         os.makedirs(result_folder, exist_ok=True)
+    #         print(result_folder)
+
+    #         self.loss_function = define_loss(loss_type=self.hyperparameters['loss_type'], ng=self.hyperparameters['ng'], nf=self.hyperparameters['nf'], nw=self.hyperparameters['nw'], margin=self.margin, random_margin=self.hyperparameters['random_margin'], model_lambda=self.hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, q=self.q, mmd_kernel_num=self.hyperparameters['mmd_kernel_num'], mmd_kernel_mul=self.hyperparameters['mmd_kernel_mul'], margin_max=self.hyperparameters['margin_max'], margin_min=self.hyperparameters['margin_min'], nsl=self.hyperparameters['number_of_slices'], nr=self.hyperparameters['nr'], nss=self.hyperparameters['nss'], nsg=self.hyperparameters['nsg'])
+
+    #     dump_hyperparameters(hyperparameters=self.hyperparameters, res_folder=result_folder)
+
+    #     optimizer = optim.SGD(self.parameters(), lr=self.hyperparameters['learning_rate'], momentum=self.hyperparameters['momentum'])
+    #     lr_scheduler = optim.lr_scheduler.ExponentialLR(optimizer, gamma=self.hyperparameters['decay']) 
+            
+    #     if not os.path.exists(result_folder): os.mkdir(result_folder)
+
+    #     if not os.path.exists(result_folder + os.sep + "Backup"): os.mkdir(result_folder + os.sep + "Backup")
+    #     bckp_path = result_folder + os.sep + "Backup"
+
+    #     data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
+
+    #     if self.hyperparameters['cache']:
+    #         self.hyperparameters['signs_dev'], self.hyperparameters['signs_eva'] = self.generate_signatures()
+
+    #     self.non_zero_random = 0
+    #     nonzero = 0
+
+    #     running_loss = 0
+    #     lce_acc = 0
+    #     tm_acc = 0
+
+
+    #     mini_batch_size = self.hyperparameters['ng'] + self.hyperparameters['nf'] + self.hyperparameters['nr'] + 1
+        
+    #     for i in range(1, self.hyperparameters['epochs']+1):
+    #         epoch = None
+    #         print("Lce: " + str(lce_acc) + "\tTriplet Loss " + str(tm_acc))
+    #         lce_acc = 0
+    #         tm_acc = 0
+
+    #         if self.hyperparameters['dataset_scenario'] == "mix":
+    #             epoch = batches_gen.generate_mixed_epoch()
+    #         elif self.hyperparameters['dataset_scenario'] == "stylus":
+    #             epoch = batches_gen.generate_epoch(dataset_folder=data_path, hyperparameters=self.hyperparameters, development=True)
+    #         elif self.hyperparameters['dataset_scenario'] == "finger":
+    #             epoch = batches_gen.generate_epoch(dataset_folder=data_path, hyperparameters=self.hyperparameters, train_offset=[(1009, 1084)], development=True)
+
+    #         epoch_size = len(epoch)
+    #         self.loss_value = running_loss/epoch_size
+
+    #         if (self.best_eer > 0.025 and i > self.hyperparameters['early_stop']):
+    #             print("\n\nEarly stop!")
+    #             break
+
+    #         pbar = tqdm(total=(epoch_size//(self.batch_size//mini_batch_size)), position=0, leave=True, desc="Epoch " + str(i) +" PAL: " + "{:.4f}".format(self.loss_value))
+
+    #         running_loss = 0
+    #         #PAL = Previous Accumulated Loss
+
+    #         while epoch != []:
+    #         # if True:
+    #             optimizer.zero_grad()
+    #             batch, lens, epoch, targets = batches_gen.get_batch_from_epoch(epoch, self.batch_size, z=self.z, hyperparameters=self.hyperparameters)
+    #             # print("\n",targets[0], targets[16], targets[32], targets[48])
+    #             mask = self.getOutputMask(lens)
+    #             mask = Variable(torch.from_numpy(mask)).cuda()
+    #             inputs = Variable(torch.from_numpy(batch)).cuda()
+    #             targets = torch.tensor(targets).cuda()
+    #             mask_target = torch.tensor(([True] * 6 + [False] * 5 + [True] * 5) * self.hyperparameters['nw'], device=targets.device)
+    #             targets = targets[mask_target]
+    #             # a, b = self._dte(inputs[0:1].squeeze(0), inputs[1:2].squeeze(0), len_x=lens[0], len_y=lens[1])
+    #             assert torch.max(targets) <= 573
+    #             # if not torch.max(targets) > 573: print(torch.max(targets))
+    #             # outputs, length = self(inputs.float(), mask, i)
+    #             outputs, length, predict = self(inputs.float(), mask, i)
+                
+    #             # prob = self.soft_min(predict)
+    #             loss2 = self.cross_entropy_loss(predict, targets)
+    #             # loss2.backward(retain_graph=True)
+    #             # loss2.backward()
+                
+    #             # loss = loss2         # apenas uma gambiarra
+    #             # loss2 = torch.nn.functional.cross_entropy(prob, targets)
+    #             # targets = targets.unsqueeze(1).unsqueeze(2).expand(output2.shape).float()
+                
+                
+    #             # loss, nonzero = self.loss_function(outputs, length, targets, self.n_classes)
+    #             # loss = self.loss_function(outputs, length, w1, w2)
+
+    #             """Essa eh a versao que eu uso junto com lce e que funciona sozinha"""
+    #             loss, nonzero = self.loss_function(outputs, length)
+    #             self.non_zero_random += nonzero
+    #             (loss + loss2).backward()
+                
+
+    #             optimizer.step()
+    #             if self.hyperparameters['ga']: self.p.data.clamp_(0.0,1.0)
+
+    #             lce_acc += loss2.item()
+    #             tm_acc += loss.item()
+    #             running_loss += loss.item()
+
+    #             # del loss
+    #             # del loss2
+            
+    #             pbar.update(1)
+
+    #         pbar.close()
+
+    #         if self.hyperparameters['wandb_name'] is not None: wandb.log({'triplet loss': running_loss/epoch_size, 'lce loss': lce_acc/epoch_size, 'total_loss': (running_loss + lce_acc)/epoch_size}) 
+    #         self.loss_variation.append(running_loss/epoch_size)
+
+    #         triples_per_mini_batch = self.hyperparameters['ng'] * self.hyperparameters['nr']
+    #         triples_in_batch = triples_per_mini_batch * self.hyperparameters['nw']
+    #         triples_in_epoch = triples_in_batch * epoch_size
+
+    #         nonzero_random = self.non_zero_random / triples_in_epoch
+    #         print("Non zero random %:\t\t" + str(nonzero_random * 100))
+
+    #         self.non_zero_raendom = 0
+    #         nonzero = 0
+
+    #         if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+    #         # if i > (self.hyperparameters['epochs'] - 3):
+    #             for idx, cf in enumerate(comparison_files):
+    #                 ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
+    #                 if ret_metrics['Global EER'] > 0.07: break # se skilled estiver ruim, nem testa random
+    #         lr_scheduler.step()
+
+    #         torch.save(self.state_dict(), bckp_path + os.sep + "epoch" + str(i) + ".pt")
+
+    #     # Loss graph
+    #     plt.xlabel("#Epoch")
+    #     plt.ylabel("Loss")
+    #     plt.plot(list(range(0,len(self.loss_variation))), self.loss_variation)
+    #     plt.savefig(result_folder + os.sep + "loss.png")
+    #     plt.cla()
+    #     # plt.clf()
 
     def extract(self, result_folder : str):
         os.makedirs(result_folder, exist_ok=True)
