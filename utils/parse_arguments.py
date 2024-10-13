@@ -34,6 +34,8 @@ def parse_arguments():
 	parser.add_argument("-ep", "--epochs", help="set number of epochs to train the model", default=25, type=int)
 	parser.add_argument("-fdtw", "--use_fdtw", help="use fast dtw on evaluation", action='store_true')
 	parser.add_argument("-z", "--zscore", help="normalize x and y coordinates using zscore", action='store_true')
+	parser.add_argument("-c", "--cache", help="create and use cached signatures", action='store_true')
+	parser.add_argument("-cp", "--cache_path", help="use cache signatures from path...", default='', type=str)
 	parser.add_argument("-seed", "--seed", help="set seed value", default=None, type=int)
 	parser.add_argument("-ng", "--ng", help="number of genuine signatures in a mini-batch", default=5, type=int)
 	parser.add_argument("-nf", "--nf", help="number of forgery signatures in a mini-batch", default=10, type=int)
