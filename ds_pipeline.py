@@ -791,8 +791,6 @@ class DsPipeline(nn.Module):
                 running_loss += loss.item()
 
                 if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss per batch': loss}) 
-
-                break
             
                 pbar.update(1)
 
