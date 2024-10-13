@@ -43,13 +43,22 @@ def files2array(batch, hyperparameters : Dict[str,Any], z : bool, development : 
             file_path = os.path.join(hyperparameters['dataset_folder'], subset_folder, hyperparameters['dataset_scenario'])
             if file_path not in file: file = os.path.join(file_path, file)
         
-        if '_syn_' in file:
-            with open(file,'r') as fr:
-                lines = fr.readlines()
-                lines = lines[1:]
-                feat = np.genfromtxt(lines, delimiter=',').T
+        signs = None
+        if hyperparameters['cache']:
+            signs = hyperparameters['signs_dev'] if development else hyperparameters['signs_eva']
+        
+        if signs is None:
+            if '_syn_' in file:
+                with open(file,'r') as fr:
+                    lines = fr.readlines()
+                    lines = lines[1:]
+                    feat = np.genfromtxt(lines, delimiter=',').T
+            else:
+                feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
         else:
-            feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
+            key = file.split(os.sep)[-1]
+            feat = signs[key]
+            
         data.append(feat)
         lens.append(len(feat[0]))
 
@@ -232,8 +241,9 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             # random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1])).keys())[:hyperparameters['nr']]
             
             random_forgeries = []
+            opt = ['g', 's']
             for id in random_forgeries_ids:
-                random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0])
+                random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + opt[random.randint(0,1)]], 1)[0])
 
             a = [genuines[0]]
             p = genuines[1:] + syn_genuines
