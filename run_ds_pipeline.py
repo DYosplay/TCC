@@ -196,7 +196,28 @@ if __name__ == '__main__':
 	model = DsPipeline(hyperparameters=hyperparameters)
 	print(test_protocols.count_parameters(model))
 	model.cuda()
+	
+	f = res_folder + os.sep + 'Backup' + os.sep + hyperparameters['weight']
+	state_dict = torch.load(f)
+	# model.load_state_dict(state_dict)
+
+	with torch.no_grad():
+		model.linear.weight.copy_(state_dict['linear.weight'])
+		model.cran[0].weight.copy_(state_dict['cran.0.weight'])
+		model.cran[3].weight.copy_(state_dict['cran.3.weight'])
+		model.cran[0].bias.copy_(state_dict['cran.0.bias'])
+		model.cran[3].bias.copy_(state_dict['cran.3.bias'])
+		model.rnn.weight_ih_l0.copy_(state_dict['rnn.weight_ih_l0'])
+		model.rnn.weight_ih_l1.copy_(state_dict['rnn.weight_ih_l1'])
+		model.rnn.weight_hh_l0.copy_(state_dict['rnn.weight_hh_l0'])
+		model.rnn.weight_hh_l1.copy_(state_dict['rnn.weight_hh_l1'])
+		model.rnn.bias_ih_l0.copy_(state_dict['rnn.bias_ih_l0'])
+		model.rnn.bias_ih_l1.copy_(state_dict['rnn.bias_ih_l1'])
+		model.rnn.bias_hh_l0.copy_(state_dict['rnn.bias_hh_l0'])
+		model.rnn.bias_hh_l1.copy_(state_dict['rnn.bias_hh_l1'])
+
 	model.train(mode=True)
+
 	# model.start_train(comparison_files=[SKILLED_STYLUS_4VS1], result_folder=res_folder)
-	model.start_train(comparison_files=[RANDOM_STYLUS_4VS1, SKILLED_STYLUS_4VS1], result_folder=res_folder)
+	model.start_train(comparison_files=[SKILLED_STYLUS_4VS1,RANDOM_STYLUS_4VS1], result_folder=res_folder)
 	del model

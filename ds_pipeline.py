@@ -513,15 +513,14 @@ class DsPipeline(nn.Module):
                                 dka = cache[refs_names[j]][refs_names[i]].cuda()
                             else:
                                 dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
-                                dka = dka.cpu()
                                 if refs_names[i] not in cache:
-                                    cache[refs_names[i]] = {refs_names[j] : dka}
+                                    cache[refs_names[i]] = {refs_names[j] : dka.cpu()}
                                 else:
-                                    cache[refs_names[i]][refs_names[j]] = dka
+                                    cache[refs_names[i]][refs_names[j]] = dka.cpu()
                                 if refs_names[j] not in cache: 
-                                    cache[refs_names[j]] = {refs_names[i] : dka}
+                                    cache[refs_names[j]] = {refs_names[i] : dka.cpu()}
                                 else:
-                                    cache[refs_names[j]][refs_names[i]] = dka
+                                    cache[refs_names[j]][refs_names[i]] = dka.cpu()
                             dk += dka
                             count += 1
 
