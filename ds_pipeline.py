@@ -440,7 +440,7 @@ class DsPipeline(nn.Module):
 
     #     return score, user_key, result, dists_bands, paths_bands
 
-    def _inference(self, files : str, n_epoch : int, result_folder : str = None) -> Tuple[float, str, int]:
+    def _inference(self, files : str, n_epoch : int, result_folder : str = None, cache : dict = None) -> Tuple[float, str, int]:
         """
         Args:
             files (str): string no formato: ref1 [,ref2, ref3, ref4], sign, label 
@@ -468,6 +468,7 @@ class DsPipeline(nn.Module):
         elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
         else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
+        refs_names = refs
         synthetic_signs = []
         # synthetic_files = os.listdir(self.hyperparameters['dataset_folder'] + os.sep + "Evaluation" + os.sep + "stylus")
         # pattern = refs[0].split("_")[0] + "_g_syn_"
@@ -503,7 +504,20 @@ class DsPipeline(nn.Module):
             for i in range(0, len(refs)):
                 for j in range(1, len(refs)):
                     if i < j:
-                        dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
+                        if (refs_names[i] in cache and refs_names[j] in cache[refs_names[i]]):
+                            dka = cache[refs_names[i]][refs_names[j]]
+                        elif (refs_names[j] in cache and refs_names[i] in cache[refs_names[j]]):
+                            dka = cache[refs_names[j]][refs_names[i]]
+                        else:
+                            dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
+                            if refs_names[i] not in cache:
+                                cache[refs_names[i]] = {refs_names[j] : dka}
+                            else:
+                                cache[refs_names[i]][refs_names[j]] = dka
+                            if refs_names[j] not in cache: 
+                                cache[refs_names[j]] = {refs_names[i] : dka}
+                            else:
+                                cache[refs_names[j]][refs_names[i]] = dka
                         dk += dka
                         count += 1
 
@@ -521,7 +535,7 @@ class DsPipeline(nn.Module):
         s_avg = np.mean(dists)
         s_min = min(dists)
 
-        return (s_avg + s_min), user_key, result
+        return (s_avg + s_min), user_key, result, cache
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -546,9 +560,10 @@ class DsPipeline(nn.Module):
 
         users = {}
         dists_dict = {}
+        cache = {}
         # paths_dict = {}
         for line in tqdm(lines, "Calculando distâncias..."):
-            distance, user_id, true_label = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
+            distance, user_id, true_label, cache = self._inference(line, n_epoch=n_epoch, result_folder=result_folder, cache=cache)
             # distance, user_id, true_label, dists_bands, paths_bands = self._inference(line, n_epoch=n_epoch, result_folder=result_folder)
             dists_dict[line] = distance
             # paths_dict[line] = paths_bands
@@ -624,7 +639,7 @@ class DsPipeline(nn.Module):
 
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
-        
+        del cache
         return ret_metrics
 
     def smoothCEloss(self, logit, target, eps=0.1):
@@ -776,6 +791,8 @@ class DsPipeline(nn.Module):
                 running_loss += loss.item()
 
                 if self.hyperparameters['wandb_name'] is not None: wandb.log({'loss per batch': loss}) 
+
+                break
             
                 pbar.update(1)
 
