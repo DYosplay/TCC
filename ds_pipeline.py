@@ -451,91 +451,94 @@ class DsPipeline(nn.Module):
         Returns:
             float, str, int: distância da assinatura, usuário, label 
         """
-        tokens = files.split(" ")
-        user_key = tokens[0].split("_")[0]
+        with torch.no_grad():
+            tokens = files.split(" ")
+            user_key = tokens[0].split("_")[0]
+            
+            result = math.nan
+            refs = []
+            sign = ""
+            s_avg = 0
+            s_min = 0
+
+            if len(tokens) == 2:
+                a = tokens[0].split('_')[0]
+                b = tokens[1].split('_')[0]
+                result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
+            elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
+            elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
+            else: raise ValueError("Arquivos de comparação com formato desconhecido")
+
+            refs_names = refs
+            synthetic_signs = []
+            # synthetic_files = os.listdir(self.hyperparameters['dataset_folder'] + os.sep + "Evaluation" + os.sep + "stylus")
+            # pattern = refs[0].split("_")[0] + "_g_syn_"
+            # compiled_pattern = re.compile(pattern)
+            # synthetic_signs = list(filter(compiled_pattern.search, synthetic_files))
+            # synthetic_signs = sorted(synthetic_signs)[:3]    
+
+            test_batch, lens = batches_gen.files2array(synthetic_signs + refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
+
+            mask = self.getOutputMask(lens)
+            
+            mask = Variable(torch.from_numpy(mask)).cuda()
+            inputs = Variable(torch.from_numpy(test_batch)).cuda()
+
+            embeddings, lengths = self(inputs.float(), mask, n_epoch)    
+            refs = embeddings[:len(embeddings)-1]
+            sign = embeddings[-1]
+
+            len_refs = lengths[:len(embeddings)-1]
+            len_sign = lengths[-1]
+
+            # refs = inputs[:len(inputs)-1]
+            # sign = inputs[-1]
+
+            # len_refs = lens[:len(inputs)-1]
+            # len_sign = lens[-1]
+
+            
+
+            dk = math.nan
+            count = 0
+            if len(refs) == 1 : dk = 1
+            else:
+                dk = 0
+                for i in range(0, len(refs)):
+                    for j in range(1, len(refs)):
+                        if i < j:
+                            if (refs_names[i] in cache and refs_names[j] in cache[refs_names[i]]):
+                                dka = cache[refs_names[i]][refs_names[j]]
+                            elif (refs_names[j] in cache and refs_names[i] in cache[refs_names[j]]):
+                                dka = cache[refs_names[j]][refs_names[i]]
+                            else:
+                                dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
+                                if refs_names[i] not in cache:
+                                    cache[refs_names[i]] = {refs_names[j] : dka}
+                                else:
+                                    cache[refs_names[i]][refs_names[j]] = dka
+                                if refs_names[j] not in cache: 
+                                    cache[refs_names[j]] = {refs_names[i] : dka}
+                                else:
+                                    cache[refs_names[j]][refs_names[i]] = dka
+                            dk += dka
+                            count += 1
+
+                dk = dk/(count)
         
-        result = math.nan
-        refs = []
-        sign = ""
-        s_avg = 0
-        s_min = 0
-
-        if len(tokens) == 2:
-            a = tokens[0].split('_')[0]
-            b = tokens[1].split('_')[0]
-            result = 0 if a == b and '_g_' in tokens[1] else 1; refs.append(tokens[0]); sign = tokens[1]
-        elif len(tokens) == 3: result = int(tokens[2]); refs.append(tokens[0]); sign = tokens[1]
-        elif len(tokens) == 6: result = int(tokens[5]); refs = tokens[0:4]; sign = tokens[4]
-        else: raise ValueError("Arquivos de comparação com formato desconhecido")
-
-        refs_names = refs
-        synthetic_signs = []
-        # synthetic_files = os.listdir(self.hyperparameters['dataset_folder'] + os.sep + "Evaluation" + os.sep + "stylus")
-        # pattern = refs[0].split("_")[0] + "_g_syn_"
-        # compiled_pattern = re.compile(pattern)
-        # synthetic_signs = list(filter(compiled_pattern.search, synthetic_files))
-        # synthetic_signs = sorted(synthetic_signs)[:3]    
-
-        test_batch, lens = batches_gen.files2array(synthetic_signs + refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
-
-        mask = self.getOutputMask(lens)
-        
-        mask = Variable(torch.from_numpy(mask)).cuda()
-        inputs = Variable(torch.from_numpy(test_batch)).cuda()
-
-        embeddings, lengths = self(inputs.float(), mask, n_epoch)    
-        refs = embeddings[:len(embeddings)-1]
-        sign = embeddings[-1]
-
-        len_refs = lengths[:len(embeddings)-1]
-        len_sign = lengths[-1]
-
-        # refs = inputs[:len(inputs)-1]
-        # sign = inputs[-1]
-
-        # len_refs = lens[:len(inputs)-1]
-        # len_sign = lens[-1]
-
-        dk = math.nan
-        count = 0
-        if len(refs) == 1 : dk = 1
-        else:
-            dk = 0
+            if dk <= 0 or dk is math.nan or dk > 10000:
+                print("oi")
+            dk_sqrt = math.sqrt(dk)
+            
+            dists = []
             for i in range(0, len(refs)):
-                for j in range(1, len(refs)):
-                    if i < j:
-                        if (refs_names[i] in cache and refs_names[j] in cache[refs_names[i]]):
-                            dka = cache[refs_names[i]][refs_names[j]]
-                        elif (refs_names[j] in cache and refs_names[i] in cache[refs_names[j]]):
-                            dka = cache[refs_names[j]][refs_names[i]]
-                        else:
-                            dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
-                            if refs_names[i] not in cache:
-                                cache[refs_names[i]] = {refs_names[j] : dka}
-                            else:
-                                cache[refs_names[i]][refs_names[j]] = dka
-                            if refs_names[j] not in cache: 
-                                cache[refs_names[j]] = {refs_names[i] : dka}
-                            else:
-                                cache[refs_names[j]][refs_names[i]] = dka
-                        dk += dka
-                        count += 1
+                dists.append(self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0])
 
-            dk = dk/(count)
-    
-        if dk <= 0 or dk is math.nan or dk > 10000:
-            print("oi")
-        dk_sqrt = math.sqrt(dk)
-        
-        dists = []
-        for i in range(0, len(refs)):
-            dists.append(self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0])
+            dists = np.array(dists) / dk_sqrt
+            s_avg = np.mean(dists)
+            s_min = min(dists)
 
-        dists = np.array(dists) / dk_sqrt
-        s_avg = np.mean(dists)
-        s_min = min(dists)
-
-        return (s_avg + s_min), user_key, result, cache
+            return (s_avg + s_min), user_key, result, cache
 
     def new_evaluate(self, comparison_file : str, n_epoch : int, result_folder : str):
         """ Avaliação da rede conforme o arquivo de comparação
@@ -811,7 +814,7 @@ class DsPipeline(nn.Module):
             self.non_zero_raendom = 0
             nonzero = 0
 
-            if (i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
             # if i > (self.hyperparameters['epochs'] - 3):
                 for idx, cf in enumerate(comparison_files):
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
