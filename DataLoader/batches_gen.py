@@ -241,9 +241,11 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
             # random_forgeries = list(dict(sorted(random_dict.items(), key=lambda item: item[1])).keys())[:hyperparameters['nr']]
             
             random_forgeries = []
-            opt = ['g', 's']
-            for id in random_forgeries_ids:
-                random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + opt[random.randint(0,1)]], 1)[0])
+
+            for id in random_forgeries_ids[:5]:
+                random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + 'g'], 1)[0])
+            for id in random_forgeries_ids[5:]:
+                random_forgeries.append(random.sample(files_backup['u' + f"{id:04}" + 's'], 1)[0])
 
             a = [genuines[0]]
             p = genuines[1:] + syn_genuines
