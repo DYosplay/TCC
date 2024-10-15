@@ -165,7 +165,8 @@ def generate_features(input_file : str, hyperparameters : Dict[str, Any], z : bo
     c = v * dtheta
     
 
-    features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    # features = [v, theta, cos, sin, p, dv, dtheta, logCurRadius, c, totalAccel]
+    features = [v, cos, sin, theta, logCurRadius, totalAccel, dv, dv2, dtheta, p]
     # result += features
 
     # result += features
