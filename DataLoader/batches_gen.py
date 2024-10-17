@@ -47,7 +47,10 @@ def files2array(batch, hyperparameters : Dict[str,Any], z : bool, development : 
         if hyperparameters['cache']:
             signs = hyperparameters['signs_dev'] if development else hyperparameters['signs_eva']
         
-        if signs is None:
+        if signs is not None and file in signs:
+            key = file.split(os.sep)[-1]
+            feat = signs[key]
+        else:
             if '_syn_' in file:
                 with open(file,'r') as fr:
                     lines = fr.readlines()
@@ -55,9 +58,19 @@ def files2array(batch, hyperparameters : Dict[str,Any], z : bool, development : 
                     feat = np.genfromtxt(lines, delimiter=',').T
             else:
                 feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
-        else:
-            key = file.split(os.sep)[-1]
-            feat = signs[key]
+        
+
+        # if signs is None:
+        #     if '_syn_' in file:
+        #         with open(file,'r') as fr:
+        #             lines = fr.readlines()
+        #             lines = lines[1:]
+        #             feat = np.genfromtxt(lines, delimiter=',').T
+        #     else:
+        #         feat = loader.get_features(file, hyperparameters=hyperparameters, z=z, development=development)
+        # else:
+        #     key = file.split(os.sep)[-1]
+        #     feat = signs[key]
             
         data.append(feat)
         lens.append(len(feat[0]))
@@ -121,8 +134,15 @@ def get_batch_from_transfer_domain_epoch(epoch, batch_size : int):
 
 """DeepSign"""
 def get_batch_from_epoch(epoch, batch_size : int, z : bool, hyperparameters : Dict[str,Any]):
-    assert batch_size % (hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + 1) == 0
-    step = batch_size // (hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + 1)
+    mini_batch_size = 0
+    if hyperparameters['synthetic']:
+        mini_batch_size = hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + hyperparameters['nss'] + hyperparameters['nsg'] + 1
+    else:
+        mini_batch_size = hyperparameters['nf'] + hyperparameters['nr'] + hyperparameters['ng'] + 1
+    
+    assert batch_size % mini_batch_size == 0
+    
+    step = batch_size // mini_batch_size
 
     users = []
     batch = []
@@ -221,7 +241,7 @@ def generate_epoch(dataset_folder : str, hyperparameters : Dict[str, Any], train
                 files['u' + f"{user_id:04}" + 's'] = list(set(files['u' + f"{user_id:04}" + 's']) - set(s_forgeries))
 
                 syn_s_forgeries = random.sample(files['u' + f"{user_id:04}" + 'syns'], hyperparameters['nss'])
-                files['u' + f"{user_id:04}" + 'syns'] = list(set(files['u' + f"{user_id:04}" + 'syng']) - set(syn_s_forgeries))   
+                files['u' + f"{user_id:04}" + 'syns'] = list(set(files['u' + f"{user_id:04}" + 'syns']) - set(syn_s_forgeries))   
             else:
                 genuines = random.sample(files['u' + f"{user_id:04}" + 'g'], hyperparameters['ng'] + 1)
                 files['u' + f"{user_id:04}" + 'g'] = list(set(files['u' + f"{user_id:04}" + 'g']) - set(genuines))
