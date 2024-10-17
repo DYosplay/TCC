@@ -470,12 +470,18 @@ class DsPipeline(nn.Module):
             else: raise ValueError("Arquivos de comparação com formato desconhecido")
 
             refs_names = refs
+            sign_name = sign
+
+
             synthetic_signs = []
             # synthetic_files = os.listdir(self.hyperparameters['dataset_folder'] + os.sep + "Evaluation" + os.sep + "stylus")
             # pattern = refs[0].split("_")[0] + "_g_syn_"
             # compiled_pattern = re.compile(pattern)
             # synthetic_signs = list(filter(compiled_pattern.search, synthetic_files))
-            # synthetic_signs = sorted(synthetic_signs)[:3]    
+            # synthetic_signs = sorted(synthetic_signs)[:3]   
+
+
+
 
             test_batch, lens = batches_gen.files2array(synthetic_signs + refs + [sign], hyperparameters=self.hyperparameters, z=self.z, development=self.hyperparameters["development"])
 
@@ -513,6 +519,7 @@ class DsPipeline(nn.Module):
                                 dka = cache[refs_names[j]][refs_names[i]].cuda()
                             else:
                                 dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
+                                # if self.hyperparameters['cache']:
                                 if refs_names[i] not in cache:
                                     cache[refs_names[i]] = {refs_names[j] : dka.cpu()}
                                 else:
@@ -531,8 +538,20 @@ class DsPipeline(nn.Module):
             dk_sqrt = math.sqrt(dk)
             
             dists = []
+            # print(sign_name)
             for i in range(0, len(refs)):
-                dists.append(self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0])
+                d = self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0]
+                dists.append(d)
+
+                if refs_names[i] not in cache:
+                    cache[refs_names[i]] = {sign_name : d}
+                else:
+                    cache[refs_names[i]][sign_name] = d
+
+                if sign_name not in cache:
+                    cache[sign_name] = {refs_names[i] : d}
+                else:
+                    cache[sign_name][refs_names[i]] = d
 
             dists = np.array(dists) / dk_sqrt
             s_avg = np.mean(dists)
@@ -642,6 +661,9 @@ class DsPipeline(nn.Module):
 
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
+
+        with open('cache.pickle', 'wb') as fw:
+            pickle.dump(cache, fw)
         del cache
         return ret_metrics
 
@@ -666,7 +688,14 @@ class DsPipeline(nn.Module):
             signs_dev = {}
             for f in tqdm(files, desc="Generating Training Signatures"):
                 path = os.path.join(data_path, f)
-                feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=True)
+                if '_syn_' in f:
+                    with open(path,'r') as fr:
+                        lines = fr.readlines()
+                        lines = lines[1:]
+                        feat = np.genfromtxt(lines, delimiter=',').T
+                else:   
+                    feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=True)
+                
                 signs_dev[f] = feat
 
             with open(data_path + os.sep + "signs_dev.pickle", 'wb') as file:
@@ -685,7 +714,14 @@ class DsPipeline(nn.Module):
             signs_eva = {}
             for f in tqdm(files, "Generating Testing Signatures"):
                 path = os.path.join(data_path, f)
-                feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=False)
+
+                if '_syn_' in f:
+                    with open(file,'r') as fr:
+                        lines = fr.readlines()
+                        lines = lines[1:]
+                        feat = np.genfromtxt(lines, delimiter=',').T
+                else:
+                    feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=False)
                 signs_eva[f] = feat
 
             with open(data_path + os.sep + "signs_eva.pickle", 'wb') as file:
@@ -744,7 +780,11 @@ class DsPipeline(nn.Module):
         tm_acc = 0
 
 
-        mini_batch_size = self.hyperparameters['ng'] + self.hyperparameters['nf'] + self.hyperparameters['nr'] + 1
+        mini_batch_size = 0
+        if self.hyperparameters['synthetic']:
+            mini_batch_size = self.hyperparameters['nf'] + self.hyperparameters['nr'] + self.hyperparameters['ng'] + self.hyperparameters['nss'] + self.hyperparameters['nsg'] + 1
+        else:
+            mini_batch_size = self.hyperparameters['nf'] + self.hyperparameters['nr'] + self.hyperparameters['ng'] + 1
         
         for i in range(1, self.hyperparameters['epochs']+1):
             epoch = None
@@ -784,8 +824,9 @@ class DsPipeline(nn.Module):
                 outputs, length = self(inputs.float(), mask, i)
 
                 """Essa eh a versao que eu uso junto com lce e que funciona sozinha"""
-                loss, nonzero = self.loss_function(outputs, length)
-                non_zero_random += nonzero
+                # loss, nonzero = self.loss_function(outputs, length)
+                # non_zero_random += nonzero
+                loss = self.loss_function(outputs, length)
                 loss.backward()
                 
                 optimizer.step()
