@@ -514,9 +514,9 @@ class DsPipeline(nn.Module):
                     for j in range(1, len(refs)):
                         if i < j:
                             if (refs_names[i] in cache and refs_names[j] in cache[refs_names[i]]):
-                                dka = cache[refs_names[i]][refs_names[j]].cuda()
+                                dka = cache[refs_names[i]][refs_names[j]]
                             elif (refs_names[j] in cache and refs_names[i] in cache[refs_names[j]]):
-                                dka = cache[refs_names[j]][refs_names[i]].cuda()
+                                dka = cache[refs_names[j]][refs_names[i]]
                             else:
                                 dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
                                 # if self.hyperparameters['cache']:
@@ -543,15 +543,15 @@ class DsPipeline(nn.Module):
                 d = self._dte(refs[i], sign, len_refs[i], len_sign)[0].detach().cpu().numpy()[0]
                 dists.append(d)
 
-                if refs_names[i] not in cache:
-                    cache[refs_names[i]] = {sign_name : d}
-                else:
-                    cache[refs_names[i]][sign_name] = d
+                # if refs_names[i] not in cache:
+                #     cache[refs_names[i]] = {sign_name : d}
+                # else:
+                #     cache[refs_names[i]][sign_name] = d
 
-                if sign_name not in cache:
-                    cache[sign_name] = {refs_names[i] : d}
-                else:
-                    cache[sign_name][refs_names[i]] = d
+                # if sign_name not in cache:
+                #     cache[sign_name] = {refs_names[i] : d}
+                # else:
+                #     cache[sign_name][refs_names[i]] = d
 
             dists = np.array(dists) / dk_sqrt
             s_avg = np.mean(dists)
