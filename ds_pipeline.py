@@ -51,6 +51,8 @@ class selectivePooling(nn.Module):
         nn.init.kaiming_normal_(self.w_q.weight, a=1)
         nn.init.zeros_(self.w_q.bias)
 
+        
+
     def forward(self, x, mask, save=False):
         N = x.shape[0]; T = x.shape[2]
         queries = values = self.w_q(x).transpose(1, 2).view(N, T, self.num_heads, self.head_dim) #(N, T, num_heads, head_dim)
@@ -184,6 +186,9 @@ class DsPipeline(nn.Module):
                 wandb.watch(self, log_freq=100)
             except:
                 self.hyperparameters['wandb_name'] = None
+
+        if self.hyperparameters['cache']:
+            self.hyperparameters['signs_dev'], self.hyperparameters['signs_eva'] = self.generate_signatures()
     
     def __del__(self):
         if self.hyperparameters['wandb_name'] is not None: wandb.finish()
@@ -689,10 +694,11 @@ class DsPipeline(nn.Module):
             for f in tqdm(files, desc="Generating Training Signatures"):
                 path = os.path.join(data_path, f)
                 if '_syn_' in f:
-                    with open(path,'r') as fr:
-                        lines = fr.readlines()
-                        lines = lines[1:]
-                        feat = np.genfromtxt(lines, delimiter=',').T
+                    continue
+                    # with open(path,'r') as fr:
+                    #     lines = fr.readlines()
+                    #     lines = lines[1:]
+                    #     feat = np.genfromtxt(lines, delimiter=',').T
                 else:   
                     feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=True)
                 
@@ -716,10 +722,11 @@ class DsPipeline(nn.Module):
                 path = os.path.join(data_path, f)
 
                 if '_syn_' in f:
-                    with open(file,'r') as fr:
-                        lines = fr.readlines()
-                        lines = lines[1:]
-                        feat = np.genfromtxt(lines, delimiter=',').T
+                    continue
+                    # with open(file,'r') as fr:
+                    #     lines = fr.readlines()
+                    #     lines = lines[1:]
+                    #     feat = np.genfromtxt(lines, delimiter=',').T
                 else:
                     feat = loader.get_features(path,self.hyperparameters,self.hyperparameters['zscore'],development=False)
                 signs_eva[f] = feat
@@ -770,8 +777,7 @@ class DsPipeline(nn.Module):
 
         data_path = os.path.join(self.hyperparameters['dataset_folder'], "Development", self.hyperparameters['dataset_scenario'])
 
-        if self.hyperparameters['cache']:
-            self.hyperparameters['signs_dev'], self.hyperparameters['signs_eva'] = self.generate_signatures()
+        
 
         non_zero_random = 0
         nonzero = 0
