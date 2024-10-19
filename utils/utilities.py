@@ -95,5 +95,14 @@ def traceback(acc_cost_matrix : npt.DTypeLike):
     return np.array(r), np.array(c)
 
 def dump_hyperparameters(hyperparameters : Dict[str, Any], res_folder : str):
+    bsd = None
+    if 'signs_dev' in hyperparameters:
+        bsd = hyperparameters['signs_dev']
+        hyperparameters['signs_dev'] = None
+    if 'signs_eva' in hyperparameters:
+        bse = hyperparameters['signs_eva']
+        hyperparameters['signs_eva'] = None
     with open(res_folder + os.sep + 'hyperparameters.json', 'w') as fw:
         json.dump(hyperparameters, fw)
+    hyperparameters['signs_dev'] = bsd
+    hyperparameters['signs_eva'] = bse
