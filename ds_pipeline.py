@@ -519,9 +519,9 @@ class DsPipeline(nn.Module):
                     for j in range(1, len(refs)):
                         if i < j:
                             if (refs_names[i] in cache and refs_names[j] in cache[refs_names[i]]):
-                                dka = cache[refs_names[i]][refs_names[j]]
+                                dka = cache[refs_names[i]][refs_names[j]].cuda()
                             elif (refs_names[j] in cache and refs_names[i] in cache[refs_names[j]]):
-                                dka = cache[refs_names[j]][refs_names[i]]
+                                dka = cache[refs_names[j]][refs_names[i]].cuda()
                             else:
                                 dka = (self._dte(refs[i], refs[j], len_refs[i], len_refs[j])[0])
                                 # if self.hyperparameters['cache']:
