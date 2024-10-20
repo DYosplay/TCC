@@ -667,8 +667,8 @@ class DsPipeline(nn.Module):
         # ret_metrics = {"Global EER": eer_global, "Mean Local EER": local_eer_mean, "Global Threshold": eer_threshold_global, "Local Threshold Variance": local_ths_var, "Local Threshold Amplitude": local_ths_amp}
         if self.hyperparameters['wandb_name'] is not None: wandb.log(ret_metrics)
 
-        with open('cache.pickle', 'wb') as fw:
-            pickle.dump(cache, fw)
+        # with open('cache.pickle', 'wb') as fw:
+        #     pickle.dump(cache, fw)
         del cache
         return ret_metrics
 
@@ -793,6 +793,18 @@ class DsPipeline(nn.Module):
             mini_batch_size = self.hyperparameters['nf'] + self.hyperparameters['nr'] + self.hyperparameters['ng'] + 1
         
         for i in range(1, self.hyperparameters['epochs']+1):
+            if i == 20:
+                self.hyperparameters['nf'] = 4
+                self.hyperparameters['ng'] = 5
+                self.hyperparameters['nss'] = 2
+                self.hyperparameters['nsg'] = 0
+                self.hyperparameters['nr'] = 4
+                
+                self.loss_function = define_loss(loss_type='syn_compact_triplet_mmd', ng=self.hyperparameters['ng'], nf=self.hyperparameters['nf'], nw=self.hyperparameters['nw'], margin=self.margin, random_margin=self.hyperparameters['random_margin'], model_lambda=self.hyperparameters['model_lambda'], alpha=self.alpha, beta=self.beta, p=self.p, r=self.r, q=self.q, mmd_kernel_num=self.hyperparameters['mmd_kernel_num'], mmd_kernel_mul=self.hyperparameters['mmd_kernel_mul'], margin_max=self.hyperparameters['margin_max'], margin_min=self.hyperparameters['margin_min'], nsl=self.hyperparameters['number_of_slices'], nr=self.hyperparameters['nr'], nss=self.hyperparameters['nss'], nsg=self.hyperparameters['nsg'])
+
+
+
+
             epoch = None
             print("Lce: " + str(lce_acc) + "\tTriplet Loss " + str(tm_acc))
             lce_acc = 0
@@ -861,7 +873,7 @@ class DsPipeline(nn.Module):
             self.non_zero_raendom = 0
             nonzero = 0
 
-            if ((i-1) % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
+            if (i>=18 and i % self.hyperparameters['eval_step'] == 0 or i > (self.hyperparameters['epochs'] - 3) ):
             # if i > (self.hyperparameters['epochs'] - 3):
                 for idx, cf in enumerate(comparison_files):
                     ret_metrics = self.new_evaluate(comparison_file=cf, n_epoch=i, result_folder=result_folder)                  
